@@ -13,13 +13,13 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.univers.univers_backend.Entity.UserAuthenticationEntity;
+import com.univers.univers_backend.Entity.User;
 import com.univers.univers_backend.Service.UserAuthenticationService;
 
 
 @RestController
 @RequestMapping ("/userauthentication")
-public class UserAuthenticationController {
+public class UserController {
     @Autowired
     UserAuthenticationService userAuthenticationService;
 
@@ -29,17 +29,17 @@ public class UserAuthenticationController {
     }
 
     @GetMapping ("/getAllUserAuthentication")
-    public List<UserAuthenticationEntity> getAllUserAuthentication() {
+    public List<User> getAllUserAuthentication() {
         return userAuthenticationService.getAllUserAuthentication();
     }
 
     @PostMapping ("/register")
-    public UserAuthenticationEntity addUserAuthentication(@RequestBody UserAuthenticationEntity userAuthentication) {
+    public User addUserAuthentication(@RequestBody User userAuthentication) {
         return userAuthenticationService.register(userAuthentication);
     }   
 
     @PutMapping("/updateUserAuthentication")
-    public UserAuthenticationEntity updateAuthentication(@RequestParam int sid,  @RequestBody UserAuthenticationEntity newUserAuthentication) {
+    public User updateAuthentication(@RequestParam int sid, @RequestBody User newUserAuthentication) {
         return userAuthenticationService.updateAuthentication(sid, newUserAuthentication);
     }
 
@@ -49,7 +49,7 @@ public class UserAuthenticationController {
     }
 
     @GetMapping("/findByUsername")
-    public UserAuthenticationEntity findByEmail(@RequestParam String email) {
+    public User findByEmail(@RequestParam String email) {
         return userAuthenticationService.findByEmail(email);
     }
 

@@ -5,46 +5,46 @@ import java.util.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import com.univers.univers_backend.Entity.UserAuthenticationEntity;
-import com.univers.univers_backend.Repository.UserAuthenticationRepository;
+import com.univers.univers_backend.Entity.User;
+import com.univers.univers_backend.Repository.UserRepository;
 
 
     @Service
     public class UserAuthenticationService {
 
     @Autowired
-    private UserAuthenticationRepository userAuthenticationRepository;
+    private UserRepository userRepository;
 
 
-    public UserAuthenticationEntity register(UserAuthenticationEntity registeruser) {
-        return userAuthenticationRepository.save(registeruser);
+    public User register(User registeruser) {
+        return userRepository.save(registeruser);
     }
 
-    public List<UserAuthenticationEntity> getAllUserAuthentication() {
-        return userAuthenticationRepository.findAll();
+    public List<User> getAllUserAuthentication() {
+        return userRepository.findAll();
     }
 
-    public UserAuthenticationEntity findByEmail(String email) {
-        return userAuthenticationRepository.findByEmail(email);
+    public User findByEmail(String email) {
+        return userRepository.findByEmail(email);
     }
 
-    public UserAuthenticationEntity updateAuthentication(int sid, UserAuthenticationEntity newuserAuthenticationEntity) {
+    public User updateAuthentication(int sid, User newuser) {
 
         try {
-            UserAuthenticationEntity userAuthenticationEntity = userAuthenticationRepository.findById(sid).get();
-            userAuthenticationEntity.setEmail(newuserAuthenticationEntity.getEmail());
-            userAuthenticationEntity.setPassword(newuserAuthenticationEntity.getPassword());
-            userAuthenticationEntity.setRole(newuserAuthenticationEntity.getRole());
+            User user = userRepository.findById(sid).get();
+            user.setEmail(newuser.getEmail());
+            user.setPassword(newuser.getPassword());
+            user.setRole(newuser.getRole());
         } catch (NoSuchElementException e) {
             throw new NoSuchElementException("No such user exists" + sid);
         } finally {
-            return userAuthenticationRepository.save(newuserAuthenticationEntity);
+            return userRepository.save(newuser);
         }
     }
 
     public String deleteUserAuthentication(int sid) {
         try {
-            userAuthenticationRepository.deleteById(sid);
+            userRepository.deleteById(sid);
         } catch (NoSuchElementException e) {
             throw new NoSuchElementException("No such user exists" + sid);
         } finally {

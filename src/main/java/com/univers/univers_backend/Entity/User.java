@@ -11,7 +11,7 @@ import jakarta.persistence.Column;
 
 @Entity
 @Table(name = "user_authentication")
-public class UserAuthenticationEntity {
+public class User {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -30,15 +30,15 @@ public class UserAuthenticationEntity {
     
 
     
-    public UserAuthenticationEntity() {
+    public User() {
     }
 
-    public UserAuthenticationEntity(String email, String password) {
+    public User(String email, String password) {
         this.email = email;
         this.password = password;
     }
 
-    public UserAuthenticationEntity(String email, String password, String role, String firstname, String lastname, String id_number, String phone_number, Boolean emailVerified) {
+    public User(String email, String password, String role, String firstname, String lastname, String id_number, String phone_number, Boolean emailVerified) {
         this.email = email;
         this.password = password;
         this.role = role;
