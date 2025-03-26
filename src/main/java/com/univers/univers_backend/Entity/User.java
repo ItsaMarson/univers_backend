@@ -1,16 +1,12 @@
 package com.univers.univers_backend.Entity;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
-import jakarta.persistence.Column;
+import jakarta.persistence.*;
 
+import java.util.Set;
 
 
 @Entity
-@Table(name = "user_authentication")
+@Table(name = "user")
 public class User {
 
     @Id
@@ -21,14 +17,15 @@ public class User {
     
     private String email;
     private String password;
-    private String role;
     private String firstname;
     private String lastname;
     private String id_number;
     private String phone_number;
     private Boolean emailVerified;
-    
 
+    @ElementCollection(fetch = FetchType.EAGER)
+    @Enumerated(EnumType.STRING)
+    private Set<Role> roles;
     
     public User() {
     }
@@ -41,7 +38,6 @@ public class User {
     public User(String email, String password, String role, String firstname, String lastname, String id_number, String phone_number, Boolean emailVerified) {
         this.email = email;
         this.password = password;
-        this.role = role;
         this.firstname = firstname;
         this.lastname = lastname;
         this.id_number = id_number;
@@ -55,8 +51,6 @@ public class User {
     public void setEmail(String email) {this.email = email;}
     public String getPassword() {return password;}
     public void setPassword(String password) {this.password = password;}
-    public String getRole() {return role;}
-    public void setRole(String role) {this.role = role;}
     public String getFirstname() {return firstname;}
     public void setFirstname(String firstname) {this.firstname = firstname;}
     public String getLastname() {return lastname;}
@@ -68,11 +62,18 @@ public class User {
     public Boolean getEmailVerified() {return emailVerified;}
     public void setEmailVerified(Boolean emailVerified) {this.emailVerified = emailVerified;}
 
-
-    @Override
-    public String toString() {
-        return "UserAuthenticationEntity [email=" + email + ", emailVerified=" + emailVerified + ", firstname=" + firstname
-                + ", id=" + id + ", id_number=" + id_number + ", lastname=" + lastname + ", password=" + password
-                + ", phone_number=" + phone_number + ", role=" + role + "]";
+    public Set<Role> getRoles() {
+        return roles;
     }
+
+    public void setRoles(Set<Role> roles) {
+        this.roles = roles;
+    }
+
+//    @Override
+//    public String toString() {
+//        return "UserAuthenticationEntity [email=" + email + ", emailVerified=" + emailVerified + ", firstname=" + firstname
+//                + ", id=" + id + ", id_number=" + id_number + ", lastname=" + lastname + ", password=" + password
+//                + ", phone_number=" + phone_number + ", role=" + role + "]";
+//    }
 }
