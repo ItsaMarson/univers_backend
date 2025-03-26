@@ -1,0 +1,16 @@
+services:
+  mysql:
+    image: mysql:lts
+    container_name: mysql
+    ports:
+      - 3306:3306
+    environment:
+      MYSQL_DATABASE: univers
+      MYSQL_USER: user
+      MYSQL_PASSWORD: Wanothekingdom
+      MYSQL_ROOT_PASSWORD: Wanothekingdom
+    volumes:
+      - mysql-data:/var/lib/mysql
+
+volumes:
+  mysql-data:
