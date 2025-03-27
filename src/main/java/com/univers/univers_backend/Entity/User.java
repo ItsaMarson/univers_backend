@@ -19,8 +19,8 @@ public class User {
     private String password;
     private String firstName;
     private String lastName;
-    private String id_number;
-    private String phone_number;
+    private String idNumber;
+    private String phoneNumber;
     @Column(nullable = false)
     private Boolean emailVerified = false;
 
@@ -36,14 +36,14 @@ public class User {
         this.password = password;
     }
 
-    public User(String email, String password, Set<Role> roles, String firstname, String lastname, String id_number, String phone_number, Boolean emailVerified) {
+    public User(String email, String password, Set<Role> roles, String firstName, String lastName, String idNumber, String phoneNumber, Boolean emailVerified) {
         this.email = email;
         this.password = password;
-        this.firstName = firstname;
-        this.lastName = lastname;
+        this.firstName = firstName;
+        this.lastName = lastName;
         this.roles = roles;
-        this.id_number = id_number;
-        this.phone_number = phone_number;
+        this.idNumber = idNumber;
+        this.phoneNumber = phoneNumber;
         this.emailVerified = emailVerified;
     }
 
@@ -54,13 +54,13 @@ public class User {
     public String getPassword() {return password;}
     public void setPassword(String password) {this.password = password;}
     public String getFirstname() {return firstName;}
-    public void setFirstname(String firstname) {this.firstName = firstname;}
+    public void setFirstname(String firstName) {this.firstName = firstName;}
     public String getLastname() {return lastName;}
-    public void setLastname(String lastname) {this.lastName = lastname;}
-    public String getId_number() {return id_number;}
-    public void setId_number(String id_number) {this.id_number = id_number;}
-    public String getPhone_number() {return phone_number;}
-    public void setPhone_number(String phone_number) {this.phone_number = phone_number;}
+    public void setLastname(String lastName) {this.lastName = lastName;}
+    public String getId_number() {return idNumber;}
+    public void setId_number(String id_number) {this.idNumber = id_number;}
+    public String getPhone_number() {return phoneNumber;}
+    public void setPhone_number(String phone_number) {this.phoneNumber = phone_number;}
     public Boolean getEmailVerified() {return emailVerified;}
     public void setEmailVerified(Boolean emailVerified) {this.emailVerified = emailVerified;}
 
@@ -72,10 +72,4 @@ public class User {
         this.roles = roles;
     }
 
-//    @Override
-//    public String toString() {
-//        return "UserAuthenticationEntity [email=" + email + ", emailVerified=" + emailVerified + ", firstname=" + firstname
-//                + ", id=" + id + ", id_number=" + id_number + ", lastname=" + lastname + ", password=" + password
-//                + ", phone_number=" + phone_number + ", role=" + role + "]";
-//    }
 }
