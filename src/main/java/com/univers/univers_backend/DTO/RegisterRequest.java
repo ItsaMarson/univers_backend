@@ -1,5 +1,6 @@
 package com.univers.univers_backend.DTO;
 
+import com.univers.univers_backend.Entity.Role;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 
@@ -10,6 +11,6 @@ public record RegisterRequest(
         String lastName,
         String idNumber,
         String phoneNumber,
-        String role,
+        Role roles,
         Boolean emailVerified) {
 }

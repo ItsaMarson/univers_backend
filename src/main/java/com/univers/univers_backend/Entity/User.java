@@ -24,9 +24,8 @@ public class User {
     @Column(nullable = false)
     private Boolean emailVerified = false;
 
-    @ElementCollection(fetch = FetchType.EAGER)
     @Enumerated(EnumType.STRING)
-    private Set<Role> roles;
+    private Role roles;
     
     public User() {
     }
@@ -36,7 +35,7 @@ public class User {
         this.password = password;
     }
 
-    public User(String email, String password, Set<Role> roles, String firstName, String lastName, String idNumber, String phoneNumber, Boolean emailVerified) {
+    public User(String email, String password, Role roles, String firstName, String lastName, String idNumber, String phoneNumber, Boolean emailVerified) {
         this.email = email;
         this.password = password;
         this.firstName = firstName;
@@ -64,11 +63,11 @@ public class User {
     public Boolean getEmailVerified() {return emailVerified;}
     public void setEmailVerified(Boolean emailVerified) {this.emailVerified = emailVerified;}
 
-    public Set<Role> getRoles() {
+    public Role getRoles() {
         return roles;
     }
 
-    public void setRoles(Set<Role> roles) {
+    public void setRoles(Role roles) {
         this.roles = roles;
     }
 

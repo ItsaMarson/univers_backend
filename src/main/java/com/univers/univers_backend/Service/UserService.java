@@ -30,7 +30,8 @@ public class UserService {
         User user = new User();
         user.setEmail(request.email());
         user.setPassword(passwordEncoder.encode(request.password()));
-        user.setRoles(Set.of(Role.ORGANIZER));//default role
+        // Check if roles are provided in the request
+        user.setRoles(request.roles() != null ? request.roles() : Role.ORGANIZER);
         userRepository.save(user);
 
         return "User registered successfully ";
@@ -45,7 +46,7 @@ public class UserService {
                         user.getLastname(),
                         user.getId_number(),
                         user.getPhone_number(),
-                        user.getRoles().iterator().next().name(),
+                        user.getRoles().name(),
                         user.getEmailVerified()
                 )).toList();
     }
