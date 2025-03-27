@@ -1,10 +1,7 @@
 package com.univers.univers_backend.Controller;
 
 import com.univers.univers_backend.DTO.LoginRequest;
-import com.univers.univers_backend.DTO.UserDTO;
-import com.univers.univers_backend.Entity.Role;
-import com.univers.univers_backend.Entity.User;
-import com.univers.univers_backend.Repository.UserRepository;
+import com.univers.univers_backend.DTO.RegisterRequest;
 import com.univers.univers_backend.Service.UserService;
 import com.univers.univers_backend.config.JwtUtil;
 import jakarta.servlet.http.Cookie;
@@ -13,7 +10,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
 import jakarta.servlet.http.HttpServletResponse;
@@ -36,8 +32,8 @@ public class AuthController {
         this.userService = userService;
     }
     @PostMapping("/register")
-    public ResponseEntity<String> register(@Valid @RequestBody UserDTO userDTO) {
-        String responseMessage = userService.register(userDTO);
+    public ResponseEntity<String> register(@Valid @RequestBody RegisterRequest request) {
+        String responseMessage = userService.register(request);
         if("Email already in use".equals(responseMessage)){
             return ResponseEntity.badRequest().body(responseMessage);
         }

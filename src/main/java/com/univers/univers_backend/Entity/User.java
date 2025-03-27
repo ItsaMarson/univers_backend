@@ -17,11 +17,12 @@ public class User {
     
     private String email;
     private String password;
-    private String firstname;
-    private String lastname;
+    private String firstName;
+    private String lastName;
     private String id_number;
     private String phone_number;
-    private Boolean emailVerified;
+    @Column(nullable = false)
+    private Boolean emailVerified = false;
 
     @ElementCollection(fetch = FetchType.EAGER)
     @Enumerated(EnumType.STRING)
@@ -35,11 +36,12 @@ public class User {
         this.password = password;
     }
 
-    public User(String email, String password, String role, String firstname, String lastname, String id_number, String phone_number, Boolean emailVerified) {
+    public User(String email, String password, Set<Role> roles, String firstname, String lastname, String id_number, String phone_number, Boolean emailVerified) {
         this.email = email;
         this.password = password;
-        this.firstname = firstname;
-        this.lastname = lastname;
+        this.firstName = firstname;
+        this.lastName = lastname;
+        this.roles = roles;
         this.id_number = id_number;
         this.phone_number = phone_number;
         this.emailVerified = emailVerified;
@@ -51,10 +53,10 @@ public class User {
     public void setEmail(String email) {this.email = email;}
     public String getPassword() {return password;}
     public void setPassword(String password) {this.password = password;}
-    public String getFirstname() {return firstname;}
-    public void setFirstname(String firstname) {this.firstname = firstname;}
-    public String getLastname() {return lastname;}
-    public void setLastname(String lastname) {this.lastname = lastname;}
+    public String getFirstname() {return firstName;}
+    public void setFirstname(String firstname) {this.firstName = firstname;}
+    public String getLastname() {return lastName;}
+    public void setLastname(String lastname) {this.lastName = lastname;}
     public String getId_number() {return id_number;}
     public void setId_number(String id_number) {this.id_number = id_number;}
     public String getPhone_number() {return phone_number;}

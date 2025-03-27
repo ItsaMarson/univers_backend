@@ -2,10 +2,9 @@ package com.univers.univers_backend.Service;
 
 import java.util.*;
 
+import com.univers.univers_backend.DTO.RegisterRequest;
 import com.univers.univers_backend.DTO.UserDTO;
 import com.univers.univers_backend.Entity.Role;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -22,29 +21,39 @@ public class UserService {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
     }
-    public String register(UserDTO userDTO) {
+    public String register(RegisterRequest request) {
 
-        if (userRepository.existsByEmail(userDTO.email())) {
+        if (userRepository.existsByEmail(request.email())) {
             return "Email already in use";
         }
 
         User user = new User();
-        user.setEmail(userDTO.email());
-        user.setPassword(passwordEncoder.encode(userDTO.password()));
+        user.setEmail(request.email());
+        user.setPassword(passwordEncoder.encode(request.password()));
         user.setRoles(Set.of(Role.ORGANIZER));//default role
         userRepository.save(user);
 
         return "User registered successfully ";
     }
 
-//public List<User> getAllUserAuthentication() {
-//    return userRepository.findAll();
-//}
-//
-//public User findByEmail(String email) {
-//    return userRepository.findByEmail(email);
-//}
-//
+    public List<UserDTO>getAllUsers(){
+        List<User> users = userRepository.findAll();
+        return users.stream()
+                .map(user -> new UserDTO(
+                        user.getEmail(),
+                        user.getFirstname(),
+                        user.getLastname(),
+                        user.getId_number(),
+                        user.getPhone_number(),
+                        user.getRoles().iterator().next().name(),
+                        user.getEmailVerified()
+                )).toList();
+    }
+
+//    public User findByEmail(String email) {
+//        return userRepository.findByEmail(email);
+//    }
+
 //public User updateAuthentication(int sid, User newuser) {
 //
 //    try {
