@@ -35,7 +35,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/auth/register", "/auth/login").permitAll()  // 👈 Add this!
                         .requestMatchers("/users/**", "/users").permitAll()
-                        .requestMatchers("/admin/**").hasAuthority("ADMIN")
+                        .requestMatchers("/admin/**").hasAuthority("SUPER_ADMIN")
                         .anyRequest().authenticated()
                 )
                 .logout(logout -> logout
