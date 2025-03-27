@@ -5,6 +5,7 @@ import com.univers.univers_backend.DTO.UserDTO;
 import com.univers.univers_backend.Entity.Role;
 import com.univers.univers_backend.Entity.User;
 import com.univers.univers_backend.Repository.UserRepository;
+import com.univers.univers_backend.Service.UserService;
 import com.univers.univers_backend.config.JwtUtil;
 import jakarta.servlet.http.Cookie;
 import jakarta.validation.Valid;
@@ -25,29 +26,22 @@ public class AuthController {
 
     private final AuthenticationManager authManager;
     private final JwtUtil jwtUtil;
-    private final UserRepository userRepository;
 
-    private final PasswordEncoder passwordEncoder;
+    private final UserService userService;
 
-    public AuthController(AuthenticationManager authManager, JwtUtil jwtUtil, UserRepository userRepository,PasswordEncoder passwordEncoder) {
+
+    public AuthController(AuthenticationManager authManager, JwtUtil jwtUtil, UserService userService) {
         this.authManager = authManager;
         this.jwtUtil = jwtUtil;
-        this.userRepository = userRepository;
-        this.passwordEncoder = passwordEncoder;
+        this.userService = userService;
     }
     @PostMapping("/register")
     public ResponseEntity<String> register(@Valid @RequestBody UserDTO userDTO) {
-        if (userRepository.existsByEmail(userDTO.email())) {
-            return ResponseEntity.badRequest().body("Email already in use");
+        String responseMessage = userService.register(userDTO);
+        if("Email already in use".equals(responseMessage)){
+            return ResponseEntity.badRequest().body(responseMessage);
         }
-
-        User user = new User();
-        user.setEmail(userDTO.email());
-        user.setPassword(passwordEncoder.encode(userDTO.password()));
-        user.setRoles(Set.of(Role.ORGANIZER)); // default role
-        userRepository.save(user);
-
-        return ResponseEntity.ok("User registered successfully");
+        return ResponseEntity.ok(responseMessage);
     }
 
 
