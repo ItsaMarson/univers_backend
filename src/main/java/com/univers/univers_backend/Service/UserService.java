@@ -11,30 +11,38 @@ import org.springframework.stereotype.Service;
 import com.univers.univers_backend.Entity.User;
 import com.univers.univers_backend.Repository.UserRepository;
 
-
 @Service
 public class UserService {
 
     private final PasswordEncoder passwordEncoder;
     private final UserRepository userRepository;
-    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder){
+
+    private  final EmailService emailService;
+
+    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder, EmailService emailService){
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
+        this.emailService = emailService;
     }
     public String register(RegisterRequest request) {
 
         if (userRepository.existsByEmail(request.email())) {
             return "Email already in use";
         }
+        String verificationCode = String.format("%06d", new Random().nextInt(1000000));
 
         User user = new User();
         user.setEmail(request.email());
         user.setPassword(passwordEncoder.encode(request.password()));
-        // Check if roles are provided in the request
         user.setRoles(request.roles() != null ? request.roles() : Role.ORGANIZER);
+        user.setEmailVerified(false);
+        user.setVerificationCode(verificationCode);
         userRepository.save(user);
 
-        return "User registered successfully ";
+        //Send verification email
+        emailService.sendVerificationEmail(user.getEmail(), verificationCode);
+
+        return "User registered successfully. Please check your email for the verification code.";
     }
 
     public List<UserDTO>getAllUsers(){

@@ -2,6 +2,7 @@ package com.univers.univers_backend.Entity;
 
 import jakarta.persistence.*;
 
+import java.time.LocalDateTime;
 import java.util.Set;
 
 
@@ -24,6 +25,8 @@ public class User {
     @Column(nullable = false)
     private Boolean emailVerified = false;
 
+    private String verificationCode;
+    private LocalDateTime verificationCodeExpiration;
     @Enumerated(EnumType.STRING)
     private Role roles;
     
@@ -35,7 +38,7 @@ public class User {
         this.password = password;
     }
 
-    public User(String email, String password, Role roles, String firstName, String lastName, String idNumber, String phoneNumber, Boolean emailVerified) {
+    public User(String email, String password, Role roles, String firstName, String lastName, String idNumber, String phoneNumber, Boolean emailVerified, String verificationCode) {
         this.email = email;
         this.password = password;
         this.firstName = firstName;
@@ -44,6 +47,7 @@ public class User {
         this.idNumber = idNumber;
         this.phoneNumber = phoneNumber;
         this.emailVerified = emailVerified;
+        this.verificationCode = verificationCode;
     }
 
     public long getId() {return id;}
@@ -62,6 +66,22 @@ public class User {
     public void setPhone_number(String phone_number) {this.phoneNumber = phone_number;}
     public Boolean getEmailVerified() {return emailVerified;}
     public void setEmailVerified(Boolean emailVerified) {this.emailVerified = emailVerified;}
+
+    public String getVerificationCode() {
+        return verificationCode;
+    }
+
+    public void setVerificationCode(String verificationCode) {
+        this.verificationCode = verificationCode;
+    }
+
+    public LocalDateTime getVerificationCodeExpiration() {
+        return verificationCodeExpiration;
+    }
+
+    public void setVerificationCodeExpiration(LocalDateTime verificationCodeExpiration) {
+        this.verificationCodeExpiration = verificationCodeExpiration;
+    }
 
     public Role getRoles() {
         return roles;
