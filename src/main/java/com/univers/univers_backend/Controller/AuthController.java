@@ -113,7 +113,7 @@ public class AuthController {
         // Check if code is correct and not expired
         if (user.getVerificationCode().equals(code) && user.getVerificationCodeExpiration().isAfter(LocalDateTime.now())) {
             user.setEmailVerified(true);
-            user.setVerificationCode(null); // Clear the code after successful verification
+            user.setVerificationCode(null);
             userRepository.save(user);
             return ResponseEntity.ok("Email verified successfully!");
         }
@@ -124,28 +124,13 @@ public class AuthController {
     public ResponseEntity<String> resendVerificationCode(@RequestBody Map<String, String> request) {
         String email = request.get("email");
 
-        // Check if the user exists
-        User user = userRepository.findByEmail(email).orElse(null);
-        if (user == null) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("User not found.");
+        String responseMessage = emailService.resendVerificationCode(email);
+        if("User not found.".equals(responseMessage)){
+            return ResponseEntity.badRequest().body(responseMessage);
         }
-
-        // Check if the email is already verified
-        if (user.getEmailVerified()) {
-            return ResponseEntity.badRequest().body("Email is already verified.");
+        if("Email is already verified.".equals(responseMessage)){
+            return ResponseEntity.badRequest().body(responseMessage);
         }
-
-        // Generate a new verification code
-        String newCode = String.format("%06d", new Random().nextInt(1000000));
-
-        // Update the user with the new code and expiration time
-        user.setVerificationCode(newCode);
-        user.setVerificationCodeExpiration(LocalDateTime.now().plusMinutes(10)); // Extend validity
-        userRepository.save(user);
-
-        // Send the new code via email
-        emailService.sendVerificationEmail(user.getEmail(), newCode);
-
         return ResponseEntity.ok("A new verification code has been sent to your email.");
     }
 

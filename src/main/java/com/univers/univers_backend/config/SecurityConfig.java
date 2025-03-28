@@ -41,13 +41,13 @@ public class SecurityConfig {
                 }))
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/auth/register", "/auth/login", "/auth/verify").permitAll()
+                        .requestMatchers("/auth/register", "/auth/login", "/auth/verify","/auth/resend-code").permitAll()
                         .requestMatchers("/users/**", "/users").permitAll()
                         .requestMatchers("/admin/**").hasAuthority("SUPER_ADMIN")
                         .anyRequest().authenticated()
                 )
                 .logout(logout -> logout
-                        .logoutUrl("/users/logout")
+                        .logoutUrl("/auth/logout")
                         .invalidateHttpSession(true)
                         .deleteCookies("JSESSIONID")
                         .logoutSuccessHandler((request, response, authentication) -> {
