@@ -13,7 +13,7 @@ public class User {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "uid")
-    private int id;
+    private Long id;
 
     
     private String email;
@@ -21,6 +21,10 @@ public class User {
     private String firstName;
     private String lastName;
     private String idNumber;
+
+    @ManyToMany
+    @JoinColumn(name = "department_id")
+    private Department department;
     private String phoneNumber;
     @Column(nullable = false)
     private Boolean emailVerified = false;
@@ -51,7 +55,7 @@ public class User {
     }
 
     public long getId() {return id;}
-    public void setId(int id) {this.id = id;}
+    public void setId(Long id) {this.id = id;}
     public String getEmail() {return this.email;}
     public void setEmail(String email) {this.email = email;}
     public String getPassword() {return password;}

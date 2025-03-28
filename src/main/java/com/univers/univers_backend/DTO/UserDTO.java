@@ -6,6 +6,7 @@ import jakarta.validation.constraints.NotBlank;
 
 
 public record UserDTO(
+        Long id,
         @Email String email,
         String firstName,
         String lastName,
