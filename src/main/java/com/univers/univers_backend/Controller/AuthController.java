@@ -21,7 +21,6 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Random;
 
 @RestController
 @RequestMapping("/auth")
@@ -136,12 +135,9 @@ public class AuthController {
 
 
     @PostMapping("/logout")
-    public String logout(HttpServletResponse response) {
-        Cookie cookie = new Cookie("jwt", "");
-        cookie.setPath("/");
-        cookie.setMaxAge(0);
-        response.addCookie(cookie);
-        return "Logged out successfully";
+    public ResponseEntity<String> logout(HttpServletResponse response) {
+        String responseMessage = userService.logout(response);
+        return ResponseEntity.ok(responseMessage);
     }
 
 }

@@ -5,6 +5,8 @@ import java.util.*;
 import com.univers.univers_backend.DTO.RegisterRequest;
 import com.univers.univers_backend.DTO.UserDTO;
 import com.univers.univers_backend.Entity.Role;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -43,6 +45,16 @@ public class UserService {
         emailService.sendVerificationEmail(user.getEmail(), verificationCode);
 
         return "User registered successfully. Please check your email for the verification code.";
+    }
+
+    public String logout(HttpServletResponse response){
+
+        Cookie cookie = new Cookie("jwt", "");
+        cookie.setPath("/");
+        cookie.setMaxAge(0);
+        response.addCookie(cookie);
+
+        return "Logged out successfully";
     }
 
     public List<UserDTO>getAllUsers(){
