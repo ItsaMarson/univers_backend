@@ -1,5 +1,6 @@
 package com.univers.univers_backend.Service;
 
+import java.time.LocalDateTime;
 import java.util.*;
 
 import com.univers.univers_backend.DTO.RegisterRequest;
@@ -37,12 +38,18 @@ public class UserService {
         user.setEmail(request.email());
         user.setPassword(passwordEncoder.encode(request.password()));
         user.setRoles(request.roles() != null ? request.roles() : Role.ORGANIZER);
+        user.setFirstname(request.firstName() != null ? request.firstName() : "User");
+        user.setLastname(request.lastName());
+        user.setId_number(request.idNumber());
+        user.setPhone_number(request.phoneNumber());
+        user.setDepartment(request.department());
         user.setEmailVerified(false);
         user.setVerificationCode(verificationCode);
+        user.setVerificationCodeExpiration(LocalDateTime.now().plusMinutes(10));
         userRepository.save(user);
 
         //Send verification email
-        emailService.sendVerificationEmail(user.getEmail(), verificationCode);
+        emailService.sendVerificationEmail(user.getEmail(), verificationCode, user.getFirstname());
 
         return "User registered successfully. Please check your email for the verification code.";
     }

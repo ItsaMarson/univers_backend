@@ -109,15 +109,21 @@ public class AuthController {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("User not found");
         }
 
-        // Check if code is correct and not expired
-        if (user.getVerificationCode().equals(code) && user.getVerificationCodeExpiration().isAfter(LocalDateTime.now())) {
-            user.setEmailVerified(true);
-            user.setVerificationCode(null);
-            userRepository.save(user);
-            return ResponseEntity.ok("Email verified successfully!");
+        if(user.getVerificationCode() == null || !user.getVerificationCode().equals(code)){
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid verification code.");
         }
 
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid or expired verification code.");
+        if(user.getVerificationCodeExpiration().isBefore(LocalDateTime.now())){
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Verification code has expired. Please request a new one");
+        }
+
+        user.setEmailVerified(true);
+        user.setVerificationCode(null);
+        user.setVerificationCodeExpiration(null);
+        userRepository.save(user);
+
+        return ResponseEntity.ok("Email verified successfully!");
+
     }
     @PostMapping("/resend-code")
     public ResponseEntity<String> resendVerificationCode(@RequestBody Map<String, String> request) {

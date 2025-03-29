@@ -39,7 +39,7 @@ public class EmailService {
         this.userRepository = userRepository;
     }
 
-    public boolean sendVerificationEmail(String recipientEmail, String verificationCode) {
+    public boolean sendVerificationEmail(String recipientEmail, String verificationCode, String recipientName) {
         try {
             TransactionalEmail email = TransactionalEmail
                     .builder()
@@ -47,7 +47,7 @@ public class EmailService {
                     .from(new SendContact(senderEmail))
                     .templateID(templateId)
                     .templateLanguage(true)
-                    .variables(Map.of("verification_code", verificationCode))
+                    .variables(Map.of("verification_code", verificationCode, "first_name", recipientName))
                     .subject("Verify Your Email")
                     .build();
 
@@ -71,14 +71,14 @@ public class EmailService {
             return "Email is already verified.";
         }
 
-        String newCode = String.format("%06d", new Random().nextInt(1000000));
+        String newVerificationCode = String.format("%06d", new Random().nextInt(1000000));
 
         // Update the user with the new code and expiration time
-        user.setVerificationCode(newCode);
+        user.setVerificationCode(newVerificationCode);
         user.setVerificationCodeExpiration(LocalDateTime.now().plusMinutes(10)); // Extend validity
         userRepository.save(user);
 
-        sendVerificationEmail(user.getEmail(), newCode);
+        sendVerificationEmail(user.getEmail(), newVerificationCode, user.getFirstname());
 
         return "A new verification code has been sent to your email.";
 

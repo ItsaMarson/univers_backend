@@ -22,7 +22,7 @@ public class User {
     private String lastName;
     private String idNumber;
 
-    @ManyToMany
+    @ManyToOne
     @JoinColumn(name = "department_id")
     private Department department;
     private String phoneNumber;
@@ -66,6 +66,15 @@ public class User {
     public void setLastname(String lastName) {this.lastName = lastName;}
     public String getId_number() {return idNumber;}
     public void setId_number(String id_number) {this.idNumber = id_number;}
+
+    public Department getDepartment() {
+        return department;
+    }
+
+    public void setDepartment(Department department) {
+        this.department = department;
+    }
+
     public String getPhone_number() {return phoneNumber;}
     public void setPhone_number(String phone_number) {this.phoneNumber = phone_number;}
     public Boolean getEmailVerified() {return emailVerified;}
