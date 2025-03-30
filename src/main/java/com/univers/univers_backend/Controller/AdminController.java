@@ -1,7 +1,8 @@
 package com.univers.univers_backend.Controller;
 
 
-import com.univers.univers_backend.DTO.RegisterDTO;
+
+import com.univers.univers_backend.DTO.CreateUserDTO;
 import com.univers.univers_backend.DTO.UserDTO;
 import com.univers.univers_backend.Service.DepartmentService;
 import com.univers.univers_backend.Service.UserService;
@@ -23,8 +24,15 @@ public class AdminController {
         this.userService = userService;
         this.departmentService = departmentService;
     }
+    @PostMapping("/users/create")
+    public ResponseEntity<String> createUser(@Valid @RequestBody CreateUserDTO request){
+        String responseMessage = userService.createUser(request);
+        if("Email already in use".equals(responseMessage)){
+            ResponseEntity.badRequest().body(responseMessage);
+        }
+        return ResponseEntity.ok(responseMessage);
+    }
 
-//    public ResponseEntity<String> addUser(@Valid @RequestBody RegisterDTO request)
 
     @GetMapping("/users")
     public ResponseEntity<List<UserDTO>> getAllUsers(){

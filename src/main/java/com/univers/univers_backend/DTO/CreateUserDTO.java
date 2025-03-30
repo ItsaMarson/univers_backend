@@ -5,7 +5,8 @@ import com.univers.univers_backend.Entity.Role;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 
-public record RegisterDTO(
+public record CreateUserDTO (
+
         @NotBlank @Email String email,
         @NotBlank String password,
         String firstName,
@@ -13,5 +14,6 @@ public record RegisterDTO(
         Department department,
         String idNumber,
         String phoneNumber,
-        Boolean emailVerified) {
+        Role role,
+        Boolean emailVerified){
 }

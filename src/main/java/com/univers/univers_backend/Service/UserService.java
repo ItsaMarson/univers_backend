@@ -3,6 +3,7 @@ package com.univers.univers_backend.Service;
 import java.time.LocalDateTime;
 import java.util.*;
 
+import com.univers.univers_backend.DTO.CreateUserDTO;
 import com.univers.univers_backend.DTO.LoginRequest;
 import com.univers.univers_backend.DTO.RegisterDTO;
 import com.univers.univers_backend.DTO.UserDTO;
@@ -98,7 +99,7 @@ public class UserService {
         User user = new User();
         user.setEmail(request.email());
         user.setPassword(passwordEncoder.encode(request.password()));
-        user.setRoles(request.roles() != null ? request.roles() : Role.ORGANIZER);
+        user.setRoles(Role.ORGANIZER);
         user.setFirstname(request.firstName() != null ? request.firstName() : "User");
         user.setLastname(request.lastName());
         user.setId_number(request.idNumber());
@@ -109,10 +110,9 @@ public class UserService {
         user.setVerificationCodeExpiration(LocalDateTime.now().plusMinutes(10));
         userRepository.save(user);
 
-        Long templateId = registerTemplateId;
         String subject = "Thanks for Signing Up. Please Verify Your Email Address [UniVERS] ";
         //Send verification email
-        emailService.sendVerificationEmail(user.getEmail(), verificationCode, user.getFirstname(), templateId, subject);
+        emailService.sendVerificationEmail(user.getEmail(), verificationCode, user.getFirstname(), registerTemplateId, subject);
 
         return "User registered successfully. Please check your email for the verification code.";
     }
@@ -172,6 +172,33 @@ public class UserService {
         return "Password reset successfully";
     }
 
+    public String createUser(CreateUserDTO request) {
+        if (userRepository.existsByEmail(request.email())) {
+            return "Email already in use";
+        }
+        String verificationCode = String.format("%06d", new Random().nextInt(1000000));
+
+        User user = new User();
+        user.setEmail(request.email());
+        user.setPassword(passwordEncoder.encode(request.password()));
+        user.setRoles(request.role() != null ? request.role() : Role.ORGANIZER);
+        user.setFirstname(request.firstName() != null ? request.firstName() : "User");
+        user.setLastname(request.lastName());
+        user.setId_number(request.idNumber());
+        user.setPhone_number(request.phoneNumber());
+        user.setDepartment(request.department());
+        user.setEmailVerified(false);
+        user.setVerificationCode(verificationCode);
+        user.setVerificationCodeExpiration(LocalDateTime.now().plusMinutes(10));
+        userRepository.save(user);
+
+        String subject = "Thanks for Signing Up. Please Verify Your Email Address [UniVERS] ";
+        //Send verification email
+        emailService.sendVerificationEmail(user.getEmail(), verificationCode, user.getFirstname(), registerTemplateId, subject);
+
+        return "User registered successfully. Please check your email for the verification code.";
+
+    }
 
 
 //    public User findByEmail(String email) {
