@@ -3,12 +3,20 @@ package com.univers.univers_backend.Service;
 import java.time.LocalDateTime;
 import java.util.*;
 
+import com.univers.univers_backend.DTO.LoginRequest;
 import com.univers.univers_backend.DTO.RegisterRequest;
 import com.univers.univers_backend.DTO.UserDTO;
 import com.univers.univers_backend.Entity.Role;
+import com.univers.univers_backend.config.JwtUtil;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -21,6 +29,9 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
     private final UserRepository userRepository;
 
+    private final JwtUtil jwtUtil;
+
+    private final AuthenticationManager authenticationManager;
     private  final EmailService emailService;
 
     @Value("${mailjet.template.id.forgot.password}")
@@ -28,10 +39,54 @@ public class UserService {
     @Value("${mailjet.template.id}")
     private Long registerTemplateId;
 
-    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder, EmailService emailService){
+    public UserService(AuthenticationManager authenticationManager, JwtUtil jwtUtil, UserRepository userRepository, PasswordEncoder passwordEncoder, EmailService emailService){
+        this.authenticationManager = authenticationManager;
+        this.jwtUtil = jwtUtil;
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.emailService = emailService;
+    }
+
+    public ResponseEntity<Map<String, Object>> login(LoginRequest request, HttpServletResponse response) {
+
+        try {
+            Authentication authentication = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(request.email(), request.password())
+            );
+
+            String accessToken = jwtUtil.generateAccessToken(authentication.getName());
+            String refreshToken = jwtUtil.generateRefreshToken(authentication.getName());
+
+            User user = userRepository.findByEmail(request.email())
+                    .orElseThrow(() -> new RuntimeException("User not found")); // This should never happen if authentication passed
+
+            // Store the access token in a cookie
+            Cookie cookie = new Cookie("jwt", accessToken);
+            cookie.setHttpOnly(true);
+            cookie.setSecure(false); // Change to true in production
+            cookie.setPath("/");
+            cookie.setMaxAge(15 * 60); // 15 minutes
+            response.addCookie(cookie);
+
+            // Construct response payload
+            Map<String, Object> responseBody = Map.of(
+                    "accessToken", accessToken,
+                    "refreshToken", refreshToken,
+                    "user", Map.of(
+                            "id", user.getId(),
+                            "email", user.getEmail(),
+                            "first_name", user.getFirstname() != null ? user.getFirstname() : "",
+                            "last_name", user.getLastname() != null ? user.getLastname() : "",
+                            "roles", user.getRoles()
+                    )
+            );
+
+            return ResponseEntity.ok(responseBody);
+        } catch (BadCredentialsException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("error", "Invalid email or password"));
+        }
+
     }
     public String register(RegisterRequest request) {
 
@@ -116,6 +171,8 @@ public class UserService {
 
         return "Password reset successfully";
     }
+
+
 
 //    public User findByEmail(String email) {
 //        return userRepository.findByEmail(email);

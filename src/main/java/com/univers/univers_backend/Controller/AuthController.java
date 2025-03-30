@@ -7,19 +7,15 @@ import com.univers.univers_backend.Repository.UserRepository;
 import com.univers.univers_backend.Service.EmailService;
 import com.univers.univers_backend.Service.UserService;
 import com.univers.univers_backend.config.JwtUtil;
-import jakarta.servlet.http.Cookie;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import jakarta.servlet.http.HttpServletResponse;
 
 import java.time.LocalDateTime;
-import java.util.HashMap;
 import java.util.Map;
 
 @RestController
@@ -52,36 +48,10 @@ public class AuthController {
 
     @PostMapping("/login")
     public ResponseEntity<Map<String, Object>> login(@Valid @RequestBody LoginRequest request, HttpServletResponse response) {
-        Authentication authentication = authManager.authenticate(
-                new UsernamePasswordAuthenticationToken(request.email(), request.password())
-        );
-
-        String accessToken = jwtUtil.generateAccessToken(authentication.getName());
-        String refreshToken = jwtUtil.generateRefreshToken(authentication.getName());
-
-        User user = userRepository.findByEmail(request.email()).orElseThrow(() -> new RuntimeException("User not found"));
-        // Store the access token in a cookie
-        Cookie cookie = new Cookie("jwt", accessToken);
-        cookie.setHttpOnly(true);
-        cookie.setSecure(false); //Change to true in production
-        cookie.setPath("/");
-        cookie.setMaxAge(15 * 60); // 15 minutes
-        response.addCookie(cookie);
-
-        // Create response payload
-        Map<String, Object> responseBody = new HashMap<>();
-        responseBody.put("accessToken", accessToken);
-        responseBody.put("refreshToken", refreshToken);
-        responseBody.put("user", Map.of(
-                "id", user.getId(),
-                "email", user.getEmail(),
-                "first_name", user.getFirstname() != null ? user.getFirstname() : "",
-                "last_name", user.getLastname() != null ? user.getLastname() : "",
-                "roles", user.getRoles()
-        ));
-
-        return ResponseEntity.ok(responseBody);
+        return userService.login(request, response);
     }
+
+
     @PostMapping("/refresh")
     public ResponseEntity<Map<String, String>> refresh(@RequestBody Map<String, String> request) {
         String refreshToken = request.get("refreshToken");
