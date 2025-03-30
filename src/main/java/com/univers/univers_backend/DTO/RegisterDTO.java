@@ -10,7 +10,7 @@ public record RegisterDTO(
         @NotBlank String password,
         String firstName,
         String lastName,
-        Department department,
+        Long departmentId,
         String idNumber,
         String phoneNumber,
         Boolean emailVerified) {

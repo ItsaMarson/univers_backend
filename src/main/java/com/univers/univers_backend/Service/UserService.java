@@ -7,7 +7,9 @@ import com.univers.univers_backend.DTO.CreateUserDTO;
 import com.univers.univers_backend.DTO.LoginRequest;
 import com.univers.univers_backend.DTO.RegisterDTO;
 import com.univers.univers_backend.DTO.UserDTO;
+import com.univers.univers_backend.Entity.Department;
 import com.univers.univers_backend.Entity.Role;
+import com.univers.univers_backend.Repository.DepartmentRepository;
 import com.univers.univers_backend.config.JwtUtil;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletResponse;
@@ -30,6 +32,8 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
     private final UserRepository userRepository;
 
+    private final DepartmentRepository departmentRepository;
+
     private final JwtUtil jwtUtil;
 
     private final AuthenticationManager authenticationManager;
@@ -40,10 +44,11 @@ public class UserService {
     @Value("${mailjet.template.id}")
     private Long registerTemplateId;
 
-    public UserService(AuthenticationManager authenticationManager, JwtUtil jwtUtil, UserRepository userRepository, PasswordEncoder passwordEncoder, EmailService emailService){
+    public UserService(AuthenticationManager authenticationManager, JwtUtil jwtUtil, UserRepository userRepository, DepartmentRepository departmentRepository, PasswordEncoder passwordEncoder, EmailService emailService){
         this.authenticationManager = authenticationManager;
         this.jwtUtil = jwtUtil;
         this.userRepository = userRepository;
+        this.departmentRepository = departmentRepository;
         this.passwordEncoder = passwordEncoder;
         this.emailService = emailService;
     }
@@ -104,7 +109,15 @@ public class UserService {
         user.setLastname(request.lastName());
         user.setId_number(request.idNumber());
         user.setPhone_number(request.phoneNumber());
-        user.setDepartment(request.department());
+        if(request.departmentId() != null){
+            Department department = departmentRepository.findById(request.departmentId()).orElse(null);
+
+            if(department == null){
+                return "Invalid department";
+            }
+            user.setDepartment(department);
+        }
+
         user.setEmailVerified(false);
         user.setVerificationCode(verificationCode);
         user.setVerificationCodeExpiration(LocalDateTime.now().plusMinutes(10));
@@ -138,6 +151,7 @@ public class UserService {
                         user.getId_number(),
                         user.getPhone_number(),
                         user.getRoles().name(),
+                        user.getDepartment(),
                         user.getEmailVerified()
                 )).toList();
     }
@@ -199,6 +213,21 @@ public class UserService {
         return "User registered successfully. Please check your email for the verification code.";
 
     }
+
+//    public String updateUserDetails(Long userId, UserDTO updatedUser){
+//
+//        Optional<User> existingUser = userRepository.findById(userId);
+//        if(!existingUser.isPresent()){
+//            return "User does not exist";
+//        }
+//
+//        User user = existingUser.get();
+//        user.setFirstname(updatedUser.firstName() != null ? updatedUser.firstName() : user.getFirstname());
+//        user.setLastname(updatedUser.lastName() != null ? updatedUser.lastName() : user.getLastname());
+//        user.setPhone_number(updatedUser.phoneNumber() != null ? updatedUser.phoneNumber() : user.getPhone_number());
+//
+//        if(user.)
+//    }
 
 
 
