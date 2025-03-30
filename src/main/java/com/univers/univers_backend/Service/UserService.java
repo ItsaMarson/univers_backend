@@ -8,6 +8,7 @@ import com.univers.univers_backend.DTO.UserDTO;
 import com.univers.univers_backend.Entity.Role;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -21,6 +22,11 @@ public class UserService {
     private final UserRepository userRepository;
 
     private  final EmailService emailService;
+
+    @Value("${mailjet.template.id.forgot.password}")
+    private Long resetPassTemplateId;
+    @Value("${mailjet.template.id}")
+    private Long registerTemplateId;
 
     public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder, EmailService emailService){
         this.userRepository = userRepository;
@@ -48,8 +54,10 @@ public class UserService {
         user.setVerificationCodeExpiration(LocalDateTime.now().plusMinutes(10));
         userRepository.save(user);
 
+        Long templateId = registerTemplateId;
+        String subject = "Thanks for Signing Up. Please Verify Your Email Address [UniVERS] ";
         //Send verification email
-        emailService.sendVerificationEmail(user.getEmail(), verificationCode, user.getFirstname());
+        emailService.sendVerificationEmail(user.getEmail(), verificationCode, user.getFirstname(), templateId, subject);
 
         return "User registered successfully. Please check your email for the verification code.";
     }
@@ -77,6 +85,36 @@ public class UserService {
                         user.getRoles().name(),
                         user.getEmailVerified()
                 )).toList();
+    }
+
+    public String forgotPassword(String email) {
+
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        String resetCode = String.format("%06d", new Random().nextInt(1000000));
+        user.setVerificationCode(resetCode);
+        user.setVerificationCodeExpiration(LocalDateTime.now().plusMinutes(15)); // Expire in 15 mins
+        userRepository.save(user);
+
+        Long templateId = resetPassTemplateId;
+        String subject = "Reset Password [UniVERS]";
+        emailService.sendVerificationEmail(user.getEmail(), resetCode, user.getFirstname(), templateId, subject);
+
+        return "Password reset code sent successfully.";
+    }
+
+    public String resetPassword(String email, String newPassword) {
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+
+        user.setPassword(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+
+        return "Password reset successfully";
     }
 
 //    public User findByEmail(String email) {
