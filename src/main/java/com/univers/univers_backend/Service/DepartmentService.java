@@ -67,4 +67,28 @@ public class DepartmentService {
 
         return "Department has been saved.";
     }
+    public String updateDepartment(Long departmentId, DepartmentDTO updatedDept){
+
+        Optional<Department> existingDept = departmentRepository.findById(departmentId);
+
+        if(!existingDept.isPresent()){
+            return "Department does not exist";
+        }
+        Department department = existingDept.get();
+
+        department.setName(updatedDept.name() != null ? updatedDept.name() : existingDept.get().getName());
+        department.setDescription(updatedDept.description() != null ? updatedDept.description() : existingDept.get().getDescription());
+        if(updatedDept.deptHead() != null){
+            User deptHead = userRepository.findById(updatedDept.deptHead()).orElse(null);
+
+            if(deptHead == null){
+                return "Invalid department head";
+            }
+            department.setDeptHead(deptHead);
+        }else{
+            department.setDeptHead(existingDept.get().getDeptHead());
+        }
+        departmentRepository.save(department);
+        return "Department has been successfully updated.";
+    }
 }

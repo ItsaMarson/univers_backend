@@ -34,6 +34,12 @@ public class AdminController {
         return ResponseEntity.ok(responseMessage);
     }
 
+    @GetMapping("/users")
+    public ResponseEntity<List<UserDTO>> getAllUsers(){
+        List<UserDTO> users = userService.getAllUsers();
+
+        return ResponseEntity.ok(users);
+    }
     @PostMapping("/departments")
     public ResponseEntity<String> addDepartment(@RequestBody DepartmentDTO departmentDTO){
         String responseMessage = departmentService.addDepartment(departmentDTO);
@@ -44,12 +50,16 @@ public class AdminController {
         return ResponseEntity.ok().body(responseMessage);
     }
 
-    @GetMapping("/users")
-    public ResponseEntity<List<UserDTO>> getAllUsers(){
-        List<UserDTO> users = userService.getAllUsers();
+    @PatchMapping("/departments/{departmentId}")
+    public ResponseEntity<String> updateDepartment(@PathVariable Long departmentId, @RequestBody DepartmentDTO updatedDept){
+        String responseMessage = departmentService.updateDepartment(departmentId, updatedDept);
 
-        return ResponseEntity.ok(users);
+        if("Department does not exist".equals(responseMessage) || "Invalid department head".equals(responseMessage)){
+            return ResponseEntity.badRequest().body(responseMessage);
+        }
+        return ResponseEntity.ok(responseMessage);
     }
+
     @PostMapping("/{departmentId}/assign-head/{userId}")
     public ResponseEntity<String> assignDepartmentHead(@PathVariable Long departmentId, @PathVariable Long userId) {
         String message = departmentService.assignDepartmentHead(departmentId, userId);
