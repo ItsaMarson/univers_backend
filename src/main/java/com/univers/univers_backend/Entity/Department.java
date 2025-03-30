@@ -15,7 +15,6 @@ public class Department {
 
     private String name;
 
-    private String location;
     private String description;
 
     @OneToOne
@@ -23,10 +22,12 @@ public class Department {
     private User deptHead;
 
 
-    public Department(Long id, String name, String location, String description, User deptHead) {
+    public Department() {
+    }
+
+    public Department(Long id, String name, String description, User deptHead) {
         this.id = id;
         this.name = name;
-        this.location = location;
         this.description = description;
         this.deptHead = deptHead;
     }
@@ -45,14 +46,6 @@ public class Department {
 
     public void setName(String name) {
         this.name = name;
-    }
-
-    public String getLocation() {
-        return location;
-    }
-
-    public void setLocation(String location) {
-        this.location = location;
     }
 
     public String getDescription() {

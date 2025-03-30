@@ -3,6 +3,7 @@ package com.univers.univers_backend.Controller;
 
 
 import com.univers.univers_backend.DTO.CreateUserDTO;
+import com.univers.univers_backend.DTO.DepartmentDTO;
 import com.univers.univers_backend.DTO.UserDTO;
 import com.univers.univers_backend.Service.DepartmentService;
 import com.univers.univers_backend.Service.UserService;
@@ -24,7 +25,7 @@ public class AdminController {
         this.userService = userService;
         this.departmentService = departmentService;
     }
-    @PostMapping("/users/create")
+    @PostMapping("/users")
     public ResponseEntity<String> createUser(@Valid @RequestBody CreateUserDTO request){
         String responseMessage = userService.createUser(request);
         if("Email already in use".equals(responseMessage)){
@@ -33,6 +34,15 @@ public class AdminController {
         return ResponseEntity.ok(responseMessage);
     }
 
+    @PostMapping("/departments")
+    public ResponseEntity<String> addDepartment(@RequestBody DepartmentDTO departmentDTO){
+        String responseMessage = departmentService.addDepartment(departmentDTO);
+
+        if("Department already exists.".equals(responseMessage)){
+            return ResponseEntity.badRequest().body(responseMessage);
+        }
+        return ResponseEntity.ok().body(responseMessage);
+    }
 
     @GetMapping("/users")
     public ResponseEntity<List<UserDTO>> getAllUsers(){

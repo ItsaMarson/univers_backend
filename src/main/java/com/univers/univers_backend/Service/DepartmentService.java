@@ -1,5 +1,6 @@
 package com.univers.univers_backend.Service;
 
+import com.univers.univers_backend.DTO.DepartmentDTO;
 import com.univers.univers_backend.Entity.Department;
 import com.univers.univers_backend.Entity.User;
 import com.univers.univers_backend.Repository.DepartmentRepository;
@@ -7,6 +8,7 @@ import com.univers.univers_backend.Repository.UserRepository;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Optional;
 
 @Service
 public class DepartmentService {
@@ -39,8 +41,30 @@ public class DepartmentService {
 
     public List<Department> getAllDepartments() {
 
-        List<Department> departments = departmentRepository.findAll();
+        return departmentRepository.findAll();
 
-        return departments;
+    }
+
+    public String addDepartment(DepartmentDTO departmentDTO) {
+        Optional<Department> existingDepartment = departmentRepository.findByNameIgnoreCase(departmentDTO.name());
+
+        if(existingDepartment.isPresent()){
+            return "Department already exists.";
+        }
+        Department newDepartment = new Department();
+        newDepartment.setName(departmentDTO.name());
+        newDepartment.setDescription(departmentDTO.description());
+
+        if(departmentDTO.deptHead() != null){
+            User deptHead = userRepository.findById(departmentDTO.deptHead()).orElse(null);
+
+            if(deptHead == null){
+                return "Invalid department head";
+            }
+            newDepartment.setDeptHead(deptHead);
+        }
+        departmentRepository.save(newDepartment);
+
+        return "Department has been saved.";
     }
 }
