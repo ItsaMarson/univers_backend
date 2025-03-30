@@ -1,7 +1,7 @@
 package com.univers.univers_backend.Controller;
 
 import com.univers.univers_backend.DTO.LoginRequest;
-import com.univers.univers_backend.DTO.RegisterRequest;
+import com.univers.univers_backend.DTO.RegisterDTO;
 import com.univers.univers_backend.Entity.User;
 import com.univers.univers_backend.Repository.UserRepository;
 import com.univers.univers_backend.Service.EmailService;
@@ -37,7 +37,7 @@ public class AuthController {
         this.emailService = emailService;
     }
     @PostMapping("/register")
-    public ResponseEntity<String> register(@Valid @RequestBody RegisterRequest request) {
+    public ResponseEntity<String> register(@Valid @RequestBody RegisterDTO request) {
         String responseMessage = userService.register(request);
         if("Email already in use".equals(responseMessage)){
             return ResponseEntity.badRequest().body(responseMessage);

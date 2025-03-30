@@ -1,7 +1,7 @@
 package com.univers.univers_backend.Controller;
 
 
-import com.univers.univers_backend.DTO.RegisterRequest;
+import com.univers.univers_backend.DTO.RegisterDTO;
 import com.univers.univers_backend.DTO.UserDTO;
 import com.univers.univers_backend.Service.DepartmentService;
 import com.univers.univers_backend.Service.UserService;
@@ -23,6 +23,8 @@ public class AdminController {
         this.userService = userService;
         this.departmentService = departmentService;
     }
+
+//    public ResponseEntity<String> addUser(@Valid @RequestBody RegisterDTO request)
 
     @GetMapping("/users")
     public ResponseEntity<List<UserDTO>> getAllUsers(){

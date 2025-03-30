@@ -4,7 +4,7 @@ import java.time.LocalDateTime;
 import java.util.*;
 
 import com.univers.univers_backend.DTO.LoginRequest;
-import com.univers.univers_backend.DTO.RegisterRequest;
+import com.univers.univers_backend.DTO.RegisterDTO;
 import com.univers.univers_backend.DTO.UserDTO;
 import com.univers.univers_backend.Entity.Role;
 import com.univers.univers_backend.config.JwtUtil;
@@ -88,7 +88,7 @@ public class UserService {
         }
 
     }
-    public String register(RegisterRequest request) {
+    public String register(RegisterDTO request) {
 
         if (userRepository.existsByEmail(request.email())) {
             return "Email already in use";
