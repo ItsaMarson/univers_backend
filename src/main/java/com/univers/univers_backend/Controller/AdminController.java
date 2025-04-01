@@ -66,15 +66,22 @@ public class AdminController {
         return ResponseEntity.ok(message);
     }
 
-//    @DeleteMapping("/users/{userId}/deactivate")
-//    public ResponseEntity<String> deactivateUser(@PathVariable Long userId) {
-//
-//        return ResponseEntity.ok(responseMessage);
-//    }
-//
-//    @PostMapping("/users/{userId}/activate")
-//    public ResponseEntity<String> activateUser(@PathVariable Long userId){
-//
-//    }
+    @DeleteMapping("/users/{userId}/deactivate")
+    public ResponseEntity<String> deactivateUser(@PathVariable Long userId) {
+        String responseMessage = userService.deactivateUser(userId);
+        if("User not found".equals(responseMessage)){
+            return ResponseEntity.badRequest().body(responseMessage);
+        }
+        return ResponseEntity.ok(responseMessage);
+    }
+
+    @PostMapping("/users/{userId}/activate")
+    public ResponseEntity<String> activateUser(@PathVariable Long userId){
+        String responseMessage = userService.deactivateUser(userId);
+        if("User not found".equals(responseMessage)){
+            return ResponseEntity.badRequest().body(responseMessage);
+        }
+        return ResponseEntity.ok(responseMessage);
+    }
 
 }

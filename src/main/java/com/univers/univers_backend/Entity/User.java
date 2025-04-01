@@ -33,7 +33,7 @@ public class User {
     private LocalDateTime verificationCodeExpiration;
     @Enumerated(EnumType.STRING)
     private Role roles;
-
+    private Boolean active;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -41,7 +41,7 @@ public class User {
     public User() {
     }
 
-    public User(String email, String password, Role roles, String firstName, String lastName, String idNumber, String phoneNumber, Boolean emailVerified, String verificationCode, LocalDateTime createdAt, LocalDateTime updatedAt) {
+    public User(String email, String password, Role roles, String firstName, String lastName, String idNumber, String phoneNumber, Boolean emailVerified, String verificationCode, Boolean active,  LocalDateTime createdAt, LocalDateTime updatedAt) {
         this.email = email;
         this.password = password;
         this.firstName = firstName;
@@ -51,6 +51,7 @@ public class User {
         this.phoneNumber = phoneNumber;
         this.emailVerified = emailVerified;
         this.verificationCode = verificationCode;
+        this.active = active;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
     }
@@ -103,6 +104,14 @@ public class User {
 
     public void setRoles(Role roles) {
         this.roles = roles;
+    }
+
+    public Boolean isActive() {
+        return active;
+    }
+
+    public void setActive(Boolean active) {
+        this.active = active;
     }
 
     public LocalDateTime getCreatedAt() {

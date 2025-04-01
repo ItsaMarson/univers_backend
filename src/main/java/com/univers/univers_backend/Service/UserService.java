@@ -122,6 +122,7 @@ public class UserService {
         user.setVerificationCode(verificationCode);
         user.setVerificationCodeExpiration(LocalDateTime.now().plusMinutes(10));
         user.setCreatedAt(LocalDateTime.now());
+        user.setActive(true);
         userRepository.save(user);
 
         String subject = "Thanks for Signing Up. Please Verify Your Email Address [UniVERS] ";
@@ -206,6 +207,7 @@ public class UserService {
         user.setVerificationCode(verificationCode);
         user.setVerificationCodeExpiration(LocalDateTime.now().plusMinutes(10));
         user.setCreatedAt(LocalDateTime.now());
+        user.setActive(true);
         userRepository.save(user);
 
         String subject = "Thanks for Signing Up. Please Verify Your Email Address [UniVERS] ";
@@ -242,33 +244,27 @@ public class UserService {
     }
 
 
-//    public User findByEmail(String email) {
-//        return userRepository.findByEmail(email);
-//    }
+    public String deactivateUser(Long userId) {
+        Optional<User> existingUser = userRepository.findById(userId);
 
-//public User updateAuthentication(int sid, User newuser) {
-//
-//    try {
-//        User user = userRepository.findById(sid).get();
-//        user.setEmail(newuser.getEmail());
-//        user.setPassword(newuser.getPassword());
-//        user.setRole(newuser.getRole());
-//    } catch (NoSuchElementException e) {
-//        throw new NoSuchElementException("No such user exists" + sid);
-//    } finally {
-//        return userRepository.save(newuser);
-//    }
-//}
-//
-//public String deleteUserAuthentication(int sid) {
-//    try {
-//        userRepository.deleteById(sid);
-//    } catch (NoSuchElementException e) {
-//        throw new NoSuchElementException("No such user exists" + sid);
-//    } finally {
-//        return "User Deleted";
-//    }
-//}
+        if(!existingUser.isPresent()){
+            return "User not found";
+        }
+        User user = existingUser.get();
+        user.setActive(false);
+        userRepository.save(user);
+        return "User deactivated successfully";
+    }
 
+    public String activateUser(Long userId) {
+        Optional<User> existingUser = userRepository.findById(userId);
 
+        if(!existingUser.isPresent()){
+            return "User not found";
+        }
+        User user = existingUser.get();
+        user.setActive(true);
+        userRepository.save(user);
+        return "User activated successfully";
+    }
 }
