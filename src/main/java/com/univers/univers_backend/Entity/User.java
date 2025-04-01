@@ -33,16 +33,15 @@ public class User {
     private LocalDateTime verificationCodeExpiration;
     @Enumerated(EnumType.STRING)
     private Role roles;
-    
+
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
+
+
     public User() {
     }
 
-    public User(String email, String password) {
-        this.email = email;
-        this.password = password;
-    }
-
-    public User(String email, String password, Role roles, String firstName, String lastName, String idNumber, String phoneNumber, Boolean emailVerified, String verificationCode) {
+    public User(String email, String password, Role roles, String firstName, String lastName, String idNumber, String phoneNumber, Boolean emailVerified, String verificationCode, LocalDateTime createdAt, LocalDateTime updatedAt) {
         this.email = email;
         this.password = password;
         this.firstName = firstName;
@@ -52,6 +51,8 @@ public class User {
         this.phoneNumber = phoneNumber;
         this.emailVerified = emailVerified;
         this.verificationCode = verificationCode;
+        this.createdAt = createdAt;
+        this.updatedAt = updatedAt;
     }
 
     public long getId() {return id;}
@@ -104,4 +105,19 @@ public class User {
         this.roles = roles;
     }
 
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public LocalDateTime getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setUpdatedAt(LocalDateTime updatedAt) {
+        this.updatedAt = updatedAt;
+    }
 }

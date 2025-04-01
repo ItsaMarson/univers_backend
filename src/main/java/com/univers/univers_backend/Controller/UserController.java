@@ -5,19 +5,8 @@ import java.util.*;
 
 import com.univers.univers_backend.DTO.UserDTO;
 import com.univers.univers_backend.Service.UserService;
-import jakarta.validation.constraints.Email;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
-
-import com.univers.univers_backend.Entity.User;
+import org.springframework.web.bind.annotation.*;
 
 
 @RestController
@@ -52,5 +41,14 @@ public class UserController {
         return ResponseEntity.ok(responseMessage);
     }
 
+    @PatchMapping("/{userId}")
+    public ResponseEntity<String> updateUser(@PathVariable Long userId, @RequestBody UserDTO userDTO){
+
+        String responseMessage = userService.updateUserProfile(userId, userDTO);
+        if("User does not exist".equals(responseMessage) || "Invalid department Id".equals(responseMessage)){
+            return ResponseEntity.badRequest().body(responseMessage);
+        }
+        return ResponseEntity.ok(responseMessage);
+    }
 
 }

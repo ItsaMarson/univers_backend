@@ -11,6 +11,6 @@ public record UserDTO(
         String idNumber,
         String phoneNumber,
         String role,
-        Department department,
+        Long department_id,
         Boolean emailVerified) {
 }

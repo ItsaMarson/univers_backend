@@ -121,6 +121,7 @@ public class UserService {
         user.setEmailVerified(false);
         user.setVerificationCode(verificationCode);
         user.setVerificationCodeExpiration(LocalDateTime.now().plusMinutes(10));
+        user.setCreatedAt(LocalDateTime.now());
         userRepository.save(user);
 
         String subject = "Thanks for Signing Up. Please Verify Your Email Address [UniVERS] ";
@@ -151,7 +152,7 @@ public class UserService {
                         user.getId_number(),
                         user.getPhone_number(),
                         user.getRoles().name(),
-                        user.getDepartment(),
+                        user.getDepartment().getId(),
                         user.getEmailVerified()
                 )).toList();
     }
@@ -204,6 +205,7 @@ public class UserService {
         user.setEmailVerified(false);
         user.setVerificationCode(verificationCode);
         user.setVerificationCodeExpiration(LocalDateTime.now().plusMinutes(10));
+        user.setCreatedAt(LocalDateTime.now());
         userRepository.save(user);
 
         String subject = "Thanks for Signing Up. Please Verify Your Email Address [UniVERS] ";
@@ -214,22 +216,30 @@ public class UserService {
 
     }
 
-//    public String updateUserDetails(Long userId, UserDTO updatedUser){
-//
-//        Optional<User> existingUser = userRepository.findById(userId);
-//        if(!existingUser.isPresent()){
-//            return "User does not exist";
-//        }
-//
-//        User user = existingUser.get();
-//        user.setFirstname(updatedUser.firstName() != null ? updatedUser.firstName() : user.getFirstname());
-//        user.setLastname(updatedUser.lastName() != null ? updatedUser.lastName() : user.getLastname());
-//        user.setPhone_number(updatedUser.phoneNumber() != null ? updatedUser.phoneNumber() : user.getPhone_number());
-//
-//        if(user.)
-//    }
+    public String updateUserProfile(Long userId, UserDTO updatedUser){
 
+        Optional<User> existingUser = userRepository.findById(userId);
+        if(!existingUser.isPresent()){
+            return "User does not exist";
+        }
 
+        User user = existingUser.get();
+        user.setFirstname(updatedUser.firstName() != null ? updatedUser.firstName() : user.getFirstname());
+        user.setLastname(updatedUser.lastName() != null ? updatedUser.lastName() : user.getLastname());
+        user.setPhone_number(updatedUser.phoneNumber() != null ? updatedUser.phoneNumber() : user.getPhone_number());
+        user.setId_number(updatedUser.idNumber() != null ? updatedUser.idNumber() : user.getId_number());
+        if(updatedUser.department_id() != null){
+            Department myDept = departmentRepository.findById(updatedUser.department_id()).orElse(null);
+
+            if(myDept == null){
+                return "Invalid department Id";
+            }
+            user.setDepartment(myDept);
+        }
+        user.setUpdatedAt(LocalDateTime.now());
+        userRepository.save(user);
+        return "User details updated successfully.";
+    }
 
 
 //    public User findByEmail(String email) {
