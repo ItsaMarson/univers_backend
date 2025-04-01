@@ -69,7 +69,7 @@ public class AuthController {
                 "refreshToken", newRefreshToken
         ));
     }
-    @PostMapping("/verify")
+    @PostMapping("/verify-email")
     public ResponseEntity<String> verifyEmail(@RequestBody Map<String, String> request) {
         String email = request.get("email");
         String code = request.get("verification_code");
