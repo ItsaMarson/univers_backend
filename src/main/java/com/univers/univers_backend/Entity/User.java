@@ -34,9 +34,21 @@ public class User {
     @Enumerated(EnumType.STRING)
     private Role roles;
     private Boolean active;
+
+
+    @Column(updatable = false)
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
+    @PrePersist
+    protected void onCreate() {
+        this.createdAt = LocalDateTime.now();
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        this.updatedAt = LocalDateTime.now();
+    }
 
     public User() {
     }
@@ -110,7 +122,7 @@ public class User {
         return active;
     }
 
-    public void setActive(Boolean active) {
+    public void setActive   (Boolean active) {
         this.active = active;
     }
 
