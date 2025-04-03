@@ -53,7 +53,7 @@ public class User {
     public User() {
     }
 
-    public User(String email, String password, Role roles, String firstName, String lastName, String idNumber, String phoneNumber, Boolean emailVerified, String verificationCode, Boolean active,  LocalDateTime createdAt, LocalDateTime updatedAt) {
+    public User(String email, String password, Role roles, String firstName, String lastName, String idNumber, String phoneNumber, Boolean emailVerified, String verificationCode, Boolean active) {
         this.email = email;
         this.password = password;
         this.firstName = firstName;
@@ -64,8 +64,6 @@ public class User {
         this.emailVerified = emailVerified;
         this.verificationCode = verificationCode;
         this.active = active;
-        this.createdAt = createdAt;
-        this.updatedAt = updatedAt;
     }
 
     public long getId() {return id;}
@@ -126,19 +124,4 @@ public class User {
         this.active = active;
     }
 
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
-    }
-
-    public void setCreatedAt(LocalDateTime createdAt) {
-        this.createdAt = createdAt;
-    }
-
-    public LocalDateTime getUpdatedAt() {
-        return updatedAt;
-    }
-
-    public void setUpdatedAt(LocalDateTime updatedAt) {
-        this.updatedAt = updatedAt;
-    }
 }
