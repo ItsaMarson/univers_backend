@@ -5,8 +5,11 @@ package com.univers.univers_backend.Controller;
 import com.univers.univers_backend.DTO.CreateUserDTO;
 import com.univers.univers_backend.DTO.DepartmentDTO;
 import com.univers.univers_backend.DTO.UserDTO;
+import com.univers.univers_backend.DTO.VenueDTO;
+import com.univers.univers_backend.Repository.VenueRepository;
 import com.univers.univers_backend.Service.DepartmentService;
 import com.univers.univers_backend.Service.UserService;
+import com.univers.univers_backend.Service.VenueService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -21,9 +24,12 @@ public class AdminController {
     private final UserService userService;
     private final DepartmentService departmentService;
 
-    public AdminController(UserService userService, DepartmentService departmentService){
+    private final VenueService venueService;
+
+    public AdminController(UserService userService, DepartmentService departmentService, VenueService venueService){
         this.userService = userService;
         this.departmentService = departmentService;
+        this.venueService = venueService;
     }
     @PostMapping("/users")
     public ResponseEntity<String> createUser(@Valid @RequestBody CreateUserDTO request){
@@ -79,6 +85,16 @@ public class AdminController {
     public ResponseEntity<String> activateUser(@PathVariable Long userId){
         String responseMessage = userService.deactivateUser(userId);
         if("User not found".equals(responseMessage)){
+            return ResponseEntity.badRequest().body(responseMessage);
+        }
+        return ResponseEntity.ok(responseMessage);
+    }
+
+    @PostMapping("/venues")
+    public ResponseEntity<String> addVenue(@RequestBody VenueDTO venueDTO){
+        String responseMessage = venueService.addVenue(venueDTO);
+
+        if("Venue already exists.".equals(responseMessage) || "User not found.".equals(responseMessage)){
             return ResponseEntity.badRequest().body(responseMessage);
         }
         return ResponseEntity.ok(responseMessage);

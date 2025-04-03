@@ -1,4 +1,10 @@
 package com.univers.univers_backend.Repository;
 
-public interface VenueRepository {
+import com.univers.univers_backend.Entity.Venue;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.Optional;
+
+public interface VenueRepository extends JpaRepository<Venue,Long> {
+    Optional<Venue> findByNameIgnoreCase(String name);
 }
