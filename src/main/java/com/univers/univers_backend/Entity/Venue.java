@@ -36,6 +36,7 @@ public class Venue {
         this.updatedAt = LocalDateTime.now();
     }
 
+    public Venue(){}
     public Venue(Long id, String name, String location, User venueOwner) {
         this.id = id;
         this.name = name;
