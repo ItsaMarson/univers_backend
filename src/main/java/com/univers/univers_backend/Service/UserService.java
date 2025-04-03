@@ -121,7 +121,6 @@ public class UserService {
         user.setEmailVerified(false);
         user.setVerificationCode(verificationCode);
         user.setVerificationCodeExpiration(LocalDateTime.now().plusMinutes(10));
-        user.setCreatedAt(LocalDateTime.now());
         user.setActive(true);
         userRepository.save(user);
 
@@ -206,7 +205,6 @@ public class UserService {
         user.setEmailVerified(false);
         user.setVerificationCode(verificationCode);
         user.setVerificationCodeExpiration(LocalDateTime.now().plusMinutes(10));
-        user.setCreatedAt(LocalDateTime.now());
         user.setActive(true);
         userRepository.save(user);
 
@@ -238,7 +236,6 @@ public class UserService {
             }
             user.setDepartment(myDept);
         }
-        user.setUpdatedAt(LocalDateTime.now());
         userRepository.save(user);
         return "User details updated successfully.";
     }
