@@ -37,14 +37,15 @@ public class UserService {
     private final JwtUtil jwtUtil;
 
     private final AuthenticationManager authenticationManager;
-    private  final EmailService emailService;
+    private final EmailService emailService;
 
     @Value("${mailjet.template.id.forgot.password}")
     private Long resetPassTemplateId;
     @Value("${mailjet.template.id}")
     private Long registerTemplateId;
 
-    public UserService(AuthenticationManager authenticationManager, JwtUtil jwtUtil, UserRepository userRepository, DepartmentRepository departmentRepository, PasswordEncoder passwordEncoder, EmailService emailService){
+    public UserService(AuthenticationManager authenticationManager, JwtUtil jwtUtil, UserRepository userRepository,
+            DepartmentRepository departmentRepository, PasswordEncoder passwordEncoder, EmailService emailService) {
         this.authenticationManager = authenticationManager;
         this.jwtUtil = jwtUtil;
         this.userRepository = userRepository;
@@ -57,35 +58,40 @@ public class UserService {
 
         try {
             Authentication authentication = authenticationManager.authenticate(
-                    new UsernamePasswordAuthenticationToken(request.email(), request.password())
-            );
+                    new UsernamePasswordAuthenticationToken(request.email(), request.password()));
 
             String accessToken = jwtUtil.generateAccessToken(authentication.getName());
             String refreshToken = jwtUtil.generateRefreshToken(authentication.getName());
 
             User user = userRepository.findByEmail(request.email())
-                    .orElseThrow(() -> new RuntimeException("User not found")); // This should never happen if authentication passed
+                    .orElseThrow(() -> new RuntimeException("User not found")); // This should never happen if
+                                                                                // authentication passed
 
             // Store the access token in a cookie
-            Cookie cookie = new Cookie("jwt", accessToken);
-            cookie.setHttpOnly(true);
-            cookie.setSecure(false); // Change to true in production
-            cookie.setPath("/");
-            cookie.setMaxAge(15 * 60); // 15 minutes
-            response.addCookie(cookie);
+            Cookie accessCookie = new Cookie("access_token", accessToken);
+            accessCookie.setHttpOnly(true);
+            accessCookie.setSecure(false); // Change to true in production
+            accessCookie.setPath("/");
+            accessCookie.setMaxAge(900000); // 15 minutes
+            response.addCookie(accessCookie);
+
+            Cookie refreshCookie = new Cookie("refresh_token", refreshToken);
+            refreshCookie.setHttpOnly(true);
+            refreshCookie.setSecure(false); // Change to true in production
+            refreshCookie.setPath("/");
+            refreshCookie.setMaxAge(604800000);
+            response.addCookie(refreshCookie);
 
             // Construct response payload
             Map<String, Object> responseBody = Map.of(
-                    "accessToken", accessToken,
-                    "refreshToken", refreshToken,
+                    // "accessToken", accessToken,
+                    // "refreshToken", refreshToken,
                     "user", Map.of(
                             "id", user.getId(),
                             "email", user.getEmail(),
                             "first_name", user.getFirstname() != null ? user.getFirstname() : "",
                             "last_name", user.getLastname() != null ? user.getLastname() : "",
-                            "roles", user.getRoles()
-                    )
-            );
+                            "roles", user.getRoles()));
 
             return ResponseEntity.ok(responseBody);
         } catch (BadCredentialsException e) {
@@ -94,6 +100,7 @@ public class UserService {
         }
 
     }
+
     public String register(RegisterDTO request) {
 
         if (userRepository.existsByEmail(request.email())) {
@@ -109,10 +116,10 @@ public class UserService {
         user.setLastname(request.lastName());
         user.setId_number(request.idNumber());
         user.setPhone_number(request.phoneNumber());
-        if(request.departmentId() != null){
+        if (request.departmentId() != null) {
             Department department = departmentRepository.findById(request.departmentId()).orElse(null);
 
-            if(department == null){
+            if (department == null) {
                 return "Invalid department";
             }
             user.setDepartment(department);
@@ -125,13 +132,14 @@ public class UserService {
         userRepository.save(user);
 
         String subject = "Thanks for Signing Up. Please Verify Your Email Address [UniVERS] ";
-        //Send verification email
-        emailService.sendVerificationEmail(user.getEmail(), verificationCode, user.getFirstname(), registerTemplateId, subject);
+        // Send verification email
+        emailService.sendVerificationEmail(user.getEmail(), verificationCode, user.getFirstname(), registerTemplateId,
+                subject);
 
         return "User registered successfully. Please check your email for the verification code.";
     }
 
-    public String logout(HttpServletResponse response){
+    public String logout(HttpServletResponse response) {
 
         Cookie cookie = new Cookie("jwt", "");
         cookie.setPath("/");
@@ -141,7 +149,7 @@ public class UserService {
         return "Logged out successfully";
     }
 
-    public List<UserDTO>getAllUsers(){
+    public List<UserDTO> getAllUsers() {
         List<User> users = userRepository.findAll();
         return users.stream()
                 .map(user -> new UserDTO(
@@ -155,12 +163,11 @@ public class UserService {
                         user.getDepartment().getId(),
                         user.getEmailVerified(),
                         user.getCreatedAt(),
-                        user.getUpdatedAt()
-                )).toList();
+                        user.getUpdatedAt()))
+                .toList();
     }
 
     public String forgotPassword(String email) {
-
 
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("User not found"));
@@ -181,7 +188,6 @@ public class UserService {
 
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("User not found"));
-
 
         user.setPassword(passwordEncoder.encode(newPassword));
         userRepository.save(user);
@@ -211,17 +217,18 @@ public class UserService {
         userRepository.save(user);
 
         String subject = "Thanks for Signing Up. Please Verify Your Email Address [UniVERS] ";
-        //Send verification email
-        emailService.sendVerificationEmail(user.getEmail(), verificationCode, user.getFirstname(), registerTemplateId, subject);
+        // Send verification email
+        emailService.sendVerificationEmail(user.getEmail(), verificationCode, user.getFirstname(), registerTemplateId,
+                subject);
 
         return "User registered successfully. Please check your email for the verification code.";
 
     }
 
-    public String updateUserProfile(Long userId, UserDTO updatedUser){
+    public String updateUserProfile(Long userId, UserDTO updatedUser) {
 
         Optional<User> existingUser = userRepository.findById(userId);
-        if(existingUser.isEmpty()){
+        if (existingUser.isEmpty()) {
             return "User does not exist";
         }
 
@@ -230,10 +237,10 @@ public class UserService {
         user.setLastname(updatedUser.lastName() != null ? updatedUser.lastName() : user.getLastname());
         user.setPhone_number(updatedUser.phoneNumber() != null ? updatedUser.phoneNumber() : user.getPhone_number());
         user.setId_number(updatedUser.idNumber() != null ? updatedUser.idNumber() : user.getId_number());
-        if(updatedUser.department_id() != null){
+        if (updatedUser.department_id() != null) {
             Department myDept = departmentRepository.findById(updatedUser.department_id()).orElse(null);
 
-            if(myDept == null){
+            if (myDept == null) {
                 return "Invalid department Id";
             }
             user.setDepartment(myDept);
@@ -242,11 +249,10 @@ public class UserService {
         return "User details updated successfully.";
     }
 
-
     public String deactivateUser(Long userId) {
         Optional<User> existingUser = userRepository.findById(userId);
 
-        if(existingUser.isEmpty()){
+        if (existingUser.isEmpty()) {
             return "User not found";
         }
         User user = existingUser.get();
@@ -258,7 +264,7 @@ public class UserService {
     public String activateUser(Long userId) {
         Optional<User> existingUser = userRepository.findById(userId);
 
-        if(existingUser.isEmpty()){
+        if (existingUser.isEmpty()) {
             return "User not found";
         }
         User user = existingUser.get();
@@ -266,4 +272,65 @@ public class UserService {
         userRepository.save(user);
         return "User activated successfully";
     }
+
+    public UserDTO getCurrentUser(String token) {
+        String email = jwtUtil.extractUsername(token);
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        return new UserDTO(
+                user.getId(),
+                user.getEmail(),
+                user.getFirstname(),
+                user.getLastname(),
+                user.getId_number(),
+                user.getPhone_number(),
+                user.getRoles().name(),
+                user.getDepartment() != null ? user.getDepartment().getId() : null,
+                user.getEmailVerified(),
+                user.getCreatedAt(),
+                user.getUpdatedAt());
+    }
+
+    public String verifyResetCode(String email, String verificationCode) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        if (user.getVerificationCode() == null ||
+                !user.getVerificationCode().equals(verificationCode)) {
+            return "Invalid reset code";
+        }
+
+        if (user.getVerificationCodeExpiration().isBefore(LocalDateTime.now())) {
+            return "Reset code has expired. Please request a new one.";
+        }
+
+        return "Valid code"; // Indicate that the code is valid
+    }
+
+    public String resetPassword(String email, String verificationCode, String newPassword) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        if (user.getVerificationCode() == null ||
+                !user.getVerificationCode().equals(verificationCode)) {
+            return "Invalid reset code";
+        }
+
+        if (user.getVerificationCodeExpiration().isBefore(LocalDateTime.now())) {
+            return "Reset code has expired";
+        }
+
+        if (newPassword == null || newPassword.isEmpty()) {
+            return "New password cannot be empty";
+        }
+
+        user.setPassword(passwordEncoder.encode(newPassword));
+        user.setVerificationCode(null);
+        user.setVerificationCodeExpiration(null);
+        userRepository.save(user);
+
+        return "Password reset successfully";
+    }
+
 }
