@@ -2,6 +2,8 @@ package com.univers.univers_backend.Entity;
 
 import jakarta.persistence.*;
 
+import java.time.LocalDateTime;
+
 
 @Entity
 @Table(name = "department")
@@ -21,15 +23,29 @@ public class Department {
     @JoinColumn(name = "dept_head_id", unique = true)
     private User deptHead;
 
+    LocalDateTime createdAt;
+    LocalDateTime updatedAt;
+    @PrePersist
+    protected void OnCreate(){
+        this.createdAt = LocalDateTime.now();
+    }
+
+    @PreUpdate
+    protected void onUpdate(){
+        this.updatedAt = LocalDateTime.now();
+    }
+
 
     public Department() {
     }
 
-    public Department(Long id, String name, String description, User deptHead) {
+    public Department(Long id, String name, String description, User deptHead, LocalDateTime createdAt, LocalDateTime updatedAt) {
         this.id = id;
         this.name = name;
         this.description = description;
         this.deptHead = deptHead;
+        this.createdAt = createdAt;
+        this.updatedAt = updatedAt;
     }
 
     public Long getId() {
@@ -62,5 +78,13 @@ public class Department {
 
     public void setDeptHead(User deptHead) {
         this.deptHead = deptHead;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public LocalDateTime getUpdatedAt() {
+        return updatedAt;
     }
 }
