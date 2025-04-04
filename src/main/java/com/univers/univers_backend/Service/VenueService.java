@@ -48,8 +48,6 @@ public class VenueService {
     public List<VenueDTO> getAllVenues() {
         List<Venue> venues = venueRepository.findAll();
 
-        List<VenueDTO> venueDTOS = new ArrayList<>();
-
         return venues.stream()
                 .map(venue -> new VenueDTO(
                         venue.getName(),
