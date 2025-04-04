@@ -8,5 +8,5 @@ import java.util.Optional;
 
 public interface VenueRepository extends JpaRepository<Venue,Long> {
     Optional<Venue> findByNameIgnoreCase(String name);
-    Optional<Venue> findByOwner(User venueOwner);
+    Optional<Venue> findByVenueOwner(User venueOwner);
 }

@@ -30,8 +30,8 @@ public class UserController {
         }
         return ResponseEntity.ok(responseMessage);
     }
-    @GetMapping("/managed-venue")
-    public ResponseEntity<VenueDTO> getManagedVenue(@RequestBody Long userId){
+    @GetMapping("/{userId}/managed-venue")
+    public ResponseEntity<VenueDTO> getManagedVenue(@PathVariable Long userId){
         VenueDTO managedVenue = userService.getManagedVenue(userId);
 
         return ResponseEntity.ok(managedVenue);

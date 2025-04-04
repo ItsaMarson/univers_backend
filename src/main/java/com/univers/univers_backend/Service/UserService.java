@@ -337,10 +337,10 @@ public class UserService {
         Optional<User> user = userRepository.findById(userId);
 
         if(user.isEmpty()){
-            throw new RuntimeException("User not found with ID" + userId);
+            throw new RuntimeException("User not found with ID " + userId);
         }
         User venueOwner = user.get();
-        Optional<Venue> venueOptional = venueRepository.findByOwner(venueOwner);
+        Optional<Venue> venueOptional = venueRepository.findByVenueOwner(venueOwner);
 
         if(venueOptional.isEmpty()){
             throw new RuntimeException("No venue managed by this user");
