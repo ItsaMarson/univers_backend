@@ -153,7 +153,9 @@ public class UserService {
                         user.getPhone_number(),
                         user.getRoles().name(),
                         user.getDepartment().getId(),
-                        user.getEmailVerified()
+                        user.getEmailVerified(),
+                        user.getCreatedAt(),
+                        user.getUpdatedAt()
                 )).toList();
     }
 
@@ -219,7 +221,7 @@ public class UserService {
     public String updateUserProfile(Long userId, UserDTO updatedUser){
 
         Optional<User> existingUser = userRepository.findById(userId);
-        if(!existingUser.isPresent()){
+        if(existingUser.isEmpty()){
             return "User does not exist";
         }
 
@@ -244,7 +246,7 @@ public class UserService {
     public String deactivateUser(Long userId) {
         Optional<User> existingUser = userRepository.findById(userId);
 
-        if(!existingUser.isPresent()){
+        if(existingUser.isEmpty()){
             return "User not found";
         }
         User user = existingUser.get();
@@ -256,7 +258,7 @@ public class UserService {
     public String activateUser(Long userId) {
         Optional<User> existingUser = userRepository.findById(userId);
 
-        if(!existingUser.isPresent()){
+        if(existingUser.isEmpty()){
             return "User not found";
         }
         User user = existingUser.get();
