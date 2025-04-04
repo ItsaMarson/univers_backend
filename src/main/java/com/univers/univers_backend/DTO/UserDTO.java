@@ -3,6 +3,8 @@ package com.univers.univers_backend.DTO;
 
 import com.univers.univers_backend.Entity.Department;
 
+import java.time.LocalDateTime;
+
 public record UserDTO(
         Long id,
         String email,
@@ -12,5 +14,7 @@ public record UserDTO(
         String phoneNumber,
         String role,
         Long department_id,
-        Boolean emailVerified) {
+        Boolean emailVerified,
+        LocalDateTime createdAt,
+        LocalDateTime updatedAt) {
 }
