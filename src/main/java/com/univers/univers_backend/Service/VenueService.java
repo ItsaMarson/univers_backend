@@ -7,7 +7,10 @@ import com.univers.univers_backend.Repository.UserRepository;
 import com.univers.univers_backend.Repository.VenueRepository;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 public class VenueService {
@@ -41,4 +44,21 @@ public class VenueService {
         venueRepository.save(newVenue);
         return "Venue is added successfully";
     }
+
+    public List<VenueDTO> getAllVenues() {
+        List<Venue> venues = venueRepository.findAll();
+
+        List<VenueDTO> venueDTOS = new ArrayList<>();
+
+        return venues.stream()
+                .map(venue -> new VenueDTO(
+                        venue.getName(),
+                        venue.getLocation(),
+                        venue.getVenueOwner() != null ? venue.getVenueOwner().getId() : null,
+                        venue.getCreatedAt(),
+                        venue.getUpdatedAt()
+                ))
+                .collect(Collectors.toList());
+
+     }
 }
