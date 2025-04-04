@@ -37,11 +37,13 @@ public class Venue {
     }
 
     public Venue(){}
-    public Venue(Long id, String name, String location, User venueOwner) {
+    public Venue(Long id, String name, String location, User venueOwner, LocalDateTime createdAt, LocalDateTime updatedAt) {
         this.id = id;
         this.name = name;
         this.location = location;
         this.venueOwner = venueOwner;
+        this.createdAt = createdAt;
+        this.updatedAt = updatedAt;
     }
 
     public Long getId() {
@@ -70,5 +72,13 @@ public class Venue {
 
     public void setVenueOwner(User venueOwner) {
         this.venueOwner = venueOwner;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public LocalDateTime getUpdatedAt() {
+        return updatedAt;
     }
 }
