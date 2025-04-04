@@ -1,8 +1,10 @@
 package com.univers.univers_backend.Controller;
 
 
+import com.univers.univers_backend.DTO.DepartmentDTO;
 import com.univers.univers_backend.Entity.Department;
 import com.univers.univers_backend.Service.DepartmentService;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -23,9 +25,11 @@ public class DepartmentController {
     }
 
     @GetMapping
-    public ResponseEntity<List<Department>> getAllDepartments(){
-        List<Department> departments = departmentService.getAllDepartments();
-
+    public ResponseEntity<List<DepartmentDTO>> getAllDepartments(){
+        List<DepartmentDTO> departments = departmentService.getAllDepartments();
+        if(departments.isEmpty()){
+            return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+        }
         return ResponseEntity.ok(departments);
     }
 }
