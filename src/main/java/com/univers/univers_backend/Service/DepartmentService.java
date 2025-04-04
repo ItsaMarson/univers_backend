@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 public class DepartmentService {
@@ -39,9 +40,20 @@ public class DepartmentService {
         return "User " + user.getEmail() + " is now the department head of " + department.getName();
     }
 
-    public List<Department> getAllDepartments() {
+    public List<DepartmentDTO> getAllDepartments() {
 
-        return departmentRepository.findAll();
+        List<Department> departments = departmentRepository.findAll();
+
+
+        return departments.stream()
+                .map(department -> new DepartmentDTO(
+                        department.getName(),
+                        department.getDescription(),
+                        department.getDeptHead() != null ? department.getDeptHead().getId() : null,
+                        department.getCreatedAt(),
+                        department.getUpdatedAt()
+                ))
+                .collect(Collectors.toList());
 
     }
 
