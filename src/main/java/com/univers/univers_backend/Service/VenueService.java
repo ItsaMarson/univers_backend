@@ -49,6 +49,7 @@ public class VenueService {
 
         return venues.stream()
                 .map(venue -> new VenueDTO(
+                        venue.getId(),
                         venue.getName(),
                         venue.getLocation(),
                         venue.getVenueOwner() != null ? venue.getVenueOwner().getId() : null,

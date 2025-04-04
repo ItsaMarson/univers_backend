@@ -4,6 +4,7 @@ package com.univers.univers_backend.Controller;
 import java.util.*;
 
 import com.univers.univers_backend.DTO.UserDTO;
+import com.univers.univers_backend.DTO.VenueDTO;
 import com.univers.univers_backend.Service.UserService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -21,7 +22,7 @@ public class UserController {
 
 
     @PatchMapping("/{userId}")
-    public ResponseEntity<String> updateUser(@PathVariable Long userId, @RequestBody UserDTO userDTO){
+    public ResponseEntity<String> updateUserProfile(@PathVariable Long userId, @RequestBody UserDTO userDTO){
 
         String responseMessage = userService.updateUserProfile(userId, userDTO);
         if("User does not exist".equals(responseMessage) || "Invalid department Id".equals(responseMessage)){
@@ -29,5 +30,12 @@ public class UserController {
         }
         return ResponseEntity.ok(responseMessage);
     }
+    @GetMapping("/managed-venue")
+    public ResponseEntity<VenueDTO> getManagedVenue(@RequestBody Long userId){
+        VenueDTO managedVenue = userService.getManagedVenue(userId);
+
+        return ResponseEntity.ok(managedVenue);
+    }
+
 
 }

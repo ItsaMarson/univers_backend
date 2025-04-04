@@ -3,13 +3,12 @@ package com.univers.univers_backend.Service;
 import java.time.LocalDateTime;
 import java.util.*;
 
-import com.univers.univers_backend.DTO.CreateUserDTO;
-import com.univers.univers_backend.DTO.LoginRequest;
-import com.univers.univers_backend.DTO.RegisterDTO;
-import com.univers.univers_backend.DTO.UserDTO;
+import com.univers.univers_backend.DTO.*;
 import com.univers.univers_backend.Entity.Department;
 import com.univers.univers_backend.Entity.Role;
+import com.univers.univers_backend.Entity.Venue;
 import com.univers.univers_backend.Repository.DepartmentRepository;
+import com.univers.univers_backend.Repository.VenueRepository;
 import com.univers.univers_backend.config.JwtUtil;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletResponse;
@@ -38,20 +37,21 @@ public class UserService {
 
     private final AuthenticationManager authenticationManager;
     private final EmailService emailService;
-
+    private final VenueRepository venueRepository;
     @Value("${mailjet.template.id.forgot.password}")
     private Long resetPassTemplateId;
     @Value("${mailjet.template.id}")
     private Long registerTemplateId;
 
     public UserService(AuthenticationManager authenticationManager, JwtUtil jwtUtil, UserRepository userRepository,
-            DepartmentRepository departmentRepository, PasswordEncoder passwordEncoder, EmailService emailService) {
+            DepartmentRepository departmentRepository, PasswordEncoder passwordEncoder, EmailService emailService, VenueRepository venueRepository) {
         this.authenticationManager = authenticationManager;
         this.jwtUtil = jwtUtil;
         this.userRepository = userRepository;
         this.departmentRepository = departmentRepository;
         this.passwordEncoder = passwordEncoder;
         this.emailService = emailService;
+        this.venueRepository = venueRepository;
     }
 
     public ResponseEntity<Map<String, Object>> login(LoginRequest request, HttpServletResponse response) {
@@ -331,6 +331,32 @@ public class UserService {
         userRepository.save(user);
 
         return "Password reset successfully";
+    }
+
+    public VenueDTO getManagedVenue(Long userId){
+        Optional<User> user = userRepository.findById(userId);
+
+        if(user.isEmpty()){
+            throw new RuntimeException("User not found with ID" + userId);
+        }
+        User venueOwner = user.get();
+        Optional<Venue> venueOptional = venueRepository.findByOwner(venueOwner);
+
+        if(venueOptional.isEmpty()){
+            throw new RuntimeException("No venue managed by this user");
+        }
+
+        Venue venue = venueOptional.get();
+
+        return new VenueDTO(
+                venue.getId(),
+                venue.getName(),
+                venue.getLocation(),
+                null,
+                null,
+                null
+        );
+
     }
 
 }
