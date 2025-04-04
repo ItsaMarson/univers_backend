@@ -7,7 +7,6 @@ import com.univers.univers_backend.Repository.UserRepository;
 import com.univers.univers_backend.Repository.VenueRepository;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
