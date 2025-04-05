@@ -44,7 +44,8 @@ public class UserService {
     private Long registerTemplateId;
 
     public UserService(AuthenticationManager authenticationManager, JwtUtil jwtUtil, UserRepository userRepository,
-            DepartmentRepository departmentRepository, PasswordEncoder passwordEncoder, EmailService emailService, VenueRepository venueRepository) {
+            DepartmentRepository departmentRepository, PasswordEncoder passwordEncoder, EmailService emailService,
+            VenueRepository venueRepository) {
         this.authenticationManager = authenticationManager;
         this.jwtUtil = jwtUtil;
         this.userRepository = userRepository;
@@ -141,10 +142,15 @@ public class UserService {
 
     public String logout(HttpServletResponse response) {
 
-        Cookie cookie = new Cookie("jwt", "");
+        Cookie cookie = new Cookie("access_token", "");
         cookie.setPath("/");
         cookie.setMaxAge(0);
         response.addCookie(cookie);
+
+        Cookie refresh = new Cookie("refresh_token", "");
+        refresh.setPath("/");
+        refresh.setMaxAge(0);
+        response.addCookie(refresh);
 
         return "Logged out successfully";
     }
@@ -333,16 +339,16 @@ public class UserService {
         return "Password reset successfully";
     }
 
-    public VenueDTO getManagedVenue(Long userId){
+    public VenueDTO getManagedVenue(Long userId) {
         Optional<User> user = userRepository.findById(userId);
 
-        if(user.isEmpty()){
+        if (user.isEmpty()) {
             throw new RuntimeException("User not found with ID " + userId);
         }
         User venueOwner = user.get();
         Optional<Venue> venueOptional = venueRepository.findByVenueOwner(venueOwner);
 
-        if(venueOptional.isEmpty()){
+        if (venueOptional.isEmpty()) {
             throw new RuntimeException("No venue managed by this user");
         }
 
@@ -354,8 +360,7 @@ public class UserService {
                 venue.getLocation(),
                 null,
                 null,
-                null
-        );
+                null);
 
     }
 
