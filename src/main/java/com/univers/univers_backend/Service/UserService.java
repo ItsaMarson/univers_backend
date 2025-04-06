@@ -141,10 +141,15 @@ public class UserService {
 
     public String logout(HttpServletResponse response) {
 
-        Cookie cookie = new Cookie("jwt", "");
+        Cookie cookie = new Cookie("access_token", "");
         cookie.setPath("/");
         cookie.setMaxAge(0);
         response.addCookie(cookie);
+
+        Cookie refresh = new Cookie("refresh_token", "");
+        refresh.setPath("/");
+        refresh.setMaxAge(0);
+        response.addCookie(refresh);
 
         return "Logged out successfully";
     }
