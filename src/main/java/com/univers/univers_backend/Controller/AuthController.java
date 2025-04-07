@@ -1,3 +1,4 @@
+/* (C)2025 */
 package com.univers.univers_backend.Controller;
 
 import com.univers.univers_backend.DTO.LoginRequest;
@@ -8,17 +9,14 @@ import com.univers.univers_backend.Repository.UserRepository;
 import com.univers.univers_backend.Service.EmailService;
 import com.univers.univers_backend.Service.UserService;
 import com.univers.univers_backend.config.JwtUtil;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
+import java.time.LocalDateTime;
+import java.util.Map;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.web.bind.annotation.*;
-
-import jakarta.servlet.http.HttpServletResponse;
-
-import java.time.LocalDateTime;
-import java.util.Map;
-import java.util.List;
 
 @RestController
 @RequestMapping("/auth")
@@ -31,8 +29,12 @@ public class AuthController {
 
     private final EmailService emailService;
 
-    public AuthController(AuthenticationManager authManager, JwtUtil jwtUtil, UserService userService,
-            UserRepository userRepository, EmailService emailService) {
+    public AuthController(
+            AuthenticationManager authManager,
+            JwtUtil jwtUtil,
+            UserService userService,
+            UserRepository userRepository,
+            EmailService emailService) {
         this.authManager = authManager;
         this.jwtUtil = jwtUtil;
         this.userService = userService;
@@ -50,8 +52,8 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<Map<String, Object>> login(@Valid @RequestBody LoginRequest request,
-            HttpServletResponse response) {
+    public ResponseEntity<Map<String, Object>> login(
+            @Valid @RequestBody LoginRequest request, HttpServletResponse response) {
         return userService.login(request, response);
     }
 
@@ -60,16 +62,18 @@ public class AuthController {
         String refreshToken = request.get("refreshToken");
 
         if (refreshToken == null || !jwtUtil.validateToken(refreshToken)) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Invalid refresh token"));
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("error", "Invalid refresh token"));
         }
 
         String email = jwtUtil.extractUsername(refreshToken);
         String newAccessToken = jwtUtil.generateAccessToken(email);
         String newRefreshToken = jwtUtil.generateRefreshToken(email);
 
-        return ResponseEntity.ok(Map.of(
-                "accessToken", newAccessToken,
-                "refreshToken", newRefreshToken));
+        return ResponseEntity.ok(
+                Map.of(
+                        "accessToken", newAccessToken,
+                        "refreshToken", newRefreshToken));
     }
 
     @PostMapping("/verify-email")
@@ -83,7 +87,8 @@ public class AuthController {
         }
 
         if (user.getVerificationCode() == null || !user.getVerificationCode().equals(code)) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid verification code.");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body("Invalid verification code.");
         }
 
         if (user.getVerificationCodeExpiration().isBefore(LocalDateTime.now())) {
@@ -97,7 +102,6 @@ public class AuthController {
         userRepository.save(user);
 
         return ResponseEntity.ok("Email verified successfully!");
-
     }
 
     @PostMapping("/resend-code")
@@ -164,19 +168,13 @@ public class AuthController {
 
         String responseMessage = userService.resetPassword(email, verificationCode, newPassword);
 
-        if ("Invalid verification code".equals(responseMessage) ||
-                "Verification code has expired".equals(responseMessage) ||
-                "User not found".equals(responseMessage) ||
-                "New password cannot be empty".equals(responseMessage)) {
+        if ("Invalid verification code".equals(responseMessage)
+                || "Verification code has expired".equals(responseMessage)
+                || "User not found".equals(responseMessage)
+                || "New password cannot be empty".equals(responseMessage)) {
             return ResponseEntity.badRequest().body(responseMessage);
         }
 
         return ResponseEntity.ok(responseMessage);
-    }
-
-    @GetMapping
-    public ResponseEntity<List<UserDTO>> getAllUsers() {
-        List<UserDTO> users = userService.getAllUsers();
-        return ResponseEntity.ok(users);
     }
 }
