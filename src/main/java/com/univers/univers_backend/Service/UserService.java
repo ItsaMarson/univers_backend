@@ -204,6 +204,7 @@ public class UserService {
                                                 ? user.getDepartment().getId()
                                                 : null,
                                         user.getEmailVerified(),
+                                        user.isActive(),
                                         user.getCreatedAt(),
                                         user.getUpdatedAt()))
                 .toList();
@@ -348,6 +349,7 @@ public class UserService {
                 user.getRoles().name(),
                 user.getDepartment() != null ? user.getDepartment().getId() : null,
                 user.getEmailVerified(),
+                user.isActive(),
                 user.getCreatedAt(),
                 user.getUpdatedAt());
     }

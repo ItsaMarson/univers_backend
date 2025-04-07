@@ -15,6 +15,7 @@ public record UserDTO(
         String role,
         Long department_id,
         Boolean emailVerified,
+        Boolean active,
         LocalDateTime createdAt,
         LocalDateTime updatedAt) {
 }
