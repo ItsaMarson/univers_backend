@@ -258,7 +258,14 @@ public class UserService {
         user.setLastname(request.lastName());
         user.setId_number(request.idNumber());
         user.setPhone_number(request.phoneNumber());
-        user.setDepartment(request.department());
+        if(request.departmentId() != null){
+            Department department = departmentRepository.findById(request.departmentId()).orElse(null);
+
+            if(department == null){
+                return "Department not found. Invalid department Id";
+            }
+            user.setDepartment(department);
+        }
         user.setEmailVerified(false);
         user.setVerificationCode(verificationCode);
         user.setVerificationCodeExpiration(LocalDateTime.now().plusMinutes(10));
