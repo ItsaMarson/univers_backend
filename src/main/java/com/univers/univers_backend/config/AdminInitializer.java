@@ -37,6 +37,7 @@ public class AdminInitializer implements ApplicationRunner {
         admin.setLastname("Admin");
         admin.setRoles(Role.SUPER_ADMIN);
         admin.setEmailVerified(true);
+        admin.setActive(true);
 
         userRepository.save(admin);
         System.out.println("Admin user created with email: " + adminEmail);
