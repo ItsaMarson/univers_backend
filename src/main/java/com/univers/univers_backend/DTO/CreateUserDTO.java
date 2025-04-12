@@ -14,6 +14,7 @@ public record CreateUserDTO (
         Long departmentId,
         String idNumber,
         String phoneNumber,
+        String telephoneNumber,
         Role role,
         Boolean emailVerified){
 }

@@ -12,6 +12,7 @@ public record UserDTO(
         String lastName,
         String idNumber,
         String phoneNumber,
+        String telephoneNumber,
         String role,
         Long department_id,
         Boolean emailVerified,

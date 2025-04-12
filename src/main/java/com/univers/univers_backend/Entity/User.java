@@ -26,6 +26,8 @@ public class User {
     @JoinColumn(name = "department_id")
     private Department department;
     private String phoneNumber;
+
+    private String telephoneNumber;
     @Column(nullable = false)
     private Boolean emailVerified = false;
 
@@ -53,7 +55,7 @@ public class User {
     public User() {
     }
 
-    public User(String email, String password, Role roles, String firstName, String lastName, String idNumber, String phoneNumber, Boolean emailVerified, String verificationCode, Boolean active) {
+    public User(String email, String password, Role roles, String firstName, String lastName, String idNumber, String phoneNumber, String telephoneNumber, Boolean emailVerified, String verificationCode, Boolean active) {
         this.email = email;
         this.password = password;
         this.firstName = firstName;
@@ -61,6 +63,7 @@ public class User {
         this.roles = roles;
         this.idNumber = idNumber;
         this.phoneNumber = phoneNumber;
+        this.telephoneNumber = telephoneNumber;
         this.emailVerified = emailVerified;
         this.verificationCode = verificationCode;
         this.active = active;
@@ -88,6 +91,15 @@ public class User {
 
     public String getPhone_number() {return phoneNumber;}
     public void setPhone_number(String phone_number) {this.phoneNumber = phone_number;}
+
+    public String getTelephoneNumber() {
+        return telephoneNumber;
+    }
+
+    public void setTelephoneNumber(String telephoneNumber) {
+        this.telephoneNumber = telephoneNumber;
+    }
+
     public Boolean getEmailVerified() {return emailVerified;}
     public void setEmailVerified(Boolean emailVerified) {this.emailVerified = emailVerified;}
 

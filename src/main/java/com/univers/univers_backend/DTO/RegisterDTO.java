@@ -11,5 +11,6 @@ public record RegisterDTO(
         Long departmentId,
         String idNumber,
         String phoneNumber,
+        String telephoneNumber,
         Boolean emailVerified) {
 }

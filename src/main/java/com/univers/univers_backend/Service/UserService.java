@@ -142,6 +142,8 @@ public class UserService {
         user.setLastname(request.lastName());
         user.setId_number(request.idNumber());
         user.setPhone_number(request.phoneNumber());
+        user.setTelephoneNumber(request.telephoneNumber());
+        user.setTelephoneNumber(request.telephoneNumber());
         if (request.departmentId() != null) {
             Department department =
                     departmentRepository.findById(request.departmentId()).orElse(null);
@@ -199,6 +201,7 @@ public class UserService {
                                         user.getPhone_number() != null
                                                 ? user.getPhone_number()
                                                 : null,
+                                        user.getTelephoneNumber() != null ? user.getTelephoneNumber() : null,
                                         user.getRoles() != null ? user.getRoles().name() : null,
                                         user.getDepartment() != null
                                                 ? user.getDepartment().getId()
@@ -258,6 +261,7 @@ public class UserService {
         user.setLastname(request.lastName());
         user.setId_number(request.idNumber());
         user.setPhone_number(request.phoneNumber());
+        user.setTelephoneNumber(request.telephoneNumber());
         if(request.departmentId() != null){
             Department department = departmentRepository.findById(request.departmentId()).orElse(null);
 
@@ -353,6 +357,7 @@ public class UserService {
                 user.getLastname(),
                 user.getId_number(),
                 user.getPhone_number(),
+                user.getTelephoneNumber(),
                 user.getRoles().name(),
                 user.getDepartment() != null ? user.getDepartment().getId() : null,
                 user.getEmailVerified(),
