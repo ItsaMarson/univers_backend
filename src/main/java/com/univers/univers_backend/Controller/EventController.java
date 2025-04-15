@@ -1,4 +1,26 @@
 package com.univers.univers_backend.Controller;
 
+
+import com.univers.univers_backend.DTO.EventDTO;
+import com.univers.univers_backend.Service.EventService;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+@RequestMapping("/events")
 public class EventController {
+
+
+    private final EventService eventService;
+
+    public EventController(EventService eventService){
+        this.eventService = eventService;
+    }
+
+    public ResponseEntity<String> createEvent(@RequestBody EventDTO eventDTO){
+        String responseMessage = eventService.createEvent(eventDTO);
+        return ResponseEntity.ok(responseMessage);
+    }
 }
