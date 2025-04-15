@@ -36,7 +36,6 @@ public class AdminInitializer implements ApplicationRunner {
         admin.setFirstname("System");
         admin.setLastname("Admin");
         admin.setRoles(Role.SUPER_ADMIN);
-        admin.setEmailVerified(true);
         admin.setActive(true);
 
         userRepository.save(admin);

@@ -19,6 +19,15 @@ public class Event {
     private LocalDateTime endTime;
     private String approvedLetter;
 
+    private String status;
+    @ManyToOne
+    @JoinColumn(name = "organizer_id", unique = true)
+    private User organizer;
+
+    @ManyToOne
+    @JoinColumn(name = "venue_id", unique = true)
+    private Venue eventVenue;
+
     @Column(updatable = false)
     private LocalDateTime createdAt;
 
@@ -36,12 +45,14 @@ public class Event {
 
     public Event(){}
 
-    public Event(Long id, String eventName, String eventType, LocalDateTime startTime, LocalDateTime endTime, String approvedLetter, LocalDateTime createdAt, LocalDateTime updatedAt) {
+    public Event(Long id, String eventName, String eventType, String status, User organizer, Venue eventVenue, LocalDateTime startTime, LocalDateTime endTime, String approvedLetter, LocalDateTime createdAt, LocalDateTime updatedAt) {
         this.id = id;
         this.eventName = eventName;
         this.eventType = eventType;
         this.startTime = startTime;
         this.endTime = endTime;
+        this.organizer = organizer;
+        this.eventVenue = eventVenue;
         this.approvedLetter = approvedLetter;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
@@ -85,6 +96,22 @@ public class Event {
 
     public void setEndTime(LocalDateTime endTime) {
         this.endTime = endTime;
+    }
+
+    public User getOrganizer() {
+        return organizer;
+    }
+
+    public void setOrganizer(User organizer) {
+        this.organizer = organizer;
+    }
+
+    public Venue getEventVenue() {
+        return eventVenue;
+    }
+
+    public void setEventVenue(Venue eventVenue) {
+        this.eventVenue = eventVenue;
     }
 
     public String getApprovedLetter() {
