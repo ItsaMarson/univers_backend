@@ -1,6 +1,6 @@
 package com.univers.univers_backend.Repository;
 
-import com.univers.univers_backend.Entity.Role;
+import com.univers.univers_backend.Enum.Role;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import com.univers.univers_backend.Entity.User;

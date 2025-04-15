@@ -1,4 +1,4 @@
-package com.univers.univers_backend.Entity;
+package com.univers.univers_backend.Enum;
 
 public enum Role {
     SUPER_ADMIN,

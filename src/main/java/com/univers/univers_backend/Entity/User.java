@@ -1,9 +1,9 @@
 package com.univers.univers_backend.Entity;
 
+import com.univers.univers_backend.Enum.Role;
 import jakarta.persistence.*;
 
 import java.time.LocalDateTime;
-import java.util.Set;
 
 
 @Entity

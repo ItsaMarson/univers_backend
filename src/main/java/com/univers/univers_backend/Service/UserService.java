@@ -7,7 +7,7 @@ import com.univers.univers_backend.DTO.RegisterDTO;
 import com.univers.univers_backend.DTO.UserDTO;
 import com.univers.univers_backend.DTO.VenueDTO;
 import com.univers.univers_backend.Entity.Department;
-import com.univers.univers_backend.Entity.Role;
+import com.univers.univers_backend.Enum.Role;
 import com.univers.univers_backend.Entity.User;
 import com.univers.univers_backend.Entity.Venue;
 import com.univers.univers_backend.Repository.DepartmentRepository;

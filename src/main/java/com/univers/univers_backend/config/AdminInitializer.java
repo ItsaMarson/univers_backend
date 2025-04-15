@@ -1,7 +1,7 @@
 package com.univers.univers_backend.config;
 
 import io.github.cdimascio.dotenv.Dotenv;
-import com.univers.univers_backend.Entity.Role;
+import com.univers.univers_backend.Enum.Role;
 import com.univers.univers_backend.Entity.User;
 import com.univers.univers_backend.Repository.UserRepository;
 import org.springframework.boot.ApplicationArguments;
