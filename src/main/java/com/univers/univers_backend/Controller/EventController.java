@@ -4,11 +4,10 @@ package com.univers.univers_backend.Controller;
 import com.univers.univers_backend.DTO.EventDTO;
 import com.univers.univers_backend.Service.EventService;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/events")
@@ -29,5 +28,11 @@ public class EventController {
             return ResponseEntity.badRequest().body(responseMessage);
         }
         return ResponseEntity.ok(responseMessage);
+    }
+
+    @GetMapping
+    public ResponseEntity<List<EventDTO>> getAllEvents(){
+        List<EventDTO> allEvents = eventService.getAllEvents();
+        return ResponseEntity.ok(allEvents);
     }
 }

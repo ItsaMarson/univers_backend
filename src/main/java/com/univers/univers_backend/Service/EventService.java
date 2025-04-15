@@ -17,6 +17,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -80,5 +81,24 @@ public class EventService {
 
         eventRepository.save(event);
         return "Event created successfully!";
+    }
+
+    public List<EventDTO> getAllEvents(){
+        List<Event> events = eventRepository.findAll();
+
+        List<EventDTO> eventDTOList = new ArrayList<>();
+        for(Event event: events){
+            EventDTO eventDTO = new EventDTO(
+                    event.getId(),
+                    event.getEventName(),
+                    event.getEventType(),
+                    event.getOrganizer().getId(),
+                    event.getEventVenue().getId(),
+                    event.getStartTime(),
+                    event.getEndTime()
+            );
+            eventDTOList.add(eventDTO);
+        }
+        return eventDTOList;
     }
 }
