@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/events")
@@ -21,8 +22,8 @@ public class EventController {
     }
 
     @PostMapping
-    public ResponseEntity<String> createEvent(@RequestBody EventDTO eventDTO){
-        String responseMessage = eventService.createEvent(eventDTO);
+    public ResponseEntity<String> createEvent(@RequestBody EventDTO eventDTO, MultipartFile approvedLetter){
+        String responseMessage = eventService.createEvent(eventDTO, approvedLetter);
 
         if("Organizer not found".equals(responseMessage) || "There is a scheduling conflict with another event.".equals(responseMessage)){
             return ResponseEntity.badRequest().body(responseMessage);

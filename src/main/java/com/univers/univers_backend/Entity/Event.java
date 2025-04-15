@@ -1,6 +1,7 @@
 package com.univers.univers_backend.Entity;
 
 
+import com.univers.univers_backend.Enum.Status;
 import jakarta.persistence.*;
 
 import java.time.LocalDateTime;
@@ -17,9 +18,10 @@ public class Event {
     private String eventType;
     private LocalDateTime startTime;
     private LocalDateTime endTime;
-    private String approvedLetter;
+    private String approvedLetterPath;
 
-    private String status;
+    @Enumerated(EnumType.STRING)
+    private Status status;
     @ManyToOne
     @JoinColumn(name = "organizer_id", unique = true)
     private User organizer;
@@ -45,7 +47,7 @@ public class Event {
 
     public Event(){}
 
-    public Event(Long id, String eventName, String eventType, String status, User organizer, Venue eventVenue, LocalDateTime startTime, LocalDateTime endTime, String approvedLetter, LocalDateTime createdAt, LocalDateTime updatedAt) {
+    public Event(Long id, String eventName, String eventType, String status, User organizer, Venue eventVenue, LocalDateTime startTime, LocalDateTime endTime, String approvedLetterPath, LocalDateTime createdAt, LocalDateTime updatedAt) {
         this.id = id;
         this.eventName = eventName;
         this.eventType = eventType;
@@ -53,7 +55,7 @@ public class Event {
         this.endTime = endTime;
         this.organizer = organizer;
         this.eventVenue = eventVenue;
-        this.approvedLetter = approvedLetter;
+        this.approvedLetterPath = approvedLetterPath;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
     }
@@ -114,12 +116,20 @@ public class Event {
         this.eventVenue = eventVenue;
     }
 
-    public String getApprovedLetter() {
-        return approvedLetter;
+    public String getApprovedLetterPath() {
+        return approvedLetterPath;
     }
 
-    public void setApprovedLetter(String approvedLetter) {
-        this.approvedLetter = approvedLetter;
+    public void setApprovedLetterPath(String approvedLetterPath) {
+        this.approvedLetterPath = approvedLetterPath;
+    }
+
+    public Status getStatus() {
+        return status;
+    }
+
+    public void setStatus(Status status) {
+        this.status = status;
     }
 
     public LocalDateTime getCreatedAt() {

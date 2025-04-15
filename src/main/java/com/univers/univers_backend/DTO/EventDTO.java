@@ -11,7 +11,6 @@ public record EventDTO(
 
         Long eventVenueId,
         LocalDateTime startTime,
-        LocalDateTime endTime,
-        String approvedLetter
+        LocalDateTime endTime
 ) {
 }
