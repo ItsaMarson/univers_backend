@@ -8,7 +8,7 @@ public record EventDTO(
         String eventName,
         String eventType,
         Long organizerId,
-
+        String approvedLetterPath,
         Long eventVenueId,
         LocalDateTime startTime,
         LocalDateTime endTime

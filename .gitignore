@@ -4,7 +4,7 @@ target/
 !**/src/main/**/target/
 !**/src/test/**/target/
 .env
-
+/src/main/resources/static/approved-letters
 ### STS ###
 .apt_generated
 .classpath

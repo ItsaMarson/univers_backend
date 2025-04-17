@@ -93,6 +93,7 @@ public class EventService {
                     event.getEventName(),
                     event.getEventType(),
                     event.getOrganizer().getId(),
+                    event.getApprovedLetterPath(),
                     event.getEventVenue().getId(),
                     event.getStartTime(),
                     event.getEndTime()
@@ -100,5 +101,47 @@ public class EventService {
             eventDTOList.add(eventDTO);
         }
         return eventDTOList;
+    }
+
+    public String updateEvent(Long eventId, EventDTO updatedEvent, MultipartFile approvedLetter){
+
+        Optional<Event> existingEvent = eventRepository.findById(eventId);
+        Optional<Venue> venueOptional = venueRepository.findById(updatedEvent.eventVenueId());
+
+        if(existingEvent.isEmpty()){
+             return "Event does not exist. Invalid event id";
+         }
+        Event event = existingEvent.get();
+
+        if (event.getOrganizer() == null || !event.getOrganizer().getId().equals(updatedEvent.organizerId())) {
+            return "You are not authorized to update this event.";
+        }
+        event.setEventName(updatedEvent.eventName() != null ? updatedEvent.eventName() : event.getEventName());
+
+        if(venueOptional.isEmpty()){
+            return "Venue does not exist";
+        }
+        Venue venue = venueOptional.get();
+        event.setEventVenue(venue);
+        event.setEventType(updatedEvent.eventType() != null ? updatedEvent.eventType() : event.getEventType());
+        event.setStartTime(updatedEvent.startTime() != null ? updatedEvent.startTime() : event.getStartTime());
+        event.setEndTime(updatedEvent.endTime() != null ? updatedEvent.endTime() : event.getEndTime());
+        if(approvedLetter != null && !approvedLetter.isEmpty()){
+            try{
+                Path uploadPath = Paths.get(uploadDir).toAbsolutePath().normalize();
+                Files.createDirectories(uploadPath);
+                if(approvedLetter.getOriginalFilename() != null){
+                    Path filePath = uploadPath.resolve(approvedLetter.getOriginalFilename());
+                    approvedLetter.transferTo(filePath.toFile());
+
+                    event.setApprovedLetterPath(filePath.toString());
+                }
+
+            }catch (IOException e){
+                return "Failed to upload file. Please try again";
+            }
+        }
+        eventRepository.save(event);
+        return "Event updated successfully";
     }
 }
