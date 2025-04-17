@@ -3,6 +3,7 @@ package com.univers.univers_backend.Controller;
 
 import com.univers.univers_backend.DTO.EventDTO;
 import com.univers.univers_backend.Service.EventService;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -22,14 +23,17 @@ public class EventController {
     }
 
     @PostMapping
-    public ResponseEntity<String> createEvent(@RequestPart("event") EventDTO eventDTO,
+    public ResponseEntity<?> createEvent(@RequestPart("event") EventDTO eventDTO,
                                               @RequestPart(value = "approvedLetter") MultipartFile approvedLetter){
-        String responseMessage = eventService.createEvent(eventDTO, approvedLetter);
 
-        if("Organizer not found".equals(responseMessage) || "There is a scheduling conflict with another event.".equals(responseMessage)){
-            return ResponseEntity.badRequest().body(responseMessage);
+        try{
+            EventDTO event = eventService.createEvent(eventDTO, approvedLetter);
+            return new ResponseEntity<>(event, HttpStatus.CREATED);
+        }catch (IllegalArgumentException e){
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }catch (Exception e){
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Something went wrong.");
         }
-        return ResponseEntity.ok(responseMessage);
     }
 
     @GetMapping

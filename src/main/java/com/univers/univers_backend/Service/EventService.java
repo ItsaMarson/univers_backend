@@ -10,6 +10,8 @@ import com.univers.univers_backend.Repository.EventRepository;
 import com.univers.univers_backend.Repository.UserRepository;
 import com.univers.univers_backend.Repository.VenueRepository;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -38,30 +40,29 @@ public class EventService {
         this.venueRepository = venueRepository;
     }
 
-    public String createEvent(EventDTO eventDTO, MultipartFile approvedLetter){
+    public EventDTO createEvent(EventDTO eventDTO, MultipartFile approvedLetter){
 
-        Optional<User> organizerOptional = userRepository.findById(eventDTO.organizerId());
-        if(organizerOptional.isEmpty()){
-            return "Organizer not found";
-        }
+        User organizer = userRepository.findById(eventDTO.organizerId())
+                .orElseThrow(()-> new IllegalArgumentException("Organizer not found"));
+
         List<Event> conflictingEvents = eventRepository.findByStartTimeLessThanEqualAndEndTimeGreaterThanEqual(
                 eventDTO.endTime(), eventDTO.startTime());
 
         if (!conflictingEvents.isEmpty()) {
-            return "There is a scheduling conflict with another event.";
+            throw new IllegalStateException("There is a scheduling conflict with another event.");
         }
+        Venue venue = venueRepository.findById(eventDTO.eventVenueId())
+                .orElseThrow(()-> new IllegalArgumentException("Invalid venue ID"));
 
         Event event = new Event();
         event.setEventName(eventDTO.eventName());
         event.setEventType(eventDTO.eventType());
         event.setStartTime(eventDTO.startTime());
         event.setEndTime(eventDTO.endTime());
-        event.setOrganizer(organizerOptional.get());
+        event.setOrganizer(organizer);
+        event.setEventVenue(venue);
         event.setStatus(Status.PENDING);
-        Optional<Venue> venue = venueRepository.findById(eventDTO.eventVenueId());
-        if(venue.isEmpty()){
-            return "Invalid venue Id";
-        }
+
         if(approvedLetter != null && !approvedLetter.isEmpty()){
             try{
                 Path uploadPath = Paths.get(uploadDir).toAbsolutePath().normalize();
@@ -74,13 +75,23 @@ public class EventService {
                 }
 
             }catch (IOException e){
-                return "Failed to upload file. Please try again";
+                throw new RuntimeException("Failed to upload file. Please try again");
             }
         }
-        event.setEventVenue(venue.get());
 
-        eventRepository.save(event);
-        return "Event created successfully!";
+        Event savedEvent = eventRepository.save(event);
+
+        return new EventDTO(
+                savedEvent.getId(),
+                savedEvent.getEventName(),
+                savedEvent.getEventType(),
+                savedEvent.getOrganizer().getId(),
+                savedEvent.getApprovedLetterPath(),
+                savedEvent.getEventVenue().getId(),
+                savedEvent.getStartTime(),
+                savedEvent.getEndTime()
+        );
+
     }
 
     public List<EventDTO> getAllEvents(){

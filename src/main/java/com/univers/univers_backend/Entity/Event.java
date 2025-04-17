@@ -23,11 +23,11 @@ public class Event {
     @Enumerated(EnumType.STRING)
     private Status status;
     @ManyToOne
-    @JoinColumn(name = "organizer_id", unique = true)
+    @JoinColumn(name = "organizer_id")
     private User organizer;
 
     @ManyToOne
-    @JoinColumn(name = "venue_id", unique = true)
+    @JoinColumn(name = "venue_id")
     private Venue eventVenue;
 
     @Column(updatable = false)
