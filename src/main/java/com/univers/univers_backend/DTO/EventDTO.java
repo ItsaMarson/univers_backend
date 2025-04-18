@@ -11,6 +11,8 @@ public record EventDTO(
         String approvedLetterPath,
         Long eventVenueId,
         LocalDateTime startTime,
-        LocalDateTime endTime
+        LocalDateTime endTime,
+
+        String status
 ) {
 }

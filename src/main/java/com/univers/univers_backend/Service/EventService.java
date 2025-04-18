@@ -19,6 +19,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -45,11 +46,11 @@ public class EventService {
         User organizer = userRepository.findById(eventDTO.organizerId())
                 .orElseThrow(()-> new IllegalArgumentException("Organizer not found"));
 
-        List<Event> conflictingEvents = eventRepository.findByStartTimeLessThanEqualAndEndTimeGreaterThanEqual(
-                eventDTO.endTime(), eventDTO.startTime());
+        List<Event> conflictingEvents = eventRepository.findConflictingEvents(eventDTO.eventVenueId(),
+                eventDTO.startTime(), eventDTO.endTime());
 
         if (!conflictingEvents.isEmpty()) {
-            throw new IllegalStateException("There is a scheduling conflict with another event.");
+            throw new IllegalArgumentException("There is a scheduling conflict with another event.");
         }
         Venue venue = venueRepository.findById(eventDTO.eventVenueId())
                 .orElseThrow(()-> new IllegalArgumentException("Invalid venue ID"));
@@ -89,7 +90,8 @@ public class EventService {
                 savedEvent.getApprovedLetterPath(),
                 savedEvent.getEventVenue().getId(),
                 savedEvent.getStartTime(),
-                savedEvent.getEndTime()
+                savedEvent.getEndTime(),
+                savedEvent.getStatus().toString()
         );
 
     }
@@ -107,7 +109,8 @@ public class EventService {
                     event.getApprovedLetterPath(),
                     event.getEventVenue().getId(),
                     event.getStartTime(),
-                    event.getEndTime()
+                    event.getEndTime(),
+                    event.getStatus().toString()
             );
             eventDTOList.add(eventDTO);
         }
@@ -127,16 +130,30 @@ public class EventService {
         if (event.getOrganizer() == null || !event.getOrganizer().getId().equals(updatedEvent.organizerId())) {
             return "You are not authorized to update this event.";
         }
-        event.setEventName(updatedEvent.eventName() != null ? updatedEvent.eventName() : event.getEventName());
 
         if(venueOptional.isEmpty()){
             return "Venue does not exist";
         }
-        Venue venue = venueOptional.get();
-        event.setEventVenue(venue);
+        Venue newVenue = venueOptional.get();
+        LocalDateTime newStartTime = updatedEvent.startTime() != null ? updatedEvent.startTime() : event.getStartTime();
+        LocalDateTime newEndTime = updatedEvent.endTime() != null ? updatedEvent.endTime() : event.getEndTime();
+
+        List<Event> conflictingEvents = eventRepository.findConflictingEvents(
+                updatedEvent.eventVenueId(), newStartTime, newEndTime);
+
+        boolean hasConflict = conflictingEvents.stream()
+                .anyMatch(e -> !e.getId().equals(eventId) && e.getStatus() != Status.CANCELED);
+
+        if (hasConflict) {
+            return "There is a scheduling conflict with another event at this venue.";
+        }
+
+        event.setEventName(updatedEvent.eventName() != null ? updatedEvent.eventName() : event.getEventName());
         event.setEventType(updatedEvent.eventType() != null ? updatedEvent.eventType() : event.getEventType());
-        event.setStartTime(updatedEvent.startTime() != null ? updatedEvent.startTime() : event.getStartTime());
-        event.setEndTime(updatedEvent.endTime() != null ? updatedEvent.endTime() : event.getEndTime());
+        event.setStartTime(newStartTime);
+        event.setEndTime(newEndTime);
+        event.setEventVenue(newVenue);
+
         if(approvedLetter != null && !approvedLetter.isEmpty()){
             try{
                 Path uploadPath = Paths.get(uploadDir).toAbsolutePath().normalize();
@@ -154,5 +171,17 @@ public class EventService {
         }
         eventRepository.save(event);
         return "Event updated successfully";
+    }
+
+    public String cancelEvent(Long eventId) {
+        Optional<Event> eventOptional = eventRepository.findById(eventId);
+        if(eventOptional.isEmpty()){
+            return "Event does not exist. Invalid event Id";
+        }
+        Event event = eventOptional.get();
+        event.setStatus(Status.CANCELED);
+        eventRepository.save(event);
+
+        return "Event canceled successfully";
     }
 }

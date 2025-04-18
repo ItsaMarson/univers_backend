@@ -53,4 +53,12 @@ public class EventController {
         }
         return ResponseEntity.ok(responseMessage);
     }
+    @PatchMapping("/{eventId}/cancel")
+    public ResponseEntity<String> cancelEvent(@PathVariable Long eventId){
+        String responseMessage = eventService.cancelEvent(eventId);
+        if(responseMessage.startsWith("Event does not exist. Invalid event Id")){
+            return ResponseEntity.badRequest().body(responseMessage);
+        }
+        return ResponseEntity.ok(responseMessage);
+    }
 }
