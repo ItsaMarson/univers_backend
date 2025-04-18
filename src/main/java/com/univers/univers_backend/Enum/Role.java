@@ -5,6 +5,12 @@ public enum Role {
     VP_ADMIN,
     VPAA,
     ORGANIZER,
-    EQUIPMENT_OWNER,
+    DEPT_HEAD,
+    MSDO,
+    OPC,
+    CORE,
+    TSG,
+    SSD,
+    FAO,
     VENUE_OWNER,
 }
