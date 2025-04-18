@@ -5,6 +5,7 @@ import com.univers.univers_backend.Enum.Status;
 import jakarta.persistence.*;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Entity
 @Table(name = "event")
@@ -44,6 +45,9 @@ public class Event {
     protected void onUpdate(){
         this.updatedAt = LocalDateTime.now();
     }
+
+    @OneToMany(mappedBy = "event", cascade = CascadeType.ALL)
+    private List<EventApprovalStatus> approvals;
 
     public Event(){}
 
