@@ -7,7 +7,7 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "event_approval_status")
-public class EventApprovalStatus {
+public class EventApproval {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -29,9 +29,9 @@ public class EventApprovalStatus {
 
     private LocalDateTime dateSigned;
 
-    public EventApprovalStatus() { }
+    public EventApproval() { }
 
-    public EventApprovalStatus(Long id, User signedBy, Event event, String remarks, Status status, LocalDateTime dateSigned) {
+    public EventApproval(Long id, User signedBy, Event event, String remarks, Status status, LocalDateTime dateSigned) {
         this.id = id;
         this.signedBy = signedBy;
         this.event = event;

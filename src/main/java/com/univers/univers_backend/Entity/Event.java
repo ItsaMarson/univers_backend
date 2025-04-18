@@ -47,7 +47,7 @@ public class Event {
     }
 
     @OneToMany(mappedBy = "event", cascade = CascadeType.ALL)
-    private List<EventApprovalStatus> approvals;
+    private List<EventApproval> approvals;
 
     public Event(){}
 
