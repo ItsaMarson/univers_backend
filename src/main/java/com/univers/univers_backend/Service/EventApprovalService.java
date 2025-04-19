@@ -38,7 +38,7 @@ public class EventApprovalService {
         if(user.getRoles().toString().contains(Role.VENUE_OWNER.toString())){
             return  approveByVenueOwner(eventId, user, remarks);
         }else if(user.getRoles().toString().contains(Role.MSDO.toString())){
-            return approveByMSDO(eventId, user, remarks);
+            return approveByCORE(eventId, user, remarks);
         }else if(user.getRoles().toString().contains(Role.OPC.toString())){
             return approveByOPC(eventId, user, remarks);
         }else if(user.getRoles().toString().contains(Role.DEPT_HEAD.toString())){
@@ -112,8 +112,8 @@ public class EventApprovalService {
 
         return "Approved successfully by " + approver.getRoles() + ": " + approver.getFirstname();
     }
-    public String approveByMSDO(Long evenId, User approverId, String remarks){
-        return approve(evenId, approverId, remarks, Role.MSDO.toString());
+    public String approveByCORE(Long evenId, User approverId, String remarks){
+        return approve(evenId, approverId, remarks, Role.CORE.toString());
     }
     public String approveByOPC(Long evenId, User approverId, String remarks){
         return approve(evenId, approverId, remarks, Role.OPC.toString());
