@@ -1,6 +1,7 @@
 package com.univers.univers_backend.Service;
 
 
+import com.univers.univers_backend.DTO.EventApprovalDTO;
 import com.univers.univers_backend.Entity.Event;
 import com.univers.univers_backend.Entity.EventApproval;
 import com.univers.univers_backend.Entity.User;
@@ -13,7 +14,9 @@ import com.univers.univers_backend.Repository.UserRepository;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 public class EventApprovalService {
@@ -152,6 +155,30 @@ public class EventApprovalService {
         eventApprovalRepository.save(eventApproval);
 
         return "Approved successfully by " + role;
+
+    }
+
+    public List<EventApprovalDTO> getAllApprovalsOfEvent(Long eventId){
+
+        Optional<Event> eventOptional = eventRepository.findById(eventId);
+
+        if(eventOptional.isEmpty()){
+            throw new IllegalArgumentException("Event not found");
+        }
+        Event event = eventOptional.get();
+        List<EventApproval> eventApproval = eventApprovalRepository.findAllByEvent(event);
+
+        return eventApproval.stream()
+                .map(approval -> new EventApprovalDTO(
+                        approval.getId(),
+                        approval.getEvent().getId(),
+                        approval.getSignedBy().getDepartment().getName(),
+                        approval.getSignedBy().getFullName(),
+                        approval.getRemarks(),
+                        approval.getStatus().toString(),
+                        approval.getDateSigned()
+                ))
+                .collect(Collectors.toList());
 
     }
 

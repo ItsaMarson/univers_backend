@@ -1,9 +1,12 @@
 package com.univers.univers_backend.Controller;
 
 
+import com.univers.univers_backend.DTO.EventApprovalDTO;
 import com.univers.univers_backend.Service.EventApprovalService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/event-approval")
@@ -24,5 +27,16 @@ public class EventApprovalController {
             return ResponseEntity.badRequest().body(response);
         }
         return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/{eventId}")
+    public ResponseEntity<?> getAllApprovalsOfEvent(@PathVariable Long eventId){
+
+        try{
+            List<EventApprovalDTO> approvals =  eventApprovalService.getAllApprovalsOfEvent(eventId);
+            return ResponseEntity.ok(approvals);
+        }catch (IllegalArgumentException e){
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
     }
 }
