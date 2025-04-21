@@ -25,7 +25,7 @@ public class AdminInitializer implements ApplicationRunner {
     @Override
     public void run(ApplicationArguments args){
         String adminEmail = dotenv.get("ADMIN_EMAIL", "admin@univers.com");
-        String adminPassword = dotenv.get("ADMIN_PASSWORD", "admin1234");
+        String adminPassword = dotenv.get("ADMIN_PASSWORD", "AdminPassword123");
         Role adminRole = Role.SUPER_ADMIN;
 
         if(userRepository.existsByEmail(adminEmail) || userRepository.existsByRoles(adminRole)) return;

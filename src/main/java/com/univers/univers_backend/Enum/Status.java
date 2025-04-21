@@ -5,4 +5,12 @@ public enum Status {
     APPROVED,
     PENDING,
     CANCELED,
+
+    DEFECT,
+
+    MAINTENANCE,
+
+    NEED_REPLACEMENT,
+
+    NEW
 }
