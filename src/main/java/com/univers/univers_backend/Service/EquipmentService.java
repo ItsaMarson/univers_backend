@@ -17,7 +17,9 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 public class EquipmentService {
@@ -41,7 +43,7 @@ public class EquipmentService {
             throw new IllegalArgumentException("User not found");
         }
         User owner = userOptional.get();
-        if(!owner.getRoles().equals(Role.MSDO) || !owner.getRoles().equals(Role.OPC) ){
+        if(!owner.getRoles().equals(Role.EQUIPMENT_OWNER)){
             throw new IllegalArgumentException("You are not authorized to perform this action");
         }
 
@@ -84,6 +86,29 @@ public class EquipmentService {
                 savedEquipment.getCreatedAt(),
                 savedEquipment.getUpdatedAt()
         );
+    }
+
+    public List<EquipmentDTO> getAllEquipmentsByOwner(Long userId){
+        Optional<User> userOptional = userRepository.findById(userId);
+        if(userOptional.isEmpty()){
+            throw new IllegalArgumentException("User not found");
+        }
+        User owner = userOptional.get();
+        List<Equipment> equipmentList = equipmentRepository.findAllByEquipmentOwner(owner);
+
+        return equipmentList.stream()
+                .map(equipment -> new EquipmentDTO(
+                        equipment.getId(),
+                        equipment.getName(),
+                        equipment.getAvailability(),
+                        equipment.getBrand(),
+                        equipment.getQuantity(),
+                        equipment.getEquipmentOwner().getId(),
+                        equipment.getImagePath(),
+                        equipment.getStatus(),
+                        equipment.getCreatedAt(),
+                        equipment.getUpdatedAt()
+                )).collect(Collectors.toList());
     }
 
 }
