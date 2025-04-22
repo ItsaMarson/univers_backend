@@ -1,3 +1,4 @@
+/* (C)2025 */
 package com.univers.univers_backend.Enum;
 
 public enum Role {
@@ -13,4 +14,5 @@ public enum Role {
     SSD,
     FAO,
     VENUE_OWNER,
+    EQUIPMENT_OWNER,
 }
