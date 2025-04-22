@@ -22,11 +22,11 @@ public class VenueService {
         this.venueRepository = venueRepository;
         this.userRepository = userRepository;
     }
-    public String addVenue(VenueDTO venueDTO) {
+    public VenueDTO addVenue(VenueDTO venueDTO) {
         Optional<Venue> existingVenue = venueRepository.findByNameIgnoreCase(venueDTO.name());
 
         if(existingVenue.isPresent()){
-            return "Venue already exists.";
+            throw new IllegalArgumentException("Venue already exists.");
         }
         Venue newVenue = new Venue();
         newVenue.setName(venueDTO.name());
@@ -36,12 +36,19 @@ public class VenueService {
             User venueOwner = userRepository.findById(venueDTO.venueOwnerId()).orElse(null);
 
             if(venueOwner == null){
-                return "User not found.";
+                throw new IllegalArgumentException("User not found");
             }
             newVenue.setVenueOwner(venueOwner);
         }
-        venueRepository.save(newVenue);
-        return "Venue is added successfully";
+        Venue savedVenue = venueRepository.save(newVenue);
+        return new VenueDTO(
+                savedVenue.getId(),
+                savedVenue.getName(),
+                savedVenue.getLocation(),
+                savedVenue.getVenueOwner().getId(),
+                savedVenue.getCreatedAt(),
+                savedVenue.getUpdatedAt()
+        );
     }
 
     public List<VenueDTO> getAllVenues() {

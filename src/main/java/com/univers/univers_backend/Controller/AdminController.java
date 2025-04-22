@@ -11,6 +11,7 @@ import com.univers.univers_backend.Service.DepartmentService;
 import com.univers.univers_backend.Service.UserService;
 import com.univers.univers_backend.Service.VenueService;
 import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -91,13 +92,14 @@ public class AdminController {
     }
 
     @PostMapping("/venues")
-    public ResponseEntity<String> addVenue(@RequestBody VenueDTO venueDTO){
-        String responseMessage = venueService.addVenue(venueDTO);
+    public ResponseEntity<?> addVenue(@RequestBody VenueDTO venueDTO){
 
-        if("Venue already exists.".equals(responseMessage) || "User not found.".equals(responseMessage)){
-            return ResponseEntity.badRequest().body(responseMessage);
+        try{
+            VenueDTO newVenue = venueService.addVenue(venueDTO);
+            return new ResponseEntity<>(newVenue, HttpStatus.CREATED);
+        }catch (IllegalArgumentException e){
+            return ResponseEntity.badRequest().body(e.getMessage());
         }
-        return ResponseEntity.ok(responseMessage);
     }
 
 
