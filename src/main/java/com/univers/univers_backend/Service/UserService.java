@@ -426,6 +426,6 @@ public class UserService {
 
         Venue venue = venueOptional.get();
 
-        return new VenueDTO(venue.getId(), venue.getName(), venue.getLocation(), null, null, null);
+        return new VenueDTO(venue.getId(), venue.getName(), venue.getLocation(), null, null, venue.getCreatedAt(), venue.getUpdatedAt());
     }
 }
