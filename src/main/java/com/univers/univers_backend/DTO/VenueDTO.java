@@ -7,7 +7,8 @@ public record VenueDTO(
         Long id,
         String name,
         String location,
-        Long venueOwnerId,
+        // Long venueOwnerId,
+        UserDTO venueOwner, 
         LocalDateTime createdAt,
         LocalDateTime updatedAt) {
 }
