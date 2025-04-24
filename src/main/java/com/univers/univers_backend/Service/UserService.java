@@ -319,6 +319,39 @@ public class UserService {
         return "User details updated successfully.";
     }
 
+    public String editUserAsAdmin(Long userId, UserDTO updatedUser) {
+
+        Optional<User> existingUser = userRepository.findById(userId);
+        if (existingUser.isEmpty()) {
+            return "User does not exist";
+        }
+
+        User user = existingUser.get();
+        user.setFirstname(
+                updatedUser.firstName() != null ? updatedUser.firstName() : user.getFirstname());
+        user.setLastname(
+                updatedUser.lastName() != null ? updatedUser.lastName() : user.getLastname());
+        user.setRoles(updatedUser.role() != null ? Role.valueOf(updatedUser.role()) : user.getRoles());
+        user.setPhone_number(
+                updatedUser.phoneNumber() != null
+                        ? updatedUser.phoneNumber()
+                        : user.getPhone_number());
+        user.setId_number(
+                updatedUser.idNumber() != null ? updatedUser.idNumber() : user.getId_number());
+        if (updatedUser.department_id() != null) {
+            Department myDept =
+                    departmentRepository.findById(updatedUser.department_id()).orElse(null);
+
+            if (myDept == null) {
+                return "Invalid department Id";
+            }
+            user.setDepartment(myDept);
+        }
+        userRepository.save(user);
+        return "User details updated successfully.";
+    }
+
+
     public String deactivateUser(Long userId) {
         Optional<User> existingUser = userRepository.findById(userId);
 

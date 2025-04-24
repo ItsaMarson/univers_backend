@@ -146,4 +146,16 @@ public class AdminController {
         }
     }
 
+    @PatchMapping("/users/{userId}")
+    public ResponseEntity<String> editUserAsAdmin(
+            @PathVariable Long userId, @RequestBody UserDTO userDTO) {
+
+        String responseMessage = userService.editUserAsAdmin(userId, userDTO);
+        if ("User does not exist".equals(responseMessage)
+                || "Invalid department Id".equals(responseMessage)) {
+            return ResponseEntity.badRequest().body(responseMessage);
+        }
+        return ResponseEntity.ok(responseMessage);
+    }
+
 }
