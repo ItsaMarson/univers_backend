@@ -2,20 +2,29 @@ package com.univers.univers_backend.Controller;
 
 
 
+import java.util.List;
+import java.util.NoSuchElementException;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
 import com.univers.univers_backend.DTO.CreateUserDTO;
 import com.univers.univers_backend.DTO.DepartmentDTO;
 import com.univers.univers_backend.DTO.UserDTO;
 import com.univers.univers_backend.DTO.VenueDTO;
-import com.univers.univers_backend.Repository.VenueRepository;
 import com.univers.univers_backend.Service.DepartmentService;
 import com.univers.univers_backend.Service.UserService;
 import com.univers.univers_backend.Service.VenueService;
-import jakarta.validation.Valid;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
+import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/admin")
@@ -102,5 +111,33 @@ public class AdminController {
         }
     }
 
+    @PatchMapping("/venues/{venueId}")
+    public ResponseEntity<?> updateVenue(@PathVariable Long venueId, @RequestBody VenueDTO venueDTO) {
+        try {
+            VenueDTO updatedVenue = venueService.updateVenue(venueId, venueDTO);
+            return ResponseEntity.ok(updatedVenue);
+        } catch (NoSuchElementException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("An unexpected error occurred during venue update.");
+        }
+    }
+
+    @DeleteMapping("/venues/{venueId}")
+    public ResponseEntity<?> deleteVenue(@PathVariable Long venueId) {
+        try {
+            venueService.deleteVenue(venueId);
+            return ResponseEntity.ok("Venue with ID " + venueId + " deleted successfully.");
+        } catch (NoSuchElementException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+        } catch (Exception e) {
+             // Catch potential constraint violations if venue is linked elsewhere
+            return ResponseEntity.status(HttpStatus.CONFLICT).body("Could not delete venue. It might be associated with existing events.");
+            // Or a more generic internal server error:
+            // return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("An error occurred while deleting the venue.");
+        }
+    }
 
 }
