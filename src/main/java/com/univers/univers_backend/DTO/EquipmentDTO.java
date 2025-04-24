@@ -1,8 +1,8 @@
 package com.univers.univers_backend.DTO;
 
-import com.univers.univers_backend.Enum.Status;
-
 import java.time.LocalDateTime;
+
+import com.univers.univers_backend.Enum.Status;
 
 public record EquipmentDTO (
         Long id,
@@ -10,7 +10,8 @@ public record EquipmentDTO (
         Boolean availability,
         String brand,
         Integer quantity,
-        Long equipmentOwner,
+        // Long equipmentOwner,
+        UserDTO equipmentOwner, 
         String imagePath,
         Status status,
         LocalDateTime createdAt,
