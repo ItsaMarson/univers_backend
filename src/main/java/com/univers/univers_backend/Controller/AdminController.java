@@ -14,7 +14,9 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 import com.univers.univers_backend.DTO.CreateUserDTO;
 import com.univers.univers_backend.DTO.DepartmentDTO;
@@ -101,27 +103,32 @@ public class AdminController {
     }
 
     @PostMapping("/venues")
-    public ResponseEntity<?> addVenue(@RequestBody VenueDTO venueDTO){
+    public ResponseEntity<?> addVenue(@RequestPart("venue") VenueDTO venueDTO,
+                                      @RequestPart(value = "image", required = false) MultipartFile imageFile){
 
         try{
-            VenueDTO newVenue = venueService.addVenue(venueDTO);
+            VenueDTO newVenue = venueService.addVenue(venueDTO, imageFile);
             return new ResponseEntity<>(newVenue, HttpStatus.CREATED);
         }catch (IllegalArgumentException e){
             return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (RuntimeException e) {
+             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
         }
     }
 
     @PatchMapping("/venues/{venueId}")
-    public ResponseEntity<?> updateVenue(@PathVariable Long venueId, @RequestBody VenueDTO venueDTO) {
+    public ResponseEntity<?> updateVenue(@PathVariable Long venueId,
+                                         @RequestPart("venue") VenueDTO venueDTO,
+                                         @RequestPart(value = "image", required = false) MultipartFile imageFile) {
         try {
-            VenueDTO updatedVenue = venueService.updateVenue(venueId, venueDTO);
+            VenueDTO updatedVenue = venueService.updateVenue(venueId, venueDTO, imageFile);
             return ResponseEntity.ok(updatedVenue);
         } catch (NoSuchElementException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("An unexpected error occurred during venue update.");
+        } catch (RuntimeException e) { // Catch potential file saving/deletion errors
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("An unexpected error occurred during venue update: " + e.getMessage());
         }
     }
 
@@ -133,8 +140,7 @@ public class AdminController {
         } catch (NoSuchElementException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
         } catch (Exception e) {
-             // Catch potential constraint violations if venue is linked elsewhere
-            return ResponseEntity.status(HttpStatus.CONFLICT).body("Could not delete venue. It might be associated with existing events.");
+            return ResponseEntity.status(HttpStatus.CONFLICT).body("Could not delete venue. It might be associated with existing events or an error occurred during image deletion.");
             // Or a more generic internal server error:
             // return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("An error occurred while deleting the venue.");
         }

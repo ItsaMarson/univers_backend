@@ -9,6 +9,7 @@ public record VenueDTO(
         String location,
         // Long venueOwnerId,
         UserDTO venueOwner, 
+        String imagePath,
         LocalDateTime createdAt,
         LocalDateTime updatedAt) {
 }

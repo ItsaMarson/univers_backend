@@ -21,6 +21,8 @@ public class Venue {
     @JoinColumn(name = "venue_owner_id", nullable = false)
     private User venueOwner;
 
+    private String imagePath;
+
     @Column(updatable = false)
     LocalDateTime createdAt;
 
@@ -37,11 +39,12 @@ public class Venue {
     }
 
     public Venue(){}
-    public Venue(Long id, String name, String location, User venueOwner, LocalDateTime createdAt, LocalDateTime updatedAt) {
+    public Venue(Long id, String name, String location, User venueOwner, String imagePath, LocalDateTime createdAt, LocalDateTime updatedAt) {
         this.id = id;
         this.name = name;
         this.location = location;
         this.venueOwner = venueOwner;
+        this.imagePath = imagePath;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
     }
@@ -72,6 +75,14 @@ public class Venue {
 
     public void setVenueOwner(User venueOwner) {
         this.venueOwner = venueOwner;
+    }
+
+    public String getImagePath() {
+        return imagePath;
+    }
+
+    public void setImagePath(String imagePath) {
+        this.imagePath = imagePath;
     }
 
     public LocalDateTime getCreatedAt() {
