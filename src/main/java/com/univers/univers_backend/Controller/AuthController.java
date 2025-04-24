@@ -83,7 +83,7 @@ public class AuthController {
 
         User user = userRepository.findByEmail(email).orElse(null);
         if (user == null) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("User not found");
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Email does not exist");
         }
 
         if (user.getVerificationCode() == null || !user.getVerificationCode().equals(code)) {
