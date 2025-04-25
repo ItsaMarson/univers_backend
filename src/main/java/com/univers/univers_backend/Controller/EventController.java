@@ -42,7 +42,7 @@ public class EventController {
         } catch (IllegalArgumentException | NoSuchElementException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         } catch (Exception e) { 
-            System.err.println("Error creating event: " + e.getMessage()); /
+            System.err.println("Error creating event: " + e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("An unexpected error occurred while creating the event.");
         }
