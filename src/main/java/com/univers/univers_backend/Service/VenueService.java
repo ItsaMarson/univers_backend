@@ -1,17 +1,5 @@
+/* (C)2025 */
 package com.univers.univers_backend.Service;
-
-import java.io.IOException; 
-import java.nio.file.Files; 
-import java.nio.file.Path; 
-import java.nio.file.Paths; 
-import java.util.List;
-import java.util.NoSuchElementException;
-import java.util.Optional;
-import java.util.stream.Collectors;
-
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
 
 import com.univers.univers_backend.DTO.UserDTO;
 import com.univers.univers_backend.DTO.VenueDTO;
@@ -19,29 +7,44 @@ import com.univers.univers_backend.Entity.User;
 import com.univers.univers_backend.Entity.Venue;
 import com.univers.univers_backend.Repository.UserRepository;
 import com.univers.univers_backend.Repository.VenueRepository;
-
 import jakarta.transaction.Transactional;
+import java.util.List;
+import java.util.NoSuchElementException;
+import java.util.Optional;
+import java.util.stream.Collectors;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
 @Service
 public class VenueService {
 
     private final VenueRepository venueRepository;
     private final UserRepository userRepository;
+    private final FileStorageService fileStorageService; // Inject FileStorageService
 
-    @Value("${upload.venue.dir}") 
-    private String uploadDir;
+    // Remove @Value for uploadDir
+    // @Value("${upload.venue.dir}")
+    // private String uploadDir;
 
+    @Value("${minio.bucket.venues}") // Inject MinIO bucket name
+    private String venuesBucketName;
 
-    public VenueService(VenueRepository venueRepository, UserRepository userRepository){
+    // Update constructor
+    public VenueService(
+            VenueRepository venueRepository,
+            UserRepository userRepository,
+            FileStorageService fileStorageService) {
         this.venueRepository = venueRepository;
         this.userRepository = userRepository;
+        this.fileStorageService = fileStorageService; // Add to constructor
     }
 
     @Transactional // Added Transactional
     public VenueDTO addVenue(VenueDTO venueDTO, MultipartFile imageFile) {
         Optional<Venue> existingVenue = venueRepository.findByNameIgnoreCase(venueDTO.name());
 
-        if(existingVenue.isPresent()){
+        if (existingVenue.isPresent()) {
             throw new IllegalArgumentException("Venue already exists.");
         }
         Venue newVenue = new Venue();
@@ -49,149 +52,168 @@ public class VenueService {
         newVenue.setLocation(venueDTO.location());
 
         UserDTO ownerDto = null;
-        if(venueDTO.venueOwner() != null && venueDTO.venueOwner().id() != null){
-            User venueOwner = userRepository.findById(venueDTO.venueOwner().id())
-                    .orElseThrow(() -> new IllegalArgumentException("User (Venue Owner) not found"));
+        if (venueDTO.venueOwner() != null && venueDTO.venueOwner().id() != null) {
+            User venueOwner =
+                    userRepository
+                            .findById(venueDTO.venueOwner().id())
+                            .orElseThrow(
+                                    () ->
+                                            new IllegalArgumentException(
+                                                    "User (Venue Owner) not found"));
 
             newVenue.setVenueOwner(venueOwner);
             ownerDto = mapUserToDTO(venueOwner);
         }
 
+        // Use FileStorageService for upload
         if (imageFile != null && !imageFile.isEmpty()) {
-            String imagePath = saveImage(imageFile);
-            newVenue.setImagePath(imagePath);
+            String objectName =
+                    fileStorageService.uploadFile(
+                            imageFile, venuesBucketName, "venue-images/"); // Store object name
+            newVenue.setImagePath(objectName); // Store the MinIO object name
         }
 
         Venue savedVenue = venueRepository.save(newVenue);
 
+        // Regenerate ownerDto if it wasn't set initially but owner exists after save
         if (savedVenue.getVenueOwner() != null && ownerDto == null) {
-             User savedOwner = savedVenue.getVenueOwner();
-             ownerDto = mapUserToDTO(savedOwner);
+            User savedOwner = savedVenue.getVenueOwner();
+            ownerDto = mapUserToDTO(savedOwner);
         }
 
-        return mapVenueToDTO(savedVenue, ownerDto);
+        return mapVenueToDTO(savedVenue, ownerDto); // mapVenueToDTO needs update
     }
 
     public List<VenueDTO> getAllVenues() {
         List<Venue> venues = venueRepository.findAll();
-
         return venues.stream()
-                .map(venue -> {
-                    UserDTO ownerDto = null;
-                    if (venue.getVenueOwner() != null) {
-                        ownerDto = mapUserToDTO(venue.getVenueOwner());
-                    }
-                    return mapVenueToDTO(venue, ownerDto);
-                })
+                .map(
+                        venue ->
+                                mapVenueToDTO(
+                                        venue,
+                                        mapUserToDTO(venue.getVenueOwner()))) // mapVenueToDTO needs
+                // update
                 .collect(Collectors.toList());
-
-     }
+    }
 
     public VenueDTO getVenueById(Long venueId) {
-        Venue venue = venueRepository.findById(venueId)
-                .orElseThrow(() -> new NoSuchElementException("Venue not found with ID: " + venueId));
-
-        UserDTO ownerDto = null;
-        if (venue.getVenueOwner() != null) {
-            ownerDto = mapUserToDTO(venue.getVenueOwner());
-        }
-        return mapVenueToDTO(venue, ownerDto);
+        Venue venue =
+                venueRepository
+                        .findById(venueId)
+                        .orElseThrow(
+                                () ->
+                                        new NoSuchElementException(
+                                                "Venue not found with ID: " + venueId));
+        return mapVenueToDTO(
+                venue, mapUserToDTO(venue.getVenueOwner())); // mapVenueToDTO needs update
     }
 
     @Transactional
-    public VenueDTO updateVenue(Long venueId, VenueDTO venueDTO, MultipartFile imageFile) { // Added imageFile parameter
-        Venue venue = venueRepository.findById(venueId)
-                .orElseThrow(() -> new NoSuchElementException("Venue not found with ID: " + venueId));
+    public VenueDTO updateVenue(Long venueId, VenueDTO venueDTO, MultipartFile imageFile) {
+        Venue venue =
+                venueRepository
+                        .findById(venueId)
+                        .orElseThrow(
+                                () ->
+                                        new NoSuchElementException(
+                                                "Venue not found with ID: " + venueId));
 
-        if (venueDTO.name() != null && !venueDTO.name().equalsIgnoreCase(venue.getName())) {
-            Optional<Venue> existingVenueWithName = venueRepository.findByNameIgnoreCase(venueDTO.name());
-            if (existingVenueWithName.isPresent()) {
-                throw new IllegalArgumentException("Another venue with the name '" + venueDTO.name() + "' already exists.");
+        // Check for name conflict only if name is changing
+        if (venueDTO.name() != null
+                && !venueDTO.name().isBlank()
+                && !venueDTO.name().equalsIgnoreCase(venue.getName())) {
+            Optional<Venue> existingVenueWithName =
+                    venueRepository.findByNameIgnoreCase(venueDTO.name());
+            if (existingVenueWithName.isPresent()
+                    && !existingVenueWithName.get().getId().equals(venueId)) {
+                throw new IllegalArgumentException(
+                        "Another venue with the name '" + venueDTO.name() + "' already exists.");
             }
             venue.setName(venueDTO.name());
         }
 
-        if (venueDTO.location() != null) {
+        if (venueDTO.location() != null && !venueDTO.location().isBlank()) {
             venue.setLocation(venueDTO.location());
         }
 
         UserDTO ownerDto = null;
+        // Handle owner update
         if (venueDTO.venueOwner() != null && venueDTO.venueOwner().id() != null) {
-            if (venue.getVenueOwner() == null || !venue.getVenueOwner().getId().equals(venueDTO.venueOwner().id())) {
-                User newVenueOwner = userRepository.findById(venueDTO.venueOwner().id())
-                        .orElseThrow(() -> new IllegalArgumentException("User (Venue Owner) not found with ID: " + venueDTO.venueOwner().id()));
+            if (venue.getVenueOwner() == null
+                    || !venue.getVenueOwner().getId().equals(venueDTO.venueOwner().id())) {
+                User newVenueOwner =
+                        userRepository
+                                .findById(venueDTO.venueOwner().id())
+                                .orElseThrow(
+                                        () ->
+                                                new IllegalArgumentException(
+                                                        "User (Venue Owner) not found with ID: "
+                                                                + venueDTO.venueOwner().id()));
                 venue.setVenueOwner(newVenueOwner);
                 ownerDto = mapUserToDTO(newVenueOwner);
             } else {
-                 ownerDto = mapUserToDTO(venue.getVenueOwner());
+                // Owner hasn't changed, map existing one
+                ownerDto = mapUserToDTO(venue.getVenueOwner());
             }
         } else if (venueDTO.venueOwner() == null && venue.getVenueOwner() != null) {
-             venue.setVenueOwner(null);
-             ownerDto = null;
+            // Owner is being removed
+            venue.setVenueOwner(null);
+            ownerDto = null;
         } else if (venue.getVenueOwner() != null) {
-             ownerDto = mapUserToDTO(venue.getVenueOwner());
+            // Owner exists and wasn't changed in DTO, map existing one
+            ownerDto = mapUserToDTO(venue.getVenueOwner());
         }
 
+        // Handle image update
         if (imageFile != null && !imageFile.isEmpty()) {
-            deleteImage(venue.getImagePath()); // Delete old image if it exists
-            String newImagePath = saveImage(imageFile);
-            venue.setImagePath(newImagePath);
+            // Delete old image from MinIO if it exists
+            if (venue.getImagePath() != null && !venue.getImagePath().isBlank()) {
+                fileStorageService.deleteFile(venue.getImagePath(), venuesBucketName);
+            }
+            // Upload new image
+            String newObjectName =
+                    fileStorageService.uploadFile(imageFile, venuesBucketName, "venue-images/");
+            venue.setImagePath(newObjectName); // Store the new object name
         }
 
         Venue updatedVenue = venueRepository.save(venue);
+
+        // Ensure ownerDto is correctly set after potential updates
         if (updatedVenue.getVenueOwner() != null && ownerDto == null) {
-             ownerDto = mapUserToDTO(updatedVenue.getVenueOwner());
+            ownerDto = mapUserToDTO(updatedVenue.getVenueOwner());
+        } else if (updatedVenue.getVenueOwner() == null) {
+            ownerDto = null;
         }
-        return mapVenueToDTO(updatedVenue, ownerDto);
+
+        return mapVenueToDTO(updatedVenue, ownerDto); // mapVenueToDTO needs update
     }
 
-    @Transactional 
+    @Transactional
     public void deleteVenue(Long venueId) {
-        Venue venue = venueRepository.findById(venueId) 
-            .orElseThrow(() -> new NoSuchElementException("Venue not found with ID: " + venueId));
+        Venue venue =
+                venueRepository
+                        .findById(venueId)
+                        .orElseThrow(
+                                () ->
+                                        new NoSuchElementException(
+                                                "Venue not found with ID: " + venueId));
 
-        deleteImage(venue.getImagePath());
+        // Delete image from MinIO if it exists
+        if (venue.getImagePath() != null && !venue.getImagePath().isBlank()) {
+            fileStorageService.deleteFile(venue.getImagePath(), venuesBucketName);
+        }
 
+        // Now delete the venue record
         venueRepository.deleteById(venueId);
     }
 
+    // Remove saveImage and deleteImage methods
+    /*
+    private String saveImage(MultipartFile imageFile) { ... }
+    private void deleteImage(String imagePathString) { ... }
+    */
 
-    private String saveImage(MultipartFile imageFile) {
-        try {
-            Path uploadPath = Paths.get(uploadDir).toAbsolutePath().normalize();
-            Files.createDirectories(uploadPath);
-
-            String originalFilename = imageFile.getOriginalFilename();
-            if (originalFilename == null) {
-                 throw new RuntimeException("Image file name is null.");
-            }
-            String sanitizedFilename = originalFilename.replaceAll("[^a-zA-Z0-9.\\-]", "_");
-            String uniqueFilename = System.currentTimeMillis() + "_" + sanitizedFilename;
-
-            Path filePath = uploadPath.resolve(uniqueFilename);
-            imageFile.transferTo(filePath.toFile());
-
-            // Return the relative path or just the filename if preferred
-            // For consistency with EquipmentService, returning full path for now
-            return filePath.toString();
-        } catch (IOException e) {
-            throw new RuntimeException("Failed to save venue image file. Please try again.", e);
-        }
-    }
-
-    private void deleteImage(String imagePathString) {
-        if (imagePathString != null && !imagePathString.isEmpty()) {
-            try {
-                 Path imagePath = Paths.get(imagePathString);
-                 Files.deleteIfExists(imagePath);
-             } catch (IOException e) {
-                 // Log the error but don't stop the main operation (e.g., venue deletion)
-                 System.err.println("Failed to delete venue image file: " + imagePathString + ". Error: " + e.getMessage());
-                 // logger.error("Failed to delete image file: {}", imagePathString, e);
-             }
-        }
-    }
-
+    // This mapping needs to stay
     private UserDTO mapUserToDTO(User user) {
         if (user == null) return null;
         return new UserDTO(
@@ -207,19 +229,22 @@ public class VenueService {
                 user.getEmailVerified(),
                 user.isActive(),
                 user.getCreatedAt(),
-                user.getUpdatedAt()
-        );
+                user.getUpdatedAt());
     }
 
+    // Update mapVenueToDTO to generate URL from object name
     private VenueDTO mapVenueToDTO(Venue venue, UserDTO ownerDto) {
-         return new VenueDTO(
+        String imageUrl = null;
+        if (venue.getImagePath() != null && !venue.getImagePath().isBlank()) {
+            imageUrl = fileStorageService.getFileUrl(venue.getImagePath(), venuesBucketName);
+        }
+        return new VenueDTO(
                 venue.getId(),
                 venue.getName(),
                 venue.getLocation(),
                 ownerDto,
-                venue.getImagePath(),
+                imageUrl, // Use the generated URL
                 venue.getCreatedAt(),
-                venue.getUpdatedAt()
-        );
+                venue.getUpdatedAt());
     }
 }

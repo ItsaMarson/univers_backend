@@ -1,5 +1,5 @@
+/* (C)2025 */
 package com.univers.univers_backend.Service;
-
 
 import com.univers.univers_backend.DTO.EventApprovalDTO;
 import com.univers.univers_backend.Entity.Event;
@@ -11,12 +11,11 @@ import com.univers.univers_backend.Enum.Status;
 import com.univers.univers_backend.Repository.EventApprovalRepository;
 import com.univers.univers_backend.Repository.EventRepository;
 import com.univers.univers_backend.Repository.UserRepository;
-import org.springframework.stereotype.Service;
-
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import org.springframework.stereotype.Service;
 
 @Service
 public class EventApprovalService {
@@ -25,38 +24,41 @@ public class EventApprovalService {
     private final EventRepository eventRepository;
     private final UserRepository userRepository;
 
-    public EventApprovalService(EventApprovalRepository eventApprovalRepository,
-                                EventRepository eventRepository,
-                                UserRepository userRepository){
+    public EventApprovalService(
+            EventApprovalRepository eventApprovalRepository,
+            EventRepository eventRepository,
+            UserRepository userRepository) {
         this.eventApprovalRepository = eventApprovalRepository;
         this.eventRepository = eventRepository;
         this.userRepository = userRepository;
-
     }
-    public String approveEvent(Long eventId, Long approverId, String remarks){
+
+    public String approveEvent(Long eventId, Long approverId, String remarks) {
         User user = userRepository.findById(approverId).orElseThrow();
-        if(user.getRoles().toString().contains(Role.VENUE_OWNER.toString())){
-            return  approveByVenueOwner(eventId, user, remarks);
-        }else if(user.getRoles().toString().contains(Role.EQUIPMENT_OWNER.toString())){
+        if (user.getRoles().toString().contains(Role.VENUE_OWNER.toString())) {
+            return approveByVenueOwner(eventId, user, remarks);
+        } else if (user.getRoles().toString().contains(Role.SUPER_ADMIN.toString())) {
             return approveByMSDO(eventId, user, remarks);
-        }else if(user.getRoles().toString().contains(Role.EQUIPMENT_OWNER.toString())){
+        } else if (user.getRoles().toString().contains(Role.EQUIPMENT_OWNER.toString())) {
+            return approveByMSDO(eventId, user, remarks);
+        } else if (user.getRoles().toString().contains(Role.EQUIPMENT_OWNER.toString())) {
             return approveByOPC(eventId, user, remarks);
-        }else if(user.getRoles().toString().contains(Role.DEPT_HEAD.toString())){
+        } else if (user.getRoles().toString().contains(Role.DEPT_HEAD.toString())) {
             return approveByDepartmentHead(eventId, user, remarks);
-        }else if(user.getRoles().toString().contains(Role.VP_ADMIN.toString())){
+        } else if (user.getRoles().toString().contains(Role.VP_ADMIN.toString())) {
             return approveByVPAdmin(eventId, user, remarks);
-        }else if(user.getRoles().toString().contains(Role.VPAA.toString())){
+        } else if (user.getRoles().toString().contains(Role.VPAA.toString())) {
             return approveByVPAA(eventId, user, remarks);
-        }else if(user.getRoles().toString().contains(Role.SSD.toString())){
+        } else if (user.getRoles().toString().contains(Role.SSD.toString())) {
             return approveBySSD(eventId, user, remarks);
-        }else if(user.getRoles().toString().contains(Role.FAO.toString())){
+        } else if (user.getRoles().toString().contains(Role.FAO.toString())) {
             return approveByFAO(eventId, user, remarks);
-        }else{
+        } else {
             return "You are not authorized to approve this event";
         }
     }
 
-    public String approveByVenueOwner(Long eventId, User approver, String remarks){
+    public String approveByVenueOwner(Long eventId, User approver, String remarks) {
 
         Optional<Event> eventOpt = eventRepository.findById(eventId);
         if (eventOpt.isEmpty()) {
@@ -84,9 +86,14 @@ public class EventApprovalService {
 
         eventApprovalRepository.save(eventApproval);
 
-        return "Venue approved successfully by " + ": " + approver.getRoles() + ": " + approver.getFirstname();
+        return "Venue approved successfully by "
+                + ": "
+                + approver.getRoles()
+                + ": "
+                + approver.getFirstname();
     }
-    public String approveByDepartmentHead(Long eventId, User approver, String remarks){
+
+    public String approveByDepartmentHead(Long eventId, User approver, String remarks) {
         Optional<Event> eventOpt = eventRepository.findById(eventId);
         if (eventOpt.isEmpty()) {
             return "Error: Event not found.";
@@ -95,7 +102,8 @@ public class EventApprovalService {
         User deptHead = event.getOrganizer().getDepartment().getDeptHead();
 
         if (deptHead == null || !deptHead.equals(approver)) {
-            return "Error: You are not authorized to approve this event as a department head of " + approver.getDepartment();
+            return "Error: You are not authorized to approve this event as a department head of "
+                    + approver.getDepartment();
         }
         if (!approver.getRoles().toString().contains(Role.DEPT_HEAD.toString())) {
             return "Error: User does not have the DEPT_HEAD role.";
@@ -112,36 +120,41 @@ public class EventApprovalService {
 
         return "Approved successfully by " + approver.getRoles() + ": " + approver.getFirstname();
     }
-    public String approveByMSDO(Long evenId, User approverId, String remarks){
+
+    public String approveByMSDO(Long evenId, User approverId, String remarks) {
         return approve(evenId, approverId, remarks, Role.EQUIPMENT_OWNER.toString());
     }
-    public String approveByOPC(Long evenId, User approverId, String remarks){
+
+    public String approveByOPC(Long evenId, User approverId, String remarks) {
         return approve(evenId, approverId, remarks, Role.EQUIPMENT_OWNER.toString());
     }
-    public String approveByVPAdmin(Long evenId, User approverId, String remarks){
+
+    public String approveByVPAdmin(Long evenId, User approverId, String remarks) {
         return approve(evenId, approverId, remarks, Role.VP_ADMIN.toString());
     }
-    public String approveByVPAA(Long evenId, User approverId, String remarks){
+
+    public String approveByVPAA(Long evenId, User approverId, String remarks) {
         return approve(evenId, approverId, remarks, Role.VPAA.toString());
     }
-    public String approveBySSD(Long evenId, User approverId, String remarks){
+
+    public String approveBySSD(Long evenId, User approverId, String remarks) {
         return approve(evenId, approverId, remarks, Role.SSD.toString());
     }
-    public String approveByFAO(Long evenId, User approverId, String remarks){
+
+    public String approveByFAO(Long evenId, User approverId, String remarks) {
         return approve(evenId, approverId, remarks, Role.FAO.toString());
     }
 
-
-    public String approve(Long eventId, User approver, String remarks, String role){
+    public String approve(Long eventId, User approver, String remarks, String role) {
         Optional<Event> eventOptional = eventRepository.findById(eventId);
 
-        if(eventOptional.isEmpty()){
+        if (eventOptional.isEmpty()) {
             return "Error: Event or user not found";
         }
 
         Event event = eventOptional.get();
 
-        if(!approver.getRoles().toString().contains(role)){
+        if (!approver.getRoles().toString().contains(role)) {
             return "Error: You are not authorized to approve this event";
         }
 
@@ -155,31 +168,29 @@ public class EventApprovalService {
         eventApprovalRepository.save(eventApproval);
 
         return "Approved successfully by " + role;
-
     }
 
-    public List<EventApprovalDTO> getAllApprovalsOfEvent(Long eventId){
+    public List<EventApprovalDTO> getAllApprovalsOfEvent(Long eventId) {
 
         Optional<Event> eventOptional = eventRepository.findById(eventId);
 
-        if(eventOptional.isEmpty()){
+        if (eventOptional.isEmpty()) {
             throw new IllegalArgumentException("Event not found");
         }
         Event event = eventOptional.get();
         List<EventApproval> eventApproval = eventApprovalRepository.findAllByEvent(event);
 
         return eventApproval.stream()
-                .map(approval -> new EventApprovalDTO(
-                        approval.getId(),
-                        approval.getEvent().getId(),
-                        approval.getSignedBy().getDepartment().getName(),
-                        approval.getSignedBy().getFullName(),
-                        approval.getRemarks(),
-                        approval.getStatus().toString(),
-                        approval.getDateSigned()
-                ))
+                .map(
+                        approval ->
+                                new EventApprovalDTO(
+                                        approval.getId(),
+                                        approval.getEvent().getId(),
+                                        approval.getSignedBy().getDepartment().getName(),
+                                        approval.getSignedBy().getFullName(),
+                                        approval.getRemarks(),
+                                        approval.getStatus().toString(),
+                                        approval.getDateSigned()))
                 .collect(Collectors.toList());
-
     }
-
 }

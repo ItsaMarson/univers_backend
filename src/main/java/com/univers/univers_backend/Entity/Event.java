@@ -1,9 +1,8 @@
+/* (C)2025 */
 package com.univers.univers_backend.Entity;
-
 
 import com.univers.univers_backend.Enum.Status;
 import jakarta.persistence.*;
-
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -23,6 +22,7 @@ public class Event {
 
     @Enumerated(EnumType.STRING)
     private Status status;
+
     @ManyToOne
     @JoinColumn(name = "organizer_id")
     private User organizer;
@@ -37,21 +37,35 @@ public class Event {
     private LocalDateTime updatedAt;
 
     @PrePersist
-    protected void OnCreate(){
+    protected void OnCreate() {
         this.createdAt = LocalDateTime.now();
     }
 
     @PreUpdate
-    protected void onUpdate(){
+    protected void onUpdate() {
         this.updatedAt = LocalDateTime.now();
     }
 
     @OneToMany(mappedBy = "event", cascade = CascadeType.ALL)
     private List<EventApproval> approvals;
 
-    public Event(){}
+    private String imagePath;
 
-    public Event(Long id, String eventName, String eventType, String status, User organizer, Venue eventVenue, LocalDateTime startTime, LocalDateTime endTime, String approvedLetterPath, LocalDateTime createdAt, LocalDateTime updatedAt) {
+    public Event() {}
+
+    public Event(
+            Long id,
+            String eventName,
+            String eventType,
+            String status,
+            User organizer,
+            Venue eventVenue,
+            LocalDateTime startTime,
+            LocalDateTime endTime,
+            String approvedLetterPath,
+            String imagePath,
+            LocalDateTime createdAt,
+            LocalDateTime updatedAt) {
         this.id = id;
         this.eventName = eventName;
         this.eventType = eventType;
@@ -59,6 +73,7 @@ public class Event {
         this.endTime = endTime;
         this.organizer = organizer;
         this.eventVenue = eventVenue;
+        this.imagePath = imagePath;
         this.approvedLetterPath = approvedLetterPath;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
@@ -126,6 +141,14 @@ public class Event {
 
     public void setApprovedLetterPath(String approvedLetterPath) {
         this.approvedLetterPath = approvedLetterPath;
+    }
+
+    public void setImagePath(String imagePath) {
+        this.imagePath = imagePath;
+    }
+
+    public String getImagePath() {
+        return imagePath;
     }
 
     public Status getStatus() {

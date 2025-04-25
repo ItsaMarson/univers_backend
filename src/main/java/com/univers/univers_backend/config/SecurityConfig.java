@@ -61,9 +61,13 @@ public class SecurityConfig {
                                                 "/auth/verify-reset-code",
                                                 "/auth/me")
                                         .permitAll()
-                                        .requestMatchers("/users/**", "/users")
+                                        .requestMatchers(
+                                                "/users/**",
+                                                "/users",
+                                                "/admin/**",
+                                                "/admin/users/**")
                                         .hasAuthority("SUPER_ADMIN")
-                                        .requestMatchers("/admin/**")
+                                        .requestMatchers("/admin/users/{userId}/deactivate")
                                         .hasAuthority("SUPER_ADMIN")
                                         .anyRequest()
                                         .authenticated())
