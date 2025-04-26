@@ -33,6 +33,9 @@ public class EventService {
     @Value("${minio.bucket.events}")
     private String eventsBucketName;
 
+    @Value("${minio.bucket.users}")
+    private String usersBucketName;
+
     public EventService(
             EventRepository eventRepository,
             UserRepository userRepository,
@@ -231,8 +234,10 @@ public class EventService {
 
         // Consider related entities (like EventApproval) - should they be deleted?
         // If EventApproval has CascadeType.ALL or REMOVE on the 'event' relationship,
-        // they might be deleted automatically. Otherwise, delete them manually if required.
-        // eventApprovalRepository.deleteAllByEvent(event); // Example if manual deletion needed
+        // they might be deleted automatically. Otherwise, delete them manually if
+        // required.
+        // eventApprovalRepository.deleteAllByEvent(event); // Example if manual
+        // deletion needed
 
         eventRepository.delete(event);
     }
@@ -284,18 +289,32 @@ public class EventService {
 
     private UserDTO mapUserToDTO(User user) {
         if (user == null) return null;
+        String profileImageUrl = null;
+        if (user.getProfileImagePath() != null && !user.getProfileImagePath().isBlank()) {
+            try {
+                profileImageUrl =
+                        fileStorageService.getFileUrl(user.getProfileImagePath(), usersBucketName);
+            } catch (Exception e) {
+                System.err.println(
+                        "Error generating image URL for user "
+                                + user.getId()
+                                + ": "
+                                + e.getMessage());
+            }
+        }
         return new UserDTO(
                 user.getId(),
                 user.getEmail(),
-                user.getFirstname(),
-                user.getLastname(),
-                user.getId_number(),
-                user.getPhone_number(),
-                user.getTelephoneNumber(),
+                user.getFirstname() != null ? user.getFirstname() : null,
+                user.getLastname() != null ? user.getLastname() : null,
+                user.getId_number() != null ? user.getId_number() : null,
+                user.getPhone_number() != null ? user.getPhone_number() : null,
+                user.getTelephoneNumber() != null ? user.getTelephoneNumber() : null,
                 user.getRoles() != null ? user.getRoles().name() : null,
                 user.getDepartment() != null ? user.getDepartment().getId() : null,
                 user.getEmailVerified(),
                 user.isActive(),
+                profileImageUrl,
                 user.getCreatedAt(),
                 user.getUpdatedAt());
     }

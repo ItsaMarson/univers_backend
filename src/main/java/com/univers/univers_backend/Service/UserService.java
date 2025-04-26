@@ -7,9 +7,9 @@ import com.univers.univers_backend.DTO.RegisterDTO;
 import com.univers.univers_backend.DTO.UserDTO;
 import com.univers.univers_backend.DTO.VenueDTO;
 import com.univers.univers_backend.Entity.Department;
-import com.univers.univers_backend.Enum.Role;
 import com.univers.univers_backend.Entity.User;
 import com.univers.univers_backend.Entity.Venue;
+import com.univers.univers_backend.Enum.Role;
 import com.univers.univers_backend.Repository.DepartmentRepository;
 import com.univers.univers_backend.Repository.UserRepository;
 import com.univers.univers_backend.Repository.VenueRepository;
@@ -30,6 +30,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
 @Service
 public class UserService {
@@ -45,6 +46,11 @@ public class UserService {
     private final EmailService emailService;
     private final VenueRepository venueRepository;
 
+    private final FileStorageService fileStorageService;
+
+    @Value("${minio.bucket.users}")
+    private String usersBucketName;
+
     @Value("${mailjet.template.id.forgot.password}")
     private Long resetPassTemplateId;
 
@@ -58,7 +64,8 @@ public class UserService {
             DepartmentRepository departmentRepository,
             PasswordEncoder passwordEncoder,
             EmailService emailService,
-            VenueRepository venueRepository) {
+            VenueRepository venueRepository,
+            FileStorageService fileStorageService) {
         this.authenticationManager = authenticationManager;
         this.jwtUtil = jwtUtil;
         this.userRepository = userRepository;
@@ -66,6 +73,7 @@ public class UserService {
         this.passwordEncoder = passwordEncoder;
         this.emailService = emailService;
         this.venueRepository = venueRepository;
+        this.fileStorageService = fileStorageService;
     }
 
     public ResponseEntity<Map<String, Object>> login(
@@ -112,13 +120,16 @@ public class UserService {
                             // "refreshToken", refreshToken,
                             "user",
                             Map.of(
-                                    "id", user.getId(),
-                                    "email", user.getEmail(),
+                                    "id",
+                                    user.getId(),
+                                    "email",
+                                    user.getEmail(),
                                     "first_name",
-                                            user.getFirstname() != null ? user.getFirstname() : "",
+                                    user.getFirstname() != null ? user.getFirstname() : "",
                                     "last_name",
-                                            user.getLastname() != null ? user.getLastname() : "",
-                                    "roles", user.getRoles()));
+                                    user.getLastname() != null ? user.getLastname() : "",
+                                    "roles",
+                                    user.getRoles()));
 
             return ResponseEntity.ok(responseBody);
         } catch (BadCredentialsException e) {
@@ -190,26 +201,7 @@ public class UserService {
     public List<UserDTO> getAllUsers() {
         List<User> users = userRepository.findAll();
         return users.stream()
-                .map(
-                        user ->
-                                new UserDTO(
-                                        user.getId(),
-                                        user.getEmail(),
-                                        user.getFirstname() != null ? user.getFirstname() : null,
-                                        user.getLastname() != null ? user.getLastname() : null,
-                                        user.getId_number() != null ? user.getId_number() : null,
-                                        user.getPhone_number() != null
-                                                ? user.getPhone_number()
-                                                : null,
-                                        user.getTelephoneNumber() != null ? user.getTelephoneNumber() : null,
-                                        user.getRoles() != null ? user.getRoles().name() : null,
-                                        user.getDepartment() != null
-                                                ? user.getDepartment().getId()
-                                                : null,
-                                        user.getEmailVerified(),
-                                        user.isActive(),
-                                        user.getCreatedAt(),
-                                        user.getUpdatedAt()))
+                .map(this::mapUserToDTO) // Use the helper method
                 .toList();
     }
 
@@ -262,10 +254,11 @@ public class UserService {
         user.setId_number(request.idNumber());
         user.setPhone_number(request.phoneNumber());
         user.setTelephoneNumber(request.telephoneNumber());
-        if(request.departmentId() != null){
-            Department department = departmentRepository.findById(request.departmentId()).orElse(null);
+        if (request.departmentId() != null) {
+            Department department =
+                    departmentRepository.findById(request.departmentId()).orElse(null);
 
-            if(department == null){
+            if (department == null) {
                 return "Department not found. Invalid department Id";
             }
             user.setDepartment(department);
@@ -288,7 +281,7 @@ public class UserService {
         return "User registered successfully. Please check your email for the verification code.";
     }
 
-    public String updateUserProfile(Long userId, UserDTO updatedUser) {
+    public String updateUserProfile(Long userId, UserDTO updatedUser, MultipartFile imageFile) {
 
         Optional<User> existingUser = userRepository.findById(userId);
         if (existingUser.isEmpty()) {
@@ -314,6 +307,16 @@ public class UserService {
                 return "Invalid department Id";
             }
             user.setDepartment(myDept);
+        }
+
+        if (imageFile != null && !imageFile.isEmpty()) {
+            if (user.getProfileImagePath() != null && !user.getProfileImagePath().isBlank()) {
+                fileStorageService.deleteFile(user.getProfileImagePath(), usersBucketName);
+            }
+            String newObjectName =
+                    fileStorageService.uploadFile(
+                            imageFile, usersBucketName, "user-profile-images/");
+            user.setProfileImagePath(newObjectName);
         }
         userRepository.save(user);
         return "User details updated successfully.";
@@ -331,7 +334,8 @@ public class UserService {
                 updatedUser.firstName() != null ? updatedUser.firstName() : user.getFirstname());
         user.setLastname(
                 updatedUser.lastName() != null ? updatedUser.lastName() : user.getLastname());
-        user.setRoles(updatedUser.role() != null ? Role.valueOf(updatedUser.role()) : user.getRoles());
+        user.setRoles(
+                updatedUser.role() != null ? Role.valueOf(updatedUser.role()) : user.getRoles());
         user.setPhone_number(
                 updatedUser.phoneNumber() != null
                         ? updatedUser.phoneNumber()
@@ -350,7 +354,6 @@ public class UserService {
         userRepository.save(user);
         return "User details updated successfully.";
     }
-
 
     public String deactivateUser(Long userId) {
         Optional<User> existingUser = userRepository.findById(userId);
@@ -383,20 +386,7 @@ public class UserService {
                         .findByEmail(email)
                         .orElseThrow(() -> new RuntimeException("User not found"));
 
-        return new UserDTO(
-                user.getId(),
-                user.getEmail(),
-                user.getFirstname(),
-                user.getLastname(),
-                user.getId_number(),
-                user.getPhone_number(),
-                user.getTelephoneNumber(),
-                user.getRoles().name(),
-                user.getDepartment() != null ? user.getDepartment().getId() : null,
-                user.getEmailVerified(),
-                user.isActive(),
-                user.getCreatedAt(),
-                user.getUpdatedAt());
+        return mapUserToDTO(user);
     }
 
     public String verifyResetCode(String email, String verificationCode) {
@@ -459,6 +449,45 @@ public class UserService {
 
         Venue venue = venueOptional.get();
 
-        return new VenueDTO(venue.getId(), venue.getName(), venue.getLocation(), null, null, venue.getCreatedAt(), venue.getUpdatedAt());
+        return new VenueDTO(
+                venue.getId(),
+                venue.getName(),
+                venue.getLocation(),
+                null,
+                null,
+                venue.getCreatedAt(),
+                venue.getUpdatedAt());
+    }
+
+    private UserDTO mapUserToDTO(User user) {
+        if (user == null) return null;
+        String profileImageUrl = null;
+        if (user.getProfileImagePath() != null && !user.getProfileImagePath().isBlank()) {
+            try {
+                profileImageUrl =
+                        fileStorageService.getFileUrl(user.getProfileImagePath(), usersBucketName);
+            } catch (Exception e) {
+                System.err.println(
+                        "Error generating image URL for user "
+                                + user.getId()
+                                + ": "
+                                + e.getMessage());
+            }
+        }
+        return new UserDTO(
+                user.getId(),
+                user.getEmail(),
+                user.getFirstname() != null ? user.getFirstname() : null,
+                user.getLastname() != null ? user.getLastname() : null,
+                user.getId_number() != null ? user.getId_number() : null,
+                user.getPhone_number() != null ? user.getPhone_number() : null,
+                user.getTelephoneNumber() != null ? user.getTelephoneNumber() : null,
+                user.getRoles() != null ? user.getRoles().name() : null,
+                user.getDepartment() != null ? user.getDepartment().getId() : null,
+                user.getEmailVerified(),
+                user.isActive(),
+                profileImageUrl,
+                user.getCreatedAt(),
+                user.getUpdatedAt());
     }
 }

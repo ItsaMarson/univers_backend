@@ -1,10 +1,9 @@
+/* (C)2025 */
 package com.univers.univers_backend.Entity;
 
 import com.univers.univers_backend.Enum.Role;
 import jakarta.persistence.*;
-
 import java.time.LocalDateTime;
-
 
 @Entity
 @Table(name = "user")
@@ -15,7 +14,6 @@ public class User {
     @Column(name = "uid")
     private Long id;
 
-    
     private String email;
     private String password;
     private String firstName;
@@ -25,21 +23,27 @@ public class User {
     @ManyToOne
     @JoinColumn(name = "department_id")
     private Department department;
+
     private String phoneNumber;
 
     private String telephoneNumber;
+
     @Column(nullable = false)
     private Boolean emailVerified = false;
 
     private String verificationCode;
     private LocalDateTime verificationCodeExpiration;
+
     @Enumerated(EnumType.STRING)
     private Role roles;
+
     private Boolean active;
 
+    public String profileImagePath;
 
     @Column(updatable = false)
     private LocalDateTime createdAt;
+
     private LocalDateTime updatedAt;
 
     @PrePersist
@@ -52,10 +56,20 @@ public class User {
         this.updatedAt = LocalDateTime.now();
     }
 
-    public User() {
-    }
+    public User() {}
 
-    public User(String email, String password, Role roles, String firstName, String lastName, String idNumber, String phoneNumber, String telephoneNumber, Boolean emailVerified, String verificationCode, Boolean active) {
+    public User(
+            String email,
+            String password,
+            Role roles,
+            String firstName,
+            String lastName,
+            String idNumber,
+            String phoneNumber,
+            String telephoneNumber,
+            Boolean emailVerified,
+            String verificationCode,
+            Boolean active) {
         this.email = email;
         this.password = password;
         this.firstName = firstName;
@@ -69,17 +83,49 @@ public class User {
         this.active = active;
     }
 
-    public Long getId() {return id;}
-    public String getEmail() {return this.email;}
-    public void setEmail(String email) {this.email = email;}
-    public String getPassword() {return password;}
-    public void setPassword(String password) {this.password = password;}
-    public String getFirstname() {return firstName;}
-    public void setFirstname(String firstName) {this.firstName = firstName;}
-    public String getLastname() {return lastName;}
-    public void setLastname(String lastName) {this.lastName = lastName;}
-    public String getId_number() {return idNumber;}
-    public void setId_number(String id_number) {this.idNumber = id_number;}
+    public Long getId() {
+        return id;
+    }
+
+    public String getEmail() {
+        return this.email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
+    }
+
+    public String getPassword() {
+        return password;
+    }
+
+    public void setPassword(String password) {
+        this.password = password;
+    }
+
+    public String getFirstname() {
+        return firstName;
+    }
+
+    public void setFirstname(String firstName) {
+        this.firstName = firstName;
+    }
+
+    public String getLastname() {
+        return lastName;
+    }
+
+    public void setLastname(String lastName) {
+        this.lastName = lastName;
+    }
+
+    public String getId_number() {
+        return idNumber;
+    }
+
+    public void setId_number(String id_number) {
+        this.idNumber = id_number;
+    }
 
     public Department getDepartment() {
         return department;
@@ -89,8 +135,13 @@ public class User {
         this.department = department;
     }
 
-    public String getPhone_number() {return phoneNumber;}
-    public void setPhone_number(String phone_number) {this.phoneNumber = phone_number;}
+    public String getPhone_number() {
+        return phoneNumber;
+    }
+
+    public void setPhone_number(String phone_number) {
+        this.phoneNumber = phone_number;
+    }
 
     public String getTelephoneNumber() {
         return telephoneNumber;
@@ -100,8 +151,13 @@ public class User {
         this.telephoneNumber = telephoneNumber;
     }
 
-    public Boolean getEmailVerified() {return emailVerified;}
-    public void setEmailVerified(Boolean emailVerified) {this.emailVerified = emailVerified;}
+    public Boolean getEmailVerified() {
+        return emailVerified;
+    }
+
+    public void setEmailVerified(Boolean emailVerified) {
+        this.emailVerified = emailVerified;
+    }
 
     public String getVerificationCode() {
         return verificationCode;
@@ -131,7 +187,7 @@ public class User {
         return active;
     }
 
-    public void setActive   (Boolean active) {
+    public void setActive(Boolean active) {
         this.active = active;
     }
 
@@ -143,7 +199,15 @@ public class User {
         return updatedAt;
     }
 
-    public String getFullName(){
+    public String getProfileImagePath() {
+        return profileImagePath;
+    }
+
+    public void setProfileImagePath(String profileImagePath) {
+        this.profileImagePath = profileImagePath;
+    }
+
+    public String getFullName() {
         return getFirstname() + " " + getLastname();
     }
 }

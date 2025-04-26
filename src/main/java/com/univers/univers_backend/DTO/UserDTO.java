@@ -1,7 +1,5 @@
+/* (C)2025 */
 package com.univers.univers_backend.DTO;
-
-
-import com.univers.univers_backend.Entity.Department;
 
 import java.time.LocalDateTime;
 
@@ -17,6 +15,6 @@ public record UserDTO(
         Long department_id,
         Boolean emailVerified,
         Boolean active,
+        String profileImagePath,
         LocalDateTime createdAt,
-        LocalDateTime updatedAt) {
-}
+        LocalDateTime updatedAt) {}

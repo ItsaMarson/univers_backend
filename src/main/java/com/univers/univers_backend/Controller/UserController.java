@@ -4,9 +4,15 @@ package com.univers.univers_backend.Controller;
 import com.univers.univers_backend.DTO.UserDTO;
 import com.univers.univers_backend.DTO.VenueDTO;
 import com.univers.univers_backend.Service.UserService;
-import java.util.*;
+import java.util.List;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestPart;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/users")
@@ -26,9 +32,11 @@ public class UserController {
 
     @PatchMapping("/{userId}")
     public ResponseEntity<String> updateUserProfile(
-            @PathVariable Long userId, @RequestBody UserDTO userDTO) {
+            @PathVariable Long userId,
+            @RequestPart("userDTO") UserDTO userDTO,
+            @RequestPart(value = "image", required = false) MultipartFile imageFile) {
 
-        String responseMessage = userService.updateUserProfile(userId, userDTO);
+        String responseMessage = userService.updateUserProfile(userId, userDTO, imageFile);
         if ("User does not exist".equals(responseMessage)
                 || "Invalid department Id".equals(responseMessage)) {
             return ResponseEntity.badRequest().body(responseMessage);
