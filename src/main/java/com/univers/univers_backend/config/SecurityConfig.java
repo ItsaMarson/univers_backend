@@ -62,12 +62,8 @@ public class SecurityConfig {
                                                 "/auth/me")
                                         .permitAll()
                                         .requestMatchers(
-                                                "/users/**",
-                                                "/users",
                                                 "/admin/**",
                                                 "/admin/users/**")
-                                        .hasAuthority("SUPER_ADMIN")
-                                        .requestMatchers("/admin/users/{userId}/deactivate")
                                         .hasAuthority("SUPER_ADMIN")
                                         .anyRequest()
                                         .authenticated())
