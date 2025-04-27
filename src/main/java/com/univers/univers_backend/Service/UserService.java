@@ -80,21 +80,18 @@ public class UserService {
             LoginRequest request, HttpServletResponse response) {
 
         try {
-            Authentication authentication =
-                    authenticationManager.authenticate(
-                            new UsernamePasswordAuthenticationToken(
-                                    request.email(), request.password()));
+            Authentication authentication = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(
+                            request.email(), request.password()));
 
             String accessToken = jwtUtil.generateAccessToken(authentication.getName());
             String refreshToken = jwtUtil.generateRefreshToken(authentication.getName());
 
-            User user =
-                    userRepository
-                            .findByEmail(request.email())
-                            .orElseThrow(
-                                    () ->
-                                            new RuntimeException(
-                                                    "User not found")); // This should never happen
+            User user = userRepository
+                    .findByEmail(request.email())
+                    .orElseThrow(
+                            () -> new RuntimeException(
+                                    "User not found")); // This should never happen
             // if
             // authentication passed
 
@@ -114,22 +111,21 @@ public class UserService {
             response.addCookie(refreshCookie);
 
             // Construct response payload
-            Map<String, Object> responseBody =
+            Map<String, Object> responseBody = Map.of(
+                    // "accessToken", accessToken,
+                    // "refreshToken", refreshToken,
+                    "user",
                     Map.of(
-                            // "accessToken", accessToken,
-                            // "refreshToken", refreshToken,
-                            "user",
-                            Map.of(
-                                    "id",
-                                    user.getId(),
-                                    "email",
-                                    user.getEmail(),
-                                    "first_name",
-                                    user.getFirstname() != null ? user.getFirstname() : "",
-                                    "last_name",
-                                    user.getLastname() != null ? user.getLastname() : "",
-                                    "roles",
-                                    user.getRoles()));
+                            "id",
+                            user.getId(),
+                            "email",
+                            user.getEmail(),
+                            "first_name",
+                            user.getFirstname() != null ? user.getFirstname() : "",
+                            "last_name",
+                            user.getLastname() != null ? user.getLastname() : "",
+                            "roles",
+                            user.getRoles()));
 
             return ResponseEntity.ok(responseBody);
         } catch (BadCredentialsException e) {
@@ -156,8 +152,7 @@ public class UserService {
         user.setTelephoneNumber(request.telephoneNumber());
         user.setTelephoneNumber(request.telephoneNumber());
         if (request.departmentId() != null) {
-            Department department =
-                    departmentRepository.findById(request.departmentId()).orElse(null);
+            Department department = departmentRepository.findById(request.departmentId()).orElse(null);
 
             if (department == null) {
                 return "Invalid department";
@@ -207,10 +202,9 @@ public class UserService {
 
     public String forgotPassword(String email) {
 
-        User user =
-                userRepository
-                        .findByEmail(email)
-                        .orElseThrow(() -> new RuntimeException("User not found"));
+        User user = userRepository
+                .findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
 
         String resetCode = String.format("%06d", new Random().nextInt(1000000));
         user.setVerificationCode(resetCode);
@@ -228,10 +222,9 @@ public class UserService {
 
     public String resetPassword(String email, String newPassword) {
 
-        User user =
-                userRepository
-                        .findByEmail(email)
-                        .orElseThrow(() -> new RuntimeException("User not found"));
+        User user = userRepository
+                .findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
 
         user.setPassword(passwordEncoder.encode(newPassword));
         userRepository.save(user);
@@ -255,8 +248,7 @@ public class UserService {
         user.setPhone_number(request.phoneNumber());
         user.setTelephoneNumber(request.telephoneNumber());
         if (request.departmentId() != null) {
-            Department department =
-                    departmentRepository.findById(request.departmentId()).orElse(null);
+            Department department = departmentRepository.findById(request.departmentId()).orElse(null);
 
             if (department == null) {
                 return "Department not found. Invalid department Id";
@@ -297,11 +289,14 @@ public class UserService {
                 updatedUser.phoneNumber() != null
                         ? updatedUser.phoneNumber()
                         : user.getPhone_number());
+        user.setTelephoneNumber(
+                updatedUser.telephoneNumber() != null
+                        ? updatedUser.telephoneNumber()
+                        : user.getTelephoneNumber());
         user.setId_number(
                 updatedUser.idNumber() != null ? updatedUser.idNumber() : user.getId_number());
         if (updatedUser.departmentId() != null) {
-            Department myDept =
-                    departmentRepository.findById(updatedUser.departmentId()).orElse(null);
+            Department myDept = departmentRepository.findById(updatedUser.departmentId()).orElse(null);
 
             if (myDept == null) {
                 return "Invalid department Id";
@@ -313,9 +308,8 @@ public class UserService {
             if (user.getProfileImagePath() != null && !user.getProfileImagePath().isBlank()) {
                 fileStorageService.deleteFile(user.getProfileImagePath(), usersBucketName);
             }
-            String newObjectName =
-                    fileStorageService.uploadFile(
-                            imageFile, usersBucketName, "user-profile-images/");
+            String newObjectName = fileStorageService.uploadFile(
+                    imageFile, usersBucketName, "user-profile-images/");
             user.setProfileImagePath(newObjectName);
         }
         userRepository.save(user);
@@ -350,8 +344,7 @@ public class UserService {
         if (updatedUser.departmentId() != null) {
             if (user.getDepartment() == null
                     || !updatedUser.departmentId().equals(user.getDepartment().getId())) {
-                Department myDept =
-                        departmentRepository.findById(updatedUser.departmentId()).orElse(null);
+                Department myDept = departmentRepository.findById(updatedUser.departmentId()).orElse(null);
 
                 if (myDept == null) {
                     return "Invalid department Id";
@@ -367,9 +360,8 @@ public class UserService {
                 if (user.getProfileImagePath() != null && !user.getProfileImagePath().isBlank()) {
                     fileStorageService.deleteFile(user.getProfileImagePath(), usersBucketName);
                 }
-                String newObjectName =
-                        fileStorageService.uploadFile(
-                                imageFile, usersBucketName, "user-profile-images/");
+                String newObjectName = fileStorageService.uploadFile(
+                        imageFile, usersBucketName, "user-profile-images/");
                 user.setProfileImagePath(newObjectName);
             } catch (Exception e) {
                 System.err.println(
@@ -411,19 +403,17 @@ public class UserService {
 
     public UserDTO getCurrentUser(String token) {
         String email = jwtUtil.extractUsername(token);
-        User user =
-                userRepository
-                        .findByEmail(email)
-                        .orElseThrow(() -> new RuntimeException("User not found"));
+        User user = userRepository
+                .findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
 
         return mapUserToDTO(user);
     }
 
     public String verifyResetCode(String email, String verificationCode) {
-        User user =
-                userRepository
-                        .findByEmail(email)
-                        .orElseThrow(() -> new RuntimeException("User not found"));
+        User user = userRepository
+                .findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
 
         if (user.getVerificationCode() == null
                 || !user.getVerificationCode().equals(verificationCode)) {
@@ -438,10 +428,9 @@ public class UserService {
     }
 
     public String resetPassword(String email, String verificationCode, String newPassword) {
-        User user =
-                userRepository
-                        .findByEmail(email)
-                        .orElseThrow(() -> new RuntimeException("User not found"));
+        User user = userRepository
+                .findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
 
         if (user.getVerificationCode() == null
                 || !user.getVerificationCode().equals(verificationCode)) {
@@ -490,12 +479,12 @@ public class UserService {
     }
 
     private UserDTO mapUserToDTO(User user) {
-        if (user == null) return null;
+        if (user == null)
+            return null;
         String profileImageUrl = null;
         if (user.getProfileImagePath() != null && !user.getProfileImagePath().isBlank()) {
             try {
-                profileImageUrl =
-                        fileStorageService.getFileUrl(user.getProfileImagePath(), usersBucketName);
+                profileImageUrl = fileStorageService.getFileUrl(user.getProfileImagePath(), usersBucketName);
             } catch (Exception e) {
                 System.err.println(
                         "Error generating image URL for user "
