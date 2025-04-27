@@ -12,7 +12,7 @@ public record UserDTO(
         String phoneNumber,
         String telephoneNumber,
         String role,
-        Long department_id,
+        Long departmentId,
         Boolean emailVerified,
         Boolean active,
         String profileImagePath,

@@ -299,9 +299,9 @@ public class UserService {
                         : user.getPhone_number());
         user.setId_number(
                 updatedUser.idNumber() != null ? updatedUser.idNumber() : user.getId_number());
-        if (updatedUser.department_id() != null) {
+        if (updatedUser.departmentId() != null) {
             Department myDept =
-                    departmentRepository.findById(updatedUser.department_id()).orElse(null);
+                    departmentRepository.findById(updatedUser.departmentId()).orElse(null);
 
             if (myDept == null) {
                 return "Invalid department Id";
@@ -322,7 +322,7 @@ public class UserService {
         return "User details updated successfully.";
     }
 
-    public String editUserAsAdmin(Long userId, UserDTO updatedUser) {
+    public String editUserAsAdmin(Long userId, UserDTO updatedUser, MultipartFile imageFile) {
 
         Optional<User> existingUser = userRepository.findById(userId);
         if (existingUser.isEmpty()) {
@@ -340,17 +340,47 @@ public class UserService {
                 updatedUser.phoneNumber() != null
                         ? updatedUser.phoneNumber()
                         : user.getPhone_number());
+        user.setTelephoneNumber(
+                updatedUser.telephoneNumber() != null
+                        ? updatedUser.telephoneNumber()
+                        : user.getTelephoneNumber());
         user.setId_number(
                 updatedUser.idNumber() != null ? updatedUser.idNumber() : user.getId_number());
-        if (updatedUser.department_id() != null) {
-            Department myDept =
-                    departmentRepository.findById(updatedUser.department_id()).orElse(null);
 
-            if (myDept == null) {
-                return "Invalid department Id";
+        if (updatedUser.departmentId() != null) {
+            if (user.getDepartment() == null
+                    || !updatedUser.departmentId().equals(user.getDepartment().getId())) {
+                Department myDept =
+                        departmentRepository.findById(updatedUser.departmentId()).orElse(null);
+
+                if (myDept == null) {
+                    return "Invalid department Id";
+                }
+                user.setDepartment(myDept);
             }
-            user.setDepartment(myDept);
+        } else {
+            user.setDepartment(null);
         }
+
+        if (imageFile != null && !imageFile.isEmpty()) {
+            try {
+                if (user.getProfileImagePath() != null && !user.getProfileImagePath().isBlank()) {
+                    fileStorageService.deleteFile(user.getProfileImagePath(), usersBucketName);
+                }
+                String newObjectName =
+                        fileStorageService.uploadFile(
+                                imageFile, usersBucketName, "user-profile-images/");
+                user.setProfileImagePath(newObjectName);
+            } catch (Exception e) {
+                System.err.println(
+                        "Failed to update profile image for user "
+                                + userId
+                                + ": "
+                                + e.getMessage());
+                return "Failed to update profile image due to a storage error.";
+            }
+        }
+
         userRepository.save(user);
         return "User details updated successfully.";
     }

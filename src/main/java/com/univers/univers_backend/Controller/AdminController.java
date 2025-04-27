@@ -58,13 +58,16 @@ public class AdminController {
         return ResponseEntity.ok(users);
     }
 
-    @PatchMapping("/users/{userId}")
+    @PatchMapping(value = "/users/{userId}")
     public ResponseEntity<String> editUserAsAdmin(
-            @PathVariable Long userId, @RequestBody UserDTO userDTO) {
+            @PathVariable Long userId,
+            @RequestPart("userDTO") UserDTO userDTO,
+            @RequestPart(value = "image", required = false) MultipartFile imageFile) {
 
-        String responseMessage = userService.editUserAsAdmin(userId, userDTO);
+        String responseMessage = userService.editUserAsAdmin(userId, userDTO, imageFile);
         if ("User does not exist".equals(responseMessage)
-                || "Invalid department Id".equals(responseMessage)) {
+                || "Invalid department Id".equals(responseMessage)
+                || responseMessage.startsWith("Failed to update profile image")) {
             return ResponseEntity.badRequest().body(responseMessage);
         }
         return ResponseEntity.ok(responseMessage);
