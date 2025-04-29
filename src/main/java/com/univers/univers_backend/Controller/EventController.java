@@ -7,7 +7,7 @@ import java.util.List;
 import java.util.NoSuchElementException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.DeleteMapping; 
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -31,9 +31,8 @@ public class EventController {
     public ResponseEntity<?> createEvent(
             @RequestPart("event") EventDTO eventDTO,
             @RequestPart(value = "approvedLetter", required = false)
-                    MultipartFile approvedLetterFile, 
-            @RequestPart(value = "eventImage", required = false)
-                    MultipartFile eventImageFile) { 
+                    MultipartFile approvedLetterFile,
+            @RequestPart(value = "eventImage", required = false) MultipartFile eventImageFile) {
 
         try {
             EventDTO createdEvent =
@@ -41,7 +40,7 @@ public class EventController {
             return new ResponseEntity<>(createdEvent, HttpStatus.CREATED);
         } catch (IllegalArgumentException | NoSuchElementException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
-        } catch (Exception e) { 
+        } catch (Exception e) {
             System.err.println("Error creating event: " + e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("An unexpected error occurred while creating the event.");
@@ -52,6 +51,12 @@ public class EventController {
     public ResponseEntity<List<EventDTO>> getAllEvents() {
         List<EventDTO> allEvents = eventService.getAllEvents();
         return ResponseEntity.ok(allEvents);
+    }
+
+    @GetMapping("/approved")
+    public ResponseEntity<List<EventDTO>> getApprovedEvents() {
+        List<EventDTO> approvedEvents = eventService.getApprovedEvents();
+        return ResponseEntity.ok(approvedEvents);
     }
 
     @GetMapping("/{eventId}")
@@ -74,13 +79,12 @@ public class EventController {
             @RequestPart("event") EventDTO updatedEventDTO,
             @RequestPart(value = "approvedLetter", required = false)
                     MultipartFile approvedLetterFile,
-            @RequestPart(value = "eventImage", required = false)
-                    MultipartFile eventImageFile) { 
+            @RequestPart(value = "eventImage", required = false) MultipartFile eventImageFile) {
         try {
             EventDTO updatedEvent =
                     eventService.updateEvent(
                             eventId, updatedEventDTO, approvedLetterFile, eventImageFile);
-            return ResponseEntity.ok(updatedEvent); 
+            return ResponseEntity.ok(updatedEvent);
         } catch (NoSuchElementException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
         } catch (IllegalArgumentException e) {

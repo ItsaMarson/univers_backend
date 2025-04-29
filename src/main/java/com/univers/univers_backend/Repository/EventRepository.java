@@ -3,6 +3,7 @@ package com.univers.univers_backend.Repository;
 
 import com.univers.univers_backend.Entity.Event;
 import com.univers.univers_backend.Entity.User;
+import com.univers.univers_backend.Enum.Status;
 import java.time.LocalDateTime;
 import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -24,4 +25,6 @@ public interface EventRepository extends JpaRepository<Event, Long> {
             @Param("endTime") LocalDateTime endTime);
 
     List<Event> findByOrganizer(User organizer);
+
+    List<Event> findByStatus(Status status);
 }

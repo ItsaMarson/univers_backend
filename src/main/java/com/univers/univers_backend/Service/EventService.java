@@ -119,6 +119,11 @@ public class EventService {
         return mapToDTO(event);
     }
 
+    public List<EventDTO> getApprovedEvents() {
+        List<Event> approvedEvents = eventRepository.findByStatus(Status.APPROVED);
+        return approvedEvents.stream().map(this::mapToDTO).collect(Collectors.toList());
+    }
+
     @Transactional
     public EventDTO updateEvent(
             Long eventId,
