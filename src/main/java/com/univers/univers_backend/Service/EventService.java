@@ -6,6 +6,7 @@ import com.univers.univers_backend.DTO.UserDTO;
 import com.univers.univers_backend.Entity.Event;
 import com.univers.univers_backend.Entity.User;
 import com.univers.univers_backend.Entity.Venue;
+import com.univers.univers_backend.Enum.Role;
 import com.univers.univers_backend.Enum.Status;
 import com.univers.univers_backend.Repository.EventRepository;
 import com.univers.univers_backend.Repository.UserRepository;
@@ -16,6 +17,8 @@ import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.stream.Collectors; // Import Collectors
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -139,20 +142,45 @@ public class EventService {
                                         new NoSuchElementException(
                                                 "Event not found with ID: " + eventId));
 
-        if (event.getOrganizer() == null
-                || updatedEventDTO.organizer() == null
-                || !event.getOrganizer().getId().equals(updatedEventDTO.organizer().id())) {
+        String currentUsername =
+                ((UserDetails)
+                                SecurityContextHolder.getContext()
+                                        .getAuthentication()
+                                        .getPrincipal())
+                        .getUsername();
+        User currentUser =
+                userRepository
+                        .findByEmail(currentUsername)
+                        .orElseThrow(
+                                () ->
+                                        new RuntimeException(
+                                                "Authenticated user not found in"
+                                                        + " database")); // Should
+        // not
+        // happen
+
+        boolean isOrganizer =
+                event.getOrganizer() != null
+                        && event.getOrganizer().getId().equals(currentUser.getId());
+        boolean isSuperAdmin = currentUser.getRoles() == Role.SUPER_ADMIN;
+
+        if (!isOrganizer && !isSuperAdmin) {
             throw new IllegalArgumentException("You are not authorized to update this event.");
         }
 
-        Venue newVenue =
-                venueRepository
-                        .findById(updatedEventDTO.eventVenueId())
-                        .orElseThrow(
-                                () ->
-                                        new IllegalArgumentException(
-                                                "Venue not found with ID: "
-                                                        + updatedEventDTO.eventVenueId()));
+        Venue newVenue = event.getEventVenue(); // Default to existing venue
+        if (updatedEventDTO.eventVenueId() != null
+                && (event.getEventVenue() == null
+                        || !updatedEventDTO.eventVenueId().equals(event.getEventVenue().getId()))) {
+            newVenue =
+                    venueRepository
+                            .findById(updatedEventDTO.eventVenueId())
+                            .orElseThrow(
+                                    () ->
+                                            new IllegalArgumentException(
+                                                    "Venue not found with ID: "
+                                                            + updatedEventDTO.eventVenueId()));
+        }
 
         LocalDateTime newStartTime =
                 updatedEventDTO.startTime() != null
@@ -161,19 +189,25 @@ public class EventService {
         LocalDateTime newEndTime =
                 updatedEventDTO.endTime() != null ? updatedEventDTO.endTime() : event.getEndTime();
 
-        List<Event> conflictingEvents =
-                eventRepository.findConflictingEvents(newVenue.getId(), newStartTime, newEndTime);
+        if (newVenue != event.getEventVenue()
+                || newStartTime != event.getStartTime()
+                || newEndTime != event.getEndTime()) {
+            List<Event> conflictingEvents =
+                    eventRepository.findConflictingEvents(
+                            newVenue.getId(), newStartTime, newEndTime);
 
-        boolean hasConflict =
-                conflictingEvents.stream()
-                        .anyMatch(
-                                e ->
-                                        !e.getId().equals(eventId)
-                                                && e.getStatus() != Status.CANCELED);
+            boolean hasConflict =
+                    conflictingEvents.stream()
+                            .anyMatch(
+                                    e ->
+                                            !e.getId().equals(eventId) // Exclude the event itself
+                                                    && e.getStatus() != Status.CANCELED);
 
-        if (hasConflict) {
-            throw new IllegalArgumentException(
-                    "There is a scheduling conflict with another event at this venue and time.");
+            if (hasConflict) {
+                throw new IllegalArgumentException(
+                        "There is a scheduling conflict with another event at this venue and"
+                                + " time.");
+            }
         }
 
         event.setEventName(
@@ -187,14 +221,30 @@ public class EventService {
         event.setStartTime(newStartTime);
         event.setEndTime(newEndTime);
         event.setEventVenue(newVenue);
-        if (updatedEventDTO.status() != null) {
-            try {
-                event.setStatus(Status.valueOf(updatedEventDTO.status().toUpperCase()));
-            } catch (IllegalArgumentException e) {
-                System.err.println("Invalid status provided: " + updatedEventDTO.status());
-            }
-        }
 
+        // Only allow SUPER_ADMIN to change status directly via update? Or handle via
+        // separate approval flow?
+        // For now, allowing status update if provided in DTO (consider restricting this
+        // based on role if needed)
+        // if (updatedEventDTO.status() != null) {
+        //         try {
+        //                 Status newStatus =
+        // Status.valueOf(updatedEventDTO.status().toUpperCase());
+        //                 // Add logic here if status transitions need validation (e.g., cannot go
+        // from
+        //                 // CANCELED back to PENDING)
+        //                 event.setStatus(newStatus);
+        //         } catch (IllegalArgumentException e) {
+        //                 System.err.println(
+        //                                 "Invalid status provided during update: " +
+        // updatedEventDTO.status());
+        //                 // Optionally throw an exception or ignore invalid status
+        //         }
+        // }
+        // Note: Organizer should generally not be changed via update. If needed, create
+        // a separate 'reassign' method.
+
+        // --- File Updates ---
         if (approvedLetterFile != null && !approvedLetterFile.isEmpty()) {
             if (event.getApprovedLetterPath() != null && !event.getApprovedLetterPath().isBlank()) {
                 fileStorageService.deleteFile(event.getApprovedLetterPath(), lettersBucketName);
