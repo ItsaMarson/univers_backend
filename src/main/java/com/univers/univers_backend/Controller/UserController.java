@@ -1,6 +1,7 @@
 /* (C)2025 */
 package com.univers.univers_backend.Controller;
 
+import com.univers.univers_backend.DTO.EventDTO;
 import com.univers.univers_backend.DTO.UserDTO;
 import com.univers.univers_backend.DTO.VenueDTO;
 import com.univers.univers_backend.Service.UserService;
@@ -51,5 +52,13 @@ public class UserController {
         return ResponseEntity.ok(managedVenue);
     }
 
-
+    @GetMapping("/me/events")
+    public ResponseEntity<List<EventDTO>> getOwnEvents() {
+        try {
+            List<EventDTO> events = userService.getOwnEvents();
+            return ResponseEntity.ok(events);
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(404).body(null);
+        }
+    }
 }

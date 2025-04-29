@@ -2,15 +2,18 @@
 package com.univers.univers_backend.Service;
 
 import com.univers.univers_backend.DTO.CreateUserDTO;
+import com.univers.univers_backend.DTO.EventDTO;
 import com.univers.univers_backend.DTO.LoginRequest;
 import com.univers.univers_backend.DTO.RegisterDTO;
 import com.univers.univers_backend.DTO.UserDTO;
 import com.univers.univers_backend.DTO.VenueDTO;
 import com.univers.univers_backend.Entity.Department;
+import com.univers.univers_backend.Entity.Event;
 import com.univers.univers_backend.Entity.User;
 import com.univers.univers_backend.Entity.Venue;
 import com.univers.univers_backend.Enum.Role;
 import com.univers.univers_backend.Repository.DepartmentRepository;
+import com.univers.univers_backend.Repository.EventRepository;
 import com.univers.univers_backend.Repository.UserRepository;
 import com.univers.univers_backend.Repository.VenueRepository;
 import com.univers.univers_backend.config.JwtUtil;
@@ -21,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
+import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -28,6 +32,8 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -45,6 +51,9 @@ public class UserService {
     private final AuthenticationManager authenticationManager;
     private final EmailService emailService;
     private final VenueRepository venueRepository;
+
+    private final EventRepository eventRepository; // Inject EventRepository
+    private final EventService eventService; // Inject EventService (for mapping)
 
     private final FileStorageService fileStorageService;
 
@@ -65,7 +74,9 @@ public class UserService {
             PasswordEncoder passwordEncoder,
             EmailService emailService,
             VenueRepository venueRepository,
-            FileStorageService fileStorageService) {
+            FileStorageService fileStorageService,
+            EventRepository eventRepository,
+            EventService eventService) {
         this.authenticationManager = authenticationManager;
         this.jwtUtil = jwtUtil;
         this.userRepository = userRepository;
@@ -74,24 +85,29 @@ public class UserService {
         this.emailService = emailService;
         this.venueRepository = venueRepository;
         this.fileStorageService = fileStorageService;
+        this.eventRepository = eventRepository;
+        this.eventService = eventService;
     }
 
     public ResponseEntity<Map<String, Object>> login(
             LoginRequest request, HttpServletResponse response) {
 
         try {
-            Authentication authentication = authenticationManager.authenticate(
-                    new UsernamePasswordAuthenticationToken(
-                            request.email(), request.password()));
+            Authentication authentication =
+                    authenticationManager.authenticate(
+                            new UsernamePasswordAuthenticationToken(
+                                    request.email(), request.password()));
 
             String accessToken = jwtUtil.generateAccessToken(authentication.getName());
             String refreshToken = jwtUtil.generateRefreshToken(authentication.getName());
 
-            User user = userRepository
-                    .findByEmail(request.email())
-                    .orElseThrow(
-                            () -> new RuntimeException(
-                                    "User not found")); // This should never happen
+            User user =
+                    userRepository
+                            .findByEmail(request.email())
+                            .orElseThrow(
+                                    () ->
+                                            new RuntimeException(
+                                                    "User not found")); // This should never happen
             // if
             // authentication passed
 
@@ -111,21 +127,22 @@ public class UserService {
             response.addCookie(refreshCookie);
 
             // Construct response payload
-            Map<String, Object> responseBody = Map.of(
-                    // "accessToken", accessToken,
-                    // "refreshToken", refreshToken,
-                    "user",
+            Map<String, Object> responseBody =
                     Map.of(
-                            "id",
-                            user.getId(),
-                            "email",
-                            user.getEmail(),
-                            "first_name",
-                            user.getFirstname() != null ? user.getFirstname() : "",
-                            "last_name",
-                            user.getLastname() != null ? user.getLastname() : "",
-                            "roles",
-                            user.getRoles()));
+                            // "accessToken", accessToken,
+                            // "refreshToken", refreshToken,
+                            "user",
+                            Map.of(
+                                    "id",
+                                    user.getId(),
+                                    "email",
+                                    user.getEmail(),
+                                    "first_name",
+                                    user.getFirstname() != null ? user.getFirstname() : "",
+                                    "last_name",
+                                    user.getLastname() != null ? user.getLastname() : "",
+                                    "roles",
+                                    user.getRoles()));
 
             return ResponseEntity.ok(responseBody);
         } catch (BadCredentialsException e) {
@@ -152,7 +169,8 @@ public class UserService {
         user.setTelephoneNumber(request.telephoneNumber());
         user.setTelephoneNumber(request.telephoneNumber());
         if (request.departmentId() != null) {
-            Department department = departmentRepository.findById(request.departmentId()).orElse(null);
+            Department department =
+                    departmentRepository.findById(request.departmentId()).orElse(null);
 
             if (department == null) {
                 return "Invalid department";
@@ -202,9 +220,10 @@ public class UserService {
 
     public String forgotPassword(String email) {
 
-        User user = userRepository
-                .findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+        User user =
+                userRepository
+                        .findByEmail(email)
+                        .orElseThrow(() -> new RuntimeException("User not found"));
 
         String resetCode = String.format("%06d", new Random().nextInt(1000000));
         user.setVerificationCode(resetCode);
@@ -222,9 +241,10 @@ public class UserService {
 
     public String resetPassword(String email, String newPassword) {
 
-        User user = userRepository
-                .findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+        User user =
+                userRepository
+                        .findByEmail(email)
+                        .orElseThrow(() -> new RuntimeException("User not found"));
 
         user.setPassword(passwordEncoder.encode(newPassword));
         userRepository.save(user);
@@ -248,7 +268,8 @@ public class UserService {
         user.setPhone_number(request.phoneNumber());
         user.setTelephoneNumber(request.telephoneNumber());
         if (request.departmentId() != null) {
-            Department department = departmentRepository.findById(request.departmentId()).orElse(null);
+            Department department =
+                    departmentRepository.findById(request.departmentId()).orElse(null);
 
             if (department == null) {
                 return "Department not found. Invalid department Id";
@@ -296,7 +317,8 @@ public class UserService {
         user.setId_number(
                 updatedUser.idNumber() != null ? updatedUser.idNumber() : user.getId_number());
         if (updatedUser.departmentId() != null) {
-            Department myDept = departmentRepository.findById(updatedUser.departmentId()).orElse(null);
+            Department myDept =
+                    departmentRepository.findById(updatedUser.departmentId()).orElse(null);
 
             if (myDept == null) {
                 return "Invalid department Id";
@@ -308,8 +330,9 @@ public class UserService {
             if (user.getProfileImagePath() != null && !user.getProfileImagePath().isBlank()) {
                 fileStorageService.deleteFile(user.getProfileImagePath(), usersBucketName);
             }
-            String newObjectName = fileStorageService.uploadFile(
-                    imageFile, usersBucketName, "user-profile-images/");
+            String newObjectName =
+                    fileStorageService.uploadFile(
+                            imageFile, usersBucketName, "user-profile-images/");
             user.setProfileImagePath(newObjectName);
         }
         userRepository.save(user);
@@ -344,7 +367,8 @@ public class UserService {
         if (updatedUser.departmentId() != null) {
             if (user.getDepartment() == null
                     || !updatedUser.departmentId().equals(user.getDepartment().getId())) {
-                Department myDept = departmentRepository.findById(updatedUser.departmentId()).orElse(null);
+                Department myDept =
+                        departmentRepository.findById(updatedUser.departmentId()).orElse(null);
 
                 if (myDept == null) {
                     return "Invalid department Id";
@@ -360,8 +384,9 @@ public class UserService {
                 if (user.getProfileImagePath() != null && !user.getProfileImagePath().isBlank()) {
                     fileStorageService.deleteFile(user.getProfileImagePath(), usersBucketName);
                 }
-                String newObjectName = fileStorageService.uploadFile(
-                        imageFile, usersBucketName, "user-profile-images/");
+                String newObjectName =
+                        fileStorageService.uploadFile(
+                                imageFile, usersBucketName, "user-profile-images/");
                 user.setProfileImagePath(newObjectName);
             } catch (Exception e) {
                 System.err.println(
@@ -403,17 +428,19 @@ public class UserService {
 
     public UserDTO getCurrentUser(String token) {
         String email = jwtUtil.extractUsername(token);
-        User user = userRepository
-                .findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+        User user =
+                userRepository
+                        .findByEmail(email)
+                        .orElseThrow(() -> new RuntimeException("User not found"));
 
         return mapUserToDTO(user);
     }
 
     public String verifyResetCode(String email, String verificationCode) {
-        User user = userRepository
-                .findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+        User user =
+                userRepository
+                        .findByEmail(email)
+                        .orElseThrow(() -> new RuntimeException("User not found"));
 
         if (user.getVerificationCode() == null
                 || !user.getVerificationCode().equals(verificationCode)) {
@@ -428,9 +455,10 @@ public class UserService {
     }
 
     public String resetPassword(String email, String verificationCode, String newPassword) {
-        User user = userRepository
-                .findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+        User user =
+                userRepository
+                        .findByEmail(email)
+                        .orElseThrow(() -> new RuntimeException("User not found"));
 
         if (user.getVerificationCode() == null
                 || !user.getVerificationCode().equals(verificationCode)) {
@@ -478,13 +506,30 @@ public class UserService {
                 venue.getUpdatedAt());
     }
 
+    public List<EventDTO> getOwnEvents() {
+        String currentEmail =
+                ((UserDetails)
+                                SecurityContextHolder.getContext()
+                                        .getAuthentication()
+                                        .getPrincipal())
+                        .getUsername();
+        User currentUser =
+                userRepository
+                        .findByEmail(currentEmail)
+                        .orElseThrow(() -> new RuntimeException("User not found"));
+
+        List<Event> events = eventRepository.findByOrganizer(currentUser);
+
+        return events.stream().map(eventService::mapToDTO).collect(Collectors.toList());
+    }
+
     private UserDTO mapUserToDTO(User user) {
-        if (user == null)
-            return null;
+        if (user == null) return null;
         String profileImageUrl = null;
         if (user.getProfileImagePath() != null && !user.getProfileImagePath().isBlank()) {
             try {
-                profileImageUrl = fileStorageService.getFileUrl(user.getProfileImagePath(), usersBucketName);
+                profileImageUrl =
+                        fileStorageService.getFileUrl(user.getProfileImagePath(), usersBucketName);
             } catch (Exception e) {
                 System.err.println(
                         "Error generating image URL for user "

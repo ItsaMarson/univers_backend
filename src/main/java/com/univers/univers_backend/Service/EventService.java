@@ -258,7 +258,7 @@ public class EventService {
         return "Event canceled successfully";
     }
 
-    private EventDTO mapToDTO(Event event) {
+    public EventDTO mapToDTO(Event event) {
         String letterUrl = null;
         if (event.getApprovedLetterPath() != null && !event.getApprovedLetterPath().isBlank()) {
             letterUrl =
