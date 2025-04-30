@@ -40,9 +40,18 @@ public class SecurityConfig {
                                             config.setAllowedOrigins(
                                                     List.of("http://localhost:5173"));
                                             config.setAllowedMethods(
-                                                    List.of("GET", "POST", "PATCH", "DELETE"));
+                                                    List.of(
+                                                            "GET", "POST", "PATCH", "DELETE",
+                                                            "OPTIONS", "HEAD"));
                                             config.setAllowedHeaders(
-                                                    List.of("Authorization", "Content-Type"));
+                                                    List.of(
+                                                            "Authorization",
+                                                            "Content-Type",
+                                                            "X-Requested-With",
+                                                            "accept",
+                                                            "Origin",
+                                                            "Access-Control-Request-Method",
+                                                            "Access-Control-Request-Headers"));
                                             config.setAllowCredentials(true);
                                             config.setExposedHeaders(List.of("Set-Cookie"));
                                             return config;
@@ -61,9 +70,7 @@ public class SecurityConfig {
                                                 "/auth/verify-reset-code",
                                                 "/auth/me")
                                         .permitAll()
-                                        .requestMatchers(
-                                                "/admin/**",
-                                                "/admin/users/**")
+                                        .requestMatchers("/admin/**", "/admin/users/**")
                                         .hasAuthority("SUPER_ADMIN")
                                         .anyRequest()
                                         .authenticated())

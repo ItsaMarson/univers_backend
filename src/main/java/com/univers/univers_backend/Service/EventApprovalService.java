@@ -13,6 +13,7 @@ import com.univers.univers_backend.Repository.EventRepository;
 import com.univers.univers_backend.Repository.UserRepository;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -25,14 +26,17 @@ public class EventApprovalService {
     private final EventApprovalRepository eventApprovalRepository;
     private final EventRepository eventRepository;
     private final UserRepository userRepository;
+    private final NotificationService notificationService;
 
     public EventApprovalService(
             EventApprovalRepository eventApprovalRepository,
             EventRepository eventRepository,
-            UserRepository userRepository) {
+            UserRepository userRepository,
+            NotificationService notificationService) {
         this.eventApprovalRepository = eventApprovalRepository;
         this.eventRepository = eventRepository;
         this.userRepository = userRepository;
+        this.notificationService = notificationService;
     }
 
     public String approveEvent(Long eventId, String remarks) {
@@ -71,7 +75,28 @@ public class EventApprovalService {
 
             event.setStatus(Status.APPROVED);
             eventRepository.save(event);
+
             // TODO: Optionally send notification to organizer
+            // notificationService.notifyUser(event.getOrganizer().getEmail(),
+            // "/topic/events",
+            User organizer = event.getOrganizer();
+            if (organizer != null && organizer.getEmail() != null) {
+                String messageText =
+                        "Your event '"
+                                + event.getEventName()
+                                + "' has been approved by SUPER_ADMIN: "
+                                + currentUser.getFullName()
+                                + ".";
+                Map<String, String> notificationPayload =
+                        Map.of(
+                                "type", "APPROVAL_UPDATE",
+                                "eventId", event.getId().toString(),
+                                "eventName", event.getEventName(),
+                                "message", messageText,
+                                "approver", currentUser.getFullName());
+                notificationService.notifyUser(
+                        organizer.getEmail(), "/queue/notifications", notificationPayload);
+            }
 
             return "Event approved directly by SUPER_ADMIN: " + currentUser.getFullName();
         }
@@ -130,6 +155,18 @@ public class EventApprovalService {
 
         checkAndUpdateEventStatus(event);
 
+        User organizer = event.getOrganizer();
+        if (organizer != null && organizer.getEmail() != null) {
+            String notificationMessage =
+                    "Your event '"
+                            + event.getEventName()
+                            + "' has been approved by Venue Owner: "
+                            + approver.getFullName()
+                            + ".";
+            notificationService.notifyUser(
+                    organizer.getEmail(), "/queue/notifications", notificationMessage);
+        }
+
         return "Venue approved successfully by "
                 + approver.getRoles()
                 + ": "
@@ -173,6 +210,18 @@ public class EventApprovalService {
 
         checkAndUpdateEventStatus(event);
 
+        User organizer = event.getOrganizer();
+        if (organizer != null && organizer.getEmail() != null) {
+            String notificationMessage =
+                    "Your event '"
+                            + event.getEventName()
+                            + "' has been approved by Department Head: "
+                            + approver.getFullName()
+                            + ".";
+            // Send notification to the event organizer's private queue
+            notificationService.notifyUser(
+                    organizer.getEmail(), "/queue/notifications", notificationMessage);
+        }
         return "Approved successfully by Department Head: " + approver.getFullName();
     }
 
@@ -226,6 +275,20 @@ public class EventApprovalService {
 
         checkAndUpdateEventStatus(event);
 
+        User organizer = event.getOrganizer();
+        if (organizer != null && organizer.getEmail() != null) {
+            String notificationMessage =
+                    "Your event '"
+                            + event.getEventName()
+                            + "' has been approved by "
+                            + requiredRole.name()
+                            + ": "
+                            + approver.getFullName()
+                            + ".";
+            notificationService.notifyUser(
+                    organizer.getEmail(), "/queue/notifications", notificationMessage);
+        }
+
         return "Approved successfully by " + requiredRole.name() + ": " + approver.getFullName();
     }
 
@@ -256,6 +319,13 @@ public class EventApprovalService {
             event.setStatus(Status.APPROVED);
             eventRepository.save(event);
             // TODO: Optionally send notification to organizer
+            User organizer = event.getOrganizer();
+            if (organizer != null) {
+                String notificationMessage =
+                        "Your event '" + event.getEventName() + "' is now fully APPROVED.";
+                notificationService.notifyUser(
+                        organizer.getEmail(), "/queue/notifications", notificationMessage);
+            }
         }
         // Add logic for other statuses if needed (e.g., PARTIALLY_APPROVED)
     }
