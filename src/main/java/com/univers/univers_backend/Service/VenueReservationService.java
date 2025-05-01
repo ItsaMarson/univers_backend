@@ -23,7 +23,9 @@ import com.univers.univers_backend.Repository.VenueReservationRepository;
 import jakarta.transaction.Transactional;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Set;
 import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -43,13 +45,31 @@ public class VenueReservationService {
     private final FileStorageService fileStorageService;
     private final NotificationService notificationService;
 
+    private static final Set<Role> VENUE_APPROVER_ROLES =
+            Set.of(
+                    Role.VENUE_OWNER,
+                    Role.OPC,
+                    Role.MSDO,
+                    Role.VP_ADMIN,
+                    Role.VPAA,
+                    Role.FAO,
+                    Role.SSD);
+
+    private static final Set<Role> REQUIRED_APPROVAL_ROLES =
+            Set.of(
+                    Role.VENUE_OWNER,
+                    Role.OPC,
+                    Role.MSDO,
+                    Role.VP_ADMIN,
+                    Role.VPAA,
+                    Role.FAO,
+                    Role.SSD);
+
     @Value("${minio.bucket.venuesreservationletters}")
     private String reservationLettersBucketName;
 
     @Value("${minio.bucket.users}")
     private String usersBucketName;
-
-    // Constructor Injection
 
     public VenueReservationService(
             VenueReservationRepository venueReservationRepository,
@@ -73,10 +93,8 @@ public class VenueReservationService {
     @Transactional
     public VenueReservationDTO createVenueReservation(
             VenueReservationDTO reservationDTO, MultipartFile reservationLetterFile) {
-        // 1. Get current user
         User requestingUser = getCurrentUser();
 
-        // 2. Validate Event
         Event event =
                 eventRepository
                         .findById(reservationDTO.eventId())
@@ -85,9 +103,7 @@ public class VenueReservationService {
                                         new NoSuchElementException(
                                                 "Associated Event not found with ID: "
                                                         + reservationDTO.eventId()));
-        // Optional: Check if event status is suitable (e.g., not CANCELED)
 
-        // 3. Validate Venue
         Venue venue =
                 venueRepository
                         .findById(reservationDTO.venueId())
@@ -97,8 +113,6 @@ public class VenueReservationService {
                                                 "Venue not found with ID: "
                                                         + reservationDTO.venueId()));
 
-        // 4. Validate Department (Assuming department comes from user or DTO)
-        // If departmentId is not in DTO, get from requestingUser
         Long deptId =
                 reservationDTO.departmentId() != null
                         ? reservationDTO.departmentId()
@@ -111,7 +125,6 @@ public class VenueReservationService {
                                         new NoSuchElementException(
                                                 "Department not found with ID: " + deptId));
 
-        // 5. Check for Time Conflicts
         LocalDateTime startTime =
                 reservationDTO.startTime() != null
                         ? reservationDTO.startTime()
@@ -126,10 +139,7 @@ public class VenueReservationService {
             throw new IllegalArgumentException(
                     "Venue is already reserved for the requested time slot.");
         }
-        // Optional: Also check Event conflicts for the same venue/time if not
-        // implicitly handled
 
-        // 6. Create VenueReservation Entity
         VenueReservation newReservation = new VenueReservation();
         newReservation.setEvent(event);
         newReservation.setRequestingUser(requestingUser);
@@ -137,9 +147,7 @@ public class VenueReservationService {
         newReservation.setVenue(venue);
         newReservation.setStartTime(startTime);
         newReservation.setEndTime(endTime);
-        // Status is set to PENDING by @PrePersist
 
-        // 7. Handle File Upload
         if (reservationLetterFile != null && !reservationLetterFile.isEmpty()) {
             String letterObjectName =
                     fileStorageService.uploadFile(
@@ -149,13 +157,10 @@ public class VenueReservationService {
             newReservation.setReservationLetterPath(letterObjectName);
         }
 
-        // 8. Save Entity
         VenueReservation savedReservation = venueReservationRepository.save(newReservation);
 
-        // 9. Notify Approvers (e.g., Venue Owner)
         notifyVenueOwner(savedReservation);
 
-        // 10. Map to DTO and return
         return mapToDTO(savedReservation);
     }
 
@@ -184,8 +189,6 @@ public class VenueReservationService {
         return reservations.stream().map(this::mapToDTO).collect(Collectors.toList());
     }
 
-    // --- Approval Logic ---
-
     @Transactional
     public String approveReservation(Long reservationId, String remarks) {
         User currentUser = getCurrentUser();
@@ -198,51 +201,49 @@ public class VenueReservationService {
                                                 "Venue Reservation not found with ID: "
                                                         + reservationId));
 
-        // Check if reservation is in a state that can be approved (e.g., PENDING)
         if (reservation.getStatus() != Status.PENDING) {
-            return "Error: Reservation is not in PENDING state.";
+            return "Error: Reservation is not in PENDING state (Current: "
+                    + reservation.getStatus()
+                    + ").";
         }
 
-        // Determine required approver (e.g., Venue Owner)
-        User venueOwner = reservation.getVenue().getVenueOwner();
-        if (venueOwner == null) {
-            return "Error: Venue Owner not assigned to the venue.";
+        Role currentUserRole = currentUser.getRoles();
+        if (!VENUE_APPROVER_ROLES.contains(currentUserRole)) {
+            return "Error: You do not have the required role to approve this venue reservation.";
         }
 
-        // Check if current user is the required approver
-        if (!currentUser.getId().equals(venueOwner.getId())) {
-            // Add checks for other potential approver roles if needed
-            return "Error: You are not authorized to approve this reservation (Requires Venue"
-                    + " Owner).";
-        }
-        // Check if user has the correct role (e.g., VENUE_OWNER)
-        if (!currentUser.getRoles().toString().contains(Role.VENUE_OWNER.toString())) {
-            return "Error: User does not have the required VENUE_OWNER role.";
+        if (currentUserRole == Role.VENUE_OWNER) {
+            User venueOwner = reservation.getVenue().getVenueOwner();
+            if (venueOwner == null) {
+                return "Error: Venue Owner not assigned to the venue.";
+            }
+            if (!currentUser.getId().equals(venueOwner.getId())) {
+                return "Error: You are not the designated Venue Owner for this venue.";
+            }
         }
 
-        // Check if already approved by this user
         if (venueApprovalRepository.existsByVenueReservationAndSignedByAndStatus(
                 reservation, currentUser, Status.APPROVED)) {
             return "Warning: You have already approved this reservation.";
         }
 
-        // Create VenueApproval record
         VenueApproval approval = new VenueApproval();
         approval.setVenueReservation(reservation);
         approval.setSignedBy(currentUser);
-        approval.setStatus(Status.APPROVED); // Or REJECTED based on another method/parameter
+        approval.setStatus(Status.APPROVED);
         approval.setRemarks(remarks);
-        // dateSigned is set by @PrePersist
 
         venueApprovalRepository.save(approval);
 
-        // Check if all required approvals are met and update reservation status
         checkAndUpdateVenueReservationStatus(reservation);
 
-        // Notify requester
-        notifyRequester(reservation, "approved", currentUser);
+        notifyRequester(
+                reservation, "received approval from " + currentUserRole.name(), currentUser);
 
-        return "Venue reservation approved successfully by " + currentUser.getFullName();
+        return "Venue reservation approved successfully by "
+                + currentUserRole.name()
+                + ": "
+                + currentUser.getFullName();
     }
 
     @Transactional
@@ -257,40 +258,47 @@ public class VenueReservationService {
                                                 "Venue Reservation not found with ID: "
                                                         + reservationId));
 
-        if (reservation.getStatus() != Status.PENDING) {
-            return "Error: Reservation is not in PENDING state.";
+        if (reservation.getStatus() != Status.PENDING
+                && reservation.getStatus() != Status.APPROVED) {
+            if (reservation.getStatus() != Status.PENDING) {
+                return "Error: Reservation is not in PENDING state (Current: "
+                        + reservation.getStatus()
+                        + "). Cannot reject.";
+            }
         }
 
-        // Similar authorization checks as approveReservation
-        User venueOwner = reservation.getVenue().getVenueOwner();
-        if (venueOwner == null || !currentUser.getId().equals(venueOwner.getId())) {
-            // Add checks for other potential approver roles if needed
-            return "Error: You are not authorized to reject this reservation.";
-        }
-        if (!currentUser.getRoles().toString().contains(Role.VENUE_OWNER.toString())) {
-            return "Error: User does not have the required VENUE_OWNER role.";
+        Role currentUserRole = currentUser.getRoles(); // Assuming single role
+        if (!VENUE_APPROVER_ROLES.contains(currentUserRole)) {
+            return "Error: You do not have the required role to reject this venue reservation.";
         }
 
-        // Create VenueApproval record
-        VenueApproval approval = new VenueApproval();
-        approval.setVenueReservation(reservation);
-        approval.setSignedBy(currentUser);
-        approval.setStatus(Status.REJECTED); // Set status to REJECTED
-        approval.setRemarks(remarks);
-        venueApprovalRepository.save(approval);
+        if (currentUserRole == Role.VENUE_OWNER) {
+            User venueOwner = reservation.getVenue().getVenueOwner();
+            if (venueOwner == null) {
+            } else if (!currentUser.getId().equals(venueOwner.getId())) {
+                return "Error: You are not the designated Venue Owner for this venue.";
+            }
+        }
 
-        // Update reservation status directly to REJECTED
+        VenueApproval rejectionRecord = new VenueApproval();
+        rejectionRecord.setVenueReservation(reservation);
+        rejectionRecord.setSignedBy(currentUser);
+        rejectionRecord.setStatus(Status.REJECTED);
+        rejectionRecord.setRemarks(remarks);
+        venueApprovalRepository.save(rejectionRecord);
+
         reservation.setStatus(Status.REJECTED);
         venueReservationRepository.save(reservation);
 
-        // Notify requester
         notifyRequester(reservation, "rejected", currentUser);
 
-        return "Venue reservation rejected successfully by " + currentUser.getFullName();
+        return "Venue reservation rejected successfully by "
+                + currentUserRole.name()
+                + ": "
+                + currentUser.getFullName();
     }
 
     private void checkAndUpdateVenueReservationStatus(VenueReservation reservation) {
-        // Skip if already decided (Approved, Rejected, Canceled)
         if (reservation.getStatus() != Status.PENDING) {
             return;
         }
@@ -299,22 +307,16 @@ public class VenueReservationService {
                 venueApprovalRepository.findAllByVenueReservationAndStatus(
                         reservation, Status.APPROVED);
 
-        // Define required approvals (e.g., just Venue Owner for now)
-        boolean hasVenueOwnerApproval =
+        // Get the roles of users who have approved
+        Set<Role> approvingRoles =
                 approvals.stream()
-                        .anyMatch(
-                                a ->
-                                        a.getSignedBy()
-                                                .getId()
-                                                .equals(
-                                                        reservation
-                                                                .getVenue()
-                                                                .getVenueOwner()
-                                                                .getId()));
-        // Add more checks if other roles need to approve (e.g., Department Head, Admin)
-        // boolean hasDeptHeadApproval = ...;
+                        .map(a -> a.getSignedBy().getRoles()) // Assumes single role per user
+                        .collect(Collectors.toSet());
 
-        if (hasVenueOwnerApproval /* && hasDeptHeadApproval etc. */) {
+        // Check if all REQUIRED roles have approved
+        boolean allRequiredApproved = approvingRoles.containsAll(REQUIRED_APPROVAL_ROLES);
+
+        if (allRequiredApproved) {
             reservation.setStatus(Status.APPROVED);
             venueReservationRepository.save(reservation);
             // Notify requester about final approval
@@ -421,8 +423,8 @@ public class VenueReservationService {
                             reservation.getVenue().getName(),
                             reservation.getEvent().getEventName());
             // Use notificationService similar to EventService/EventApprovalService
-            // notificationService.notifyUser(venueOwner.getEmail(), "/queue/notifications",
-            // Map.of(...));
+            notificationService.notifyUser(
+                    venueOwner.getEmail(), "/queue/notifications", Map.of("message", message));
             System.out.println(
                     "DEBUG: Notify Venue Owner: " + venueOwner.getEmail() + " - " + message);
         }
@@ -440,8 +442,8 @@ public class VenueReservationService {
                             action,
                             (actor != null ? " by " + actorName : ""));
             // Use notificationService
-            // notificationService.notifyUser(requester.getEmail(), "/queue/notifications",
-            // Map.of(...));
+            notificationService.notifyUser(
+                    requester.getEmail(), "/queue/notifications", Map.of("message", message));
             System.out.println(
                     "DEBUG: Notify Requester: " + requester.getEmail() + " - " + message);
         }

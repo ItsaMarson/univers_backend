@@ -95,7 +95,7 @@ public class VenueReservationController {
     }
 
     @PatchMapping("/{reservationId}/approve")
-    @PreAuthorize("hasAuthority('VENUE_OWNER')") // Or other relevant roles
+    @PreAuthorize("hasAnyAuthority('VENUE_OWNER', 'OPC', 'MSDO', 'VP_ADMIN', 'VPAA', 'FAO', 'SSD')")
     public ResponseEntity<String> approveReservation(
             @PathVariable Long reservationId, @RequestBody Map<String, String> payload) {
         String remarks = payload.getOrDefault("remarks", "");
@@ -119,7 +119,7 @@ public class VenueReservationController {
     }
 
     @PatchMapping("/{reservationId}/reject")
-    @PreAuthorize("hasAuthority('VENUE_OWNER')") // Or other relevant roles
+    @PreAuthorize("hasAnyAuthority('VENUE_OWNER', 'OPC', 'MSDO', 'VP_ADMIN', 'VPAA', 'FAO', 'SSD')")
     public ResponseEntity<String> rejectReservation(
             @PathVariable Long reservationId, @RequestBody Map<String, String> payload) {
         String remarks = payload.get("remarks");
