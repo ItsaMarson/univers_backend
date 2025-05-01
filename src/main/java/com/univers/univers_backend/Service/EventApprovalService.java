@@ -338,19 +338,25 @@ public class EventApprovalService {
             throw new IllegalArgumentException("Event not found");
         }
         Event event = eventOptional.get();
-        List<EventApproval> eventApproval = eventApprovalRepository.findAllByEvent(event);
+        List<EventApproval> eventApprovals = eventApprovalRepository.findAllByEvent(event);
 
-        return eventApproval.stream()
+        return eventApprovals.stream()
                 .map(
-                        approval ->
-                                new EventApprovalDTO(
-                                        approval.getId(),
-                                        approval.getEvent().getId(),
-                                        approval.getSignedBy().getDepartment().getName(),
-                                        approval.getSignedBy().getFullName(),
-                                        approval.getRemarks(),
-                                        approval.getStatus().toString(),
-                                        approval.getDateSigned()))
+                        approval -> {
+                            User signedByUser = approval.getSignedBy();
+                            return new EventApprovalDTO(
+                                    approval.getId(),
+                                    approval.getEvent().getId(),
+                                    signedByUser.getId(),
+                                    signedByUser.getRoles().name(),
+                                    signedByUser.getDepartment() != null
+                                            ? signedByUser.getDepartment().getName()
+                                            : "N/A",
+                                    signedByUser.getFullName(),
+                                    approval.getRemarks(),
+                                    approval.getStatus().toString(),
+                                    approval.getDateSigned());
+                        })
                 .collect(Collectors.toList());
     }
 }

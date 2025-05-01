@@ -3,10 +3,12 @@ package com.univers.univers_backend.Controller;
 
 import com.univers.univers_backend.DTO.EventDTO;
 import com.univers.univers_backend.Service.EventService;
+import java.util.Collections;
 import java.util.List;
 import java.util.NoSuchElementException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -112,9 +114,9 @@ public class EventController {
 
     @DeleteMapping("/{eventId}")
     public ResponseEntity<?> deleteEvent(
-            @PathVariable Long eventId /*, Add @RequestParam Long userId if needed for auth */) {
+            @PathVariable Long eventId /* , Add @RequestParam Long userId if needed for auth */) {
         try {
-            eventService.deleteEvent(eventId /*, userId */);
+            eventService.deleteEvent(eventId /* , userId */);
             return ResponseEntity.ok("Event with ID " + eventId + " deleted successfully.");
         } catch (NoSuchElementException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
@@ -124,6 +126,32 @@ public class EventController {
             System.err.println("Error deleting event " + eventId + ": " + e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("An unexpected error occurred while deleting the event.");
+        }
+    }
+
+    @GetMapping("/pending/venue-owner")
+    @PreAuthorize("hasAuthority('VENUE_OWNER')")
+    public ResponseEntity<List<EventDTO>> getPendingVenueOwnerEvents() {
+        try {
+            List<EventDTO> pendingEvents = eventService.getPendingEventsForVenueOwner();
+            return ResponseEntity.ok(pendingEvents);
+        } catch (Exception e) {
+            System.err.println("Error getting pending venue owner events: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Collections.emptyList());
+        }
+    }
+
+    @GetMapping("/pending/department-head")
+    @PreAuthorize("hasAuthority('DEPT_HEAD')")
+    public ResponseEntity<List<EventDTO>> getPendingDeptHeadEvents() {
+        try {
+            List<EventDTO> pendingEvents = eventService.getPendingEventsForDeptHead();
+            return ResponseEntity.ok(pendingEvents);
+        } catch (Exception e) {
+            System.err.println("Error getting pending department head events: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Collections.emptyList());
         }
     }
 }

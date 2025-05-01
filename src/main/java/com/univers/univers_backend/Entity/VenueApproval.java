@@ -1,0 +1,96 @@
+/* (C)2025 */
+package com.univers.univers_backend.Entity;
+
+import com.univers.univers_backend.Enum.Status; // Assuming APPROVED/REJECTED are in Status
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.Table;
+import java.time.LocalDateTime;
+
+@Entity
+@Table(name = "venue_approval_status")
+public class VenueApproval {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "venue_reservation_id", nullable = false)
+    private VenueReservation venueReservation;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "signed_by_user_id", nullable = false)
+    private User signedBy;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private Status status;
+
+    private String remarks;
+
+    @Column(nullable = false)
+    private LocalDateTime dateSigned;
+
+    @PrePersist
+    protected void onCreate() {
+        this.dateSigned = LocalDateTime.now();
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public VenueReservation getVenueReservation() {
+        return venueReservation;
+    }
+
+    public void setVenueReservation(VenueReservation venueReservation) {
+        this.venueReservation = venueReservation;
+    }
+
+    public User getSignedBy() {
+        return signedBy;
+    }
+
+    public void setSignedBy(User signedBy) {
+        this.signedBy = signedBy;
+    }
+
+    public Status getStatus() {
+        return status;
+    }
+
+    public void setStatus(Status status) {
+        this.status = status;
+    }
+
+    public String getRemarks() {
+        return remarks;
+    }
+
+    public void setRemarks(String remarks) {
+        this.remarks = remarks;
+    }
+
+    public LocalDateTime getDateSigned() {
+        return dateSigned;
+    }
+
+    public void setDateSigned(LocalDateTime dateSigned) {
+        this.dateSigned = dateSigned;
+    }
+}

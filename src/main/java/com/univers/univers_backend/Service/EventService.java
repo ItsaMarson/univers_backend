@@ -13,7 +13,9 @@ import com.univers.univers_backend.Repository.UserRepository;
 import com.univers.univers_backend.Repository.VenueRepository;
 import jakarta.transaction.Transactional;
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.stream.Collectors; // Import Collectors
 import org.springframework.beans.factory.annotation.Value;
@@ -29,6 +31,7 @@ public class EventService {
     private final UserRepository userRepository;
     private final VenueRepository venueRepository;
     private final FileStorageService fileStorageService;
+    private final NotificationService notificationService;
 
     @Value("${minio.bucket.letters}")
     private String lettersBucketName;
@@ -43,11 +46,13 @@ public class EventService {
             EventRepository eventRepository,
             UserRepository userRepository,
             VenueRepository venueRepository,
-            FileStorageService fileStorageService) {
+            FileStorageService fileStorageService,
+            NotificationService notificationService) {
         this.eventRepository = eventRepository;
         this.userRepository = userRepository;
         this.venueRepository = venueRepository;
         this.fileStorageService = fileStorageService;
+        this.notificationService = notificationService;
     }
 
     @Transactional
@@ -103,6 +108,65 @@ public class EventService {
         }
 
         Event savedEvent = eventRepository.save(event);
+        try {
+            Venue eventVenue = savedEvent.getEventVenue();
+            if (eventVenue != null && eventVenue.getVenueOwner() != null) {
+                User venueOwner = eventVenue.getVenueOwner();
+                if (venueOwner.getEmail() != null) {
+                    Map<String, String> payload =
+                            Map.of(
+                                    "type",
+                                    "EVENT_APPROVAL_REQUEST",
+                                    "eventId",
+                                    savedEvent.getId().toString(),
+                                    "eventName",
+                                    savedEvent.getEventName(),
+                                    "message",
+                                    "New event '"
+                                            + savedEvent.getEventName()
+                                            + "' requires your approval as Venue Owner.",
+                                    "requester",
+                                    savedEvent.getOrganizer().getFullName());
+                    notificationService.notifyUser(
+                            venueOwner.getEmail(), "/queue/notifications", payload);
+                }
+            }
+
+            User eventOrganizer = savedEvent.getOrganizer();
+            if (eventOrganizer != null
+                    && eventOrganizer.getDepartment() != null
+                    && eventOrganizer.getDepartment().getDeptHead() != null) {
+                User deptHead = eventOrganizer.getDepartment().getDeptHead();
+                if (deptHead.getEmail() != null
+                        && !deptHead.getId().equals(eventOrganizer.getId())) {
+                    Map<String, String> payload =
+                            Map.of(
+                                    "type",
+                                    "EVENT_APPROVAL_REQUEST",
+                                    "eventId",
+                                    savedEvent.getId().toString(),
+                                    "eventName",
+                                    savedEvent.getEventName(),
+                                    "message",
+                                    "New event '"
+                                            + savedEvent.getEventName()
+                                            + "' by "
+                                            + eventOrganizer.getFullName()
+                                            + " requires your approval as Department Head.",
+                                    "requester",
+                                    eventOrganizer.getFullName());
+                    notificationService.notifyUser(
+                            deptHead.getEmail(), "/queue/notifications", payload);
+                }
+            }
+
+        } catch (Exception e) {
+            System.err.println(
+                    "Error sending notification for new event "
+                            + savedEvent.getId()
+                            + ": "
+                            + e.getMessage());
+        }
         return mapToDTO(savedEvent);
     }
 
@@ -200,7 +264,7 @@ public class EventService {
                     conflictingEvents.stream()
                             .anyMatch(
                                     e ->
-                                            !e.getId().equals(eventId) // Exclude the event itself
+                                            !e.getId().equals(eventId)
                                                     && e.getStatus() != Status.CANCELED);
 
             if (hasConflict) {
@@ -227,19 +291,19 @@ public class EventService {
         // For now, allowing status update if provided in DTO (consider restricting this
         // based on role if needed)
         // if (updatedEventDTO.status() != null) {
-        //         try {
-        //                 Status newStatus =
+        // try {
+        // Status newStatus =
         // Status.valueOf(updatedEventDTO.status().toUpperCase());
-        //                 // Add logic here if status transitions need validation (e.g., cannot go
+        // // Add logic here if status transitions need validation (e.g., cannot go
         // from
-        //                 // CANCELED back to PENDING)
-        //                 event.setStatus(newStatus);
-        //         } catch (IllegalArgumentException e) {
-        //                 System.err.println(
-        //                                 "Invalid status provided during update: " +
+        // // CANCELED back to PENDING)
+        // event.setStatus(newStatus);
+        // } catch (IllegalArgumentException e) {
+        // System.err.println(
+        // "Invalid status provided during update: " +
         // updatedEventDTO.status());
-        //                 // Optionally throw an exception or ignore invalid status
-        //         }
+        // // Optionally throw an exception or ignore invalid status
+        // }
         // }
         // Note: Organizer should generally not be changed via update. If needed, create
         // a separate 'reassign' method.
@@ -313,6 +377,36 @@ public class EventService {
         return "Event canceled successfully";
     }
 
+    private User getCurrentUser() {
+        String username =
+                ((UserDetails)
+                                SecurityContextHolder.getContext()
+                                        .getAuthentication()
+                                        .getPrincipal())
+                        .getUsername();
+        return userRepository
+                .findByEmail(username)
+                .orElseThrow(() -> new RuntimeException("Authenticated user not found"));
+    }
+
+    public List<EventDTO> getPendingEventsForVenueOwner() {
+        User currentUser = getCurrentUser();
+        if (!currentUser.getRoles().toString().contains(Role.VENUE_OWNER.toString())) {
+            return Collections.emptyList();
+        }
+        List<Event> events = eventRepository.findPendingEventsForVenueOwner(currentUser);
+        return events.stream().map(this::mapToDTO).collect(Collectors.toList());
+    }
+
+    public List<EventDTO> getPendingEventsForDeptHead() {
+        User currentUser = getCurrentUser();
+        if (!currentUser.getRoles().toString().contains(Role.DEPT_HEAD.toString())) {
+            return Collections.emptyList();
+        }
+        List<Event> events = eventRepository.findPendingEventsForDeptHead(currentUser);
+        return events.stream().map(this::mapToDTO).collect(Collectors.toList());
+    }
+
     public EventDTO mapToDTO(Event event) {
         String letterUrl = null;
         if (event.getApprovedLetterPath() != null && !event.getApprovedLetterPath().isBlank()) {
@@ -325,7 +419,7 @@ public class EventService {
             imageUrl = fileStorageService.getFileUrl(event.getImagePath(), eventsBucketName);
         }
 
-        UserDTO organizerDto = mapUserToDTO(event.getOrganizer()); // Use helper
+        UserDTO organizerDto = mapUserToDTO(event.getOrganizer());
 
         return new EventDTO(
                 event.getId(),

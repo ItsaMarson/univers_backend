@@ -24,6 +24,16 @@ public interface EventRepository extends JpaRepository<Event, Long> {
             @Param("startTime") LocalDateTime startTime,
             @Param("endTime") LocalDateTime endTime);
 
+    @Query(
+            "SELECT e FROM Event e WHERE e.status = 'PENDING' AND e.eventVenue.venueOwner ="
+                    + " :venueOwner")
+    List<Event> findPendingEventsForVenueOwner(@Param("venueOwner") User venueOwner);
+
+    @Query(
+            "SELECT e FROM Event e WHERE e.status = 'PENDING' AND e.organizer.department.deptHead ="
+                    + " :deptHead")
+    List<Event> findPendingEventsForDeptHead(@Param("deptHead") User deptHead);
+
     List<Event> findByOrganizer(User organizer);
 
     List<Event> findByStatus(Status status);

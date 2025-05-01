@@ -351,7 +351,7 @@ public class UserService {
             user.setProfileImagePath(newObjectName);
         }
         userRepository.save(user);
-        return "User details updated successfully.";
+        return "User Profile updated successfully.";
     }
 
     public String editUserAsAdmin(Long userId, UserDTO updatedUser, MultipartFile imageFile) {

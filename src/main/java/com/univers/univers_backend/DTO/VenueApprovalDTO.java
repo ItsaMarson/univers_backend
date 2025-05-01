@@ -3,13 +3,12 @@ package com.univers.univers_backend.DTO;
 
 import java.time.LocalDateTime;
 
-public record EventApprovalDTO(
+public record VenueApprovalDTO(
         Long id,
-        Long eventId,
+        Long venueReservationId,
         Long userId,
-        String userRole,
-        String department,
         String signedBy,
+        String userRole,
         String remarks,
         String status,
         LocalDateTime dateSigned) {}

@@ -39,6 +39,9 @@ public class MinioConfig {
     @Value("${minio.bucket.letters}")
     private String lettersBucketName;
 
+    @Value("${minio.bucket.venuesreservationletters}")
+    private String venuesReservationLettersBucketName;
+
     @Bean
     public MinioClient minioClient()
             throws MinioException, IOException, NoSuchAlgorithmException, InvalidKeyException {
@@ -50,6 +53,7 @@ public class MinioConfig {
         createBucketIfNotExists(minioClient, eventsBucketName);
         createBucketIfNotExists(minioClient, equipmentsBucketName);
         createBucketIfNotExists(minioClient, lettersBucketName);
+        createBucketIfNotExists(minioClient, venuesReservationLettersBucketName);
 
         return minioClient;
     }
