@@ -30,10 +30,12 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.InternalAuthenticationServiceException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -98,35 +100,37 @@ public class UserService {
                             new UsernamePasswordAuthenticationToken(
                                     request.email(), request.password()));
 
-            String accessToken = jwtUtil.generateAccessToken(authentication.getName());
-            String refreshToken = jwtUtil.generateRefreshToken(authentication.getName());
-
             User user =
                     userRepository
                             .findByEmail(request.email())
-                            .orElseThrow(
-                                    () ->
-                                            new RuntimeException(
-                                                    "User not found")); // This should never happen
-            // if
-            // authentication passed
+                            .orElseThrow(() -> new RuntimeException("User not found"));
 
-            // Store the access token in a cookie
+            if (!user.getEmailVerified()) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(
+                                Map.of(
+                                        "error",
+                                        "Email not verified. Please verify your email before"
+                                                + " logging in."));
+            }
+
+            String accessToken = jwtUtil.generateAccessToken(authentication.getName());
+            String refreshToken = jwtUtil.generateRefreshToken(authentication.getName());
+
             Cookie accessCookie = new Cookie("access_token", accessToken);
             accessCookie.setHttpOnly(true);
-            accessCookie.setSecure(false); // Change to true in production
+            accessCookie.setSecure(false);
             accessCookie.setPath("/");
-            accessCookie.setMaxAge(900000); // 15 minutes
+            accessCookie.setMaxAge(604800000);
             response.addCookie(accessCookie);
 
             Cookie refreshCookie = new Cookie("refresh_token", refreshToken);
             refreshCookie.setHttpOnly(true);
-            refreshCookie.setSecure(false); // Change to true in production
+            refreshCookie.setSecure(false);
             refreshCookie.setPath("/");
             refreshCookie.setMaxAge(604800000);
             response.addCookie(refreshCookie);
 
-            // Construct response payload
             Map<String, Object> responseBody =
                     Map.of(
                             // "accessToken", accessToken,
@@ -146,8 +150,19 @@ public class UserService {
 
             return ResponseEntity.ok(responseBody);
         } catch (BadCredentialsException e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(Map.of("error", "Invalid email or password"));
+        } catch (InternalAuthenticationServiceException e) {
+            if (e.getCause() instanceof UsernameNotFoundException) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(Map.of("error", "Invalid email or password"));
+            } else {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(Map.of("error", e.getMessage()));
+            }
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "An internal server error occurred during login."));
         }
     }
 
