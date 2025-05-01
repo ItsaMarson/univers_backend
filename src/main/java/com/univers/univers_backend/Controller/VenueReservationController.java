@@ -217,4 +217,17 @@ public class VenueReservationController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(List.of());
         }
     }
+
+    @GetMapping("/all/venue-owner")
+    @PreAuthorize("hasAuthority('VENUE_OWNER')")
+    public ResponseEntity<List<VenueReservationDTO>> getAllVenueOwnerReservations() {
+        try {
+            List<VenueReservationDTO> allReservations =
+                    venueReservationService.getAllReservationsForVenueOwner();
+            return ResponseEntity.ok(allReservations);
+        } catch (Exception e) {
+            System.err.println("Error getting all venue owner reservations: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(List.of());
+        }
+    }
 }

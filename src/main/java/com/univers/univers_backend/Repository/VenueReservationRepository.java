@@ -13,7 +13,8 @@ import org.springframework.data.repository.query.Param;
 
 public interface VenueReservationRepository extends JpaRepository<VenueReservation, Long> {
 
-    // Find conflicting reservations for a given venue and time range, excluding canceled ones
+    // Find conflicting reservations for a given venue and time range, excluding
+    // canceled ones
     @Query(
             "SELECT vr FROM VenueReservation vr WHERE vr.venue.id = :venueId "
                     + "AND vr.status <> com.univers.univers_backend.Enum.Status.CANCELED "
@@ -29,10 +30,13 @@ public interface VenueReservationRepository extends JpaRepository<VenueReservati
 
     List<VenueReservation> findByRequestingUser(User requestingUser);
 
-    // Add more queries as needed, e.g., find by requesting user, find pending for venue owner
     @Query(
             "SELECT vr FROM VenueReservation vr WHERE vr.status = 'PENDING' AND"
                     + " vr.venue.venueOwner.id = :venueOwnerId")
     List<VenueReservation> findPendingReservationsForVenueOwner(
+            @Param("venueOwnerId") Long venueOwnerId);
+
+    @Query("SELECT vr FROM VenueReservation vr WHERE vr.venue.venueOwner.id = :venueOwnerId")
+    List<VenueReservation> findAllReservationsForVenueOwner(
             @Param("venueOwnerId") Long venueOwnerId);
 }

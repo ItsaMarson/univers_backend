@@ -59,7 +59,7 @@ public class VenueReservationService {
             UserRepository userRepository,
             DepartmentRepository departmentRepository,
             FileStorageService fileStorageService,
-            NotificationService notificationService /*... other dependencies */) {
+            NotificationService notificationService /* ... other dependencies */) {
         this.venueReservationRepository = venueReservationRepository;
         this.venueApprovalRepository = venueApprovalRepository;
         this.eventRepository = eventRepository;
@@ -98,7 +98,7 @@ public class VenueReservationService {
                                                         + reservationDTO.venueId()));
 
         // 4. Validate Department (Assuming department comes from user or DTO)
-        //    If departmentId is not in DTO, get from requestingUser
+        // If departmentId is not in DTO, get from requestingUser
         Long deptId =
                 reservationDTO.departmentId() != null
                         ? reservationDTO.departmentId()
@@ -126,7 +126,8 @@ public class VenueReservationService {
             throw new IllegalArgumentException(
                     "Venue is already reserved for the requested time slot.");
         }
-        // Optional: Also check Event conflicts for the same venue/time if not implicitly handled
+        // Optional: Also check Event conflicts for the same venue/time if not
+        // implicitly handled
 
         // 6. Create VenueReservation Entity
         VenueReservation newReservation = new VenueReservation();
@@ -345,7 +346,8 @@ public class VenueReservationService {
         if (reservation.getStatus() == Status.CANCELED) {
             return "Warning: Reservation is already canceled.";
         }
-        // Potentially restrict canceling already APPROVED reservations without specific permission
+        // Potentially restrict canceling already APPROVED reservations without specific
+        // permission
 
         reservation.setStatus(Status.CANCELED);
         venueReservationRepository.save(reservation);
@@ -488,7 +490,8 @@ public class VenueReservationService {
         }
 
         UserDTO requesterDto =
-                mapUserToDTO(reservation.getRequestingUser()); // Reuse existing mapper if available
+                mapUserToDTO(reservation.getRequestingUser()); // Reuse existing mapper if
+        // available
         List<VenueApprovalDTO> approvalDTOs =
                 reservation.getApprovals() != null
                         ? reservation.getApprovals().stream()
@@ -540,7 +543,6 @@ public class VenueReservationService {
                 .collect(Collectors.toList());
     }
 
-    // Method to get pending reservations for the current venue owner
     public List<VenueReservationDTO> getPendingReservationsForVenueOwner() {
         User currentUser = getCurrentUser();
         if (!currentUser.getRoles().toString().contains(Role.VENUE_OWNER.toString())) {
@@ -549,6 +551,16 @@ public class VenueReservationService {
         List<VenueReservation> reservations =
                 venueReservationRepository.findPendingReservationsForVenueOwner(
                         currentUser.getId());
+        return reservations.stream().map(this::mapToDTO).collect(Collectors.toList());
+    }
+
+    public List<VenueReservationDTO> getAllReservationsForVenueOwner() {
+        User currentUser = getCurrentUser();
+        if (!currentUser.getRoles().toString().contains(Role.VENUE_OWNER.toString())) {
+            return List.of(); // Or throw exception
+        }
+        List<VenueReservation> reservations =
+                venueReservationRepository.findAllReservationsForVenueOwner(currentUser.getId());
         return reservations.stream().map(this::mapToDTO).collect(Collectors.toList());
     }
 }
