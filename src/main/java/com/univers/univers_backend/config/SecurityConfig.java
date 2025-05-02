@@ -70,7 +70,8 @@ public class SecurityConfig {
                                                 "/auth/forgot-password",
                                                 "/auth/reset-password",
                                                 "/auth/verify-reset-code",
-                                                "/auth/me")
+                                                "/auth/me",
+                                                "/departments")
                                         .permitAll()
                                         .requestMatchers("/admin/**", "/admin/users/**")
                                         .hasAuthority("SUPER_ADMIN")
