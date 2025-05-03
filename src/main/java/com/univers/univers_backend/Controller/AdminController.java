@@ -3,6 +3,7 @@ package com.univers.univers_backend.Controller;
 
 import com.univers.univers_backend.DTO.CreateUserDTO;
 import com.univers.univers_backend.DTO.DepartmentDTO;
+import com.univers.univers_backend.DTO.EditUserDTO;
 import com.univers.univers_backend.DTO.UserDTO;
 import com.univers.univers_backend.DTO.VenueDTO;
 import com.univers.univers_backend.Service.DepartmentService;
@@ -61,10 +62,10 @@ public class AdminController {
     @PatchMapping(value = "/users/{userId}")
     public ResponseEntity<String> editUserAsAdmin(
             @PathVariable Long userId,
-            @RequestPart("userDTO") UserDTO userDTO,
+            @RequestPart("userDTO") EditUserDTO EditUserDTO,
             @RequestPart(value = "image", required = false) MultipartFile imageFile) {
 
-        String responseMessage = userService.editUserAsAdmin(userId, userDTO, imageFile);
+        String responseMessage = userService.editUserAsAdmin(userId, EditUserDTO, imageFile);
         if ("User does not exist".equals(responseMessage)
                 || "Invalid department Id".equals(responseMessage)
                 || responseMessage.startsWith("Failed to update profile image")) {

@@ -9,12 +9,12 @@ import com.univers.univers_backend.Enum.Role;
 import com.univers.univers_backend.Enum.Status;
 import com.univers.univers_backend.Repository.EquipmentRepository;
 import com.univers.univers_backend.Repository.UserRepository;
-import jakarta.transaction.Transactional;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 @Service

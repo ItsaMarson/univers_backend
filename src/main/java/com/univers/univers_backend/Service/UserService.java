@@ -2,6 +2,7 @@
 package com.univers.univers_backend.Service;
 
 import com.univers.univers_backend.DTO.CreateUserDTO;
+import com.univers.univers_backend.DTO.EditUserDTO;
 import com.univers.univers_backend.DTO.EventDTO;
 import com.univers.univers_backend.DTO.LoginRequest;
 import com.univers.univers_backend.DTO.RegisterDTO;
@@ -38,6 +39,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 @Service
@@ -354,7 +356,8 @@ public class UserService {
         return "User Profile updated successfully.";
     }
 
-    public String editUserAsAdmin(Long userId, UserDTO updatedUser, MultipartFile imageFile) {
+    @Transactional
+    public String editUserAsAdmin(Long userId, EditUserDTO updatedUser, MultipartFile imageFile) {
 
         Optional<User> existingUser = userRepository.findById(userId);
         if (existingUser.isEmpty()) {
@@ -362,12 +365,35 @@ public class UserService {
         }
 
         User user = existingUser.get();
+
+        if (updatedUser.email() != null && !updatedUser.email().equals(user.getEmail())) {
+            if (userRepository.existsByEmail(updatedUser.email())) {
+                return "Email already in use by another user";
+            }
+            user.setEmail(updatedUser.email());
+            // Email change requires re-verification
+            user.setEmailVerified(false);
+            user.setVerificationCode(null);
+            user.setVerificationCodeExpiration(null);
+        }
+
+        if (updatedUser.password() != null && !updatedUser.password().isEmpty()) {
+            user.setPassword(passwordEncoder.encode(updatedUser.password()));
+        }
+
         user.setFirstname(
                 updatedUser.firstName() != null ? updatedUser.firstName() : user.getFirstname());
         user.setLastname(
                 updatedUser.lastName() != null ? updatedUser.lastName() : user.getLastname());
-        user.setRoles(
-                updatedUser.role() != null ? Role.valueOf(updatedUser.role()) : user.getRoles());
+
+        if (updatedUser.role() != null) {
+            try {
+                user.setRoles(Role.valueOf(updatedUser.role()));
+            } catch (IllegalArgumentException e) {
+                return "Invalid role specified";
+            }
+        }
+
         user.setPhone_number(
                 updatedUser.phoneNumber() != null
                         ? updatedUser.phoneNumber()
@@ -392,6 +418,14 @@ public class UserService {
             }
         } else {
             user.setDepartment(null);
+        }
+
+        if (updatedUser.emailVerified() != null) {
+            user.setEmailVerified(updatedUser.emailVerified());
+        }
+
+        if (updatedUser.active() != null) {
+            user.setActive(updatedUser.active());
         }
 
         if (imageFile != null && !imageFile.isEmpty()) {

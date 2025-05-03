@@ -1,9 +1,10 @@
+/* (C)2025 */
 package com.univers.univers_backend.config;
 
-import io.github.cdimascio.dotenv.Dotenv;
-import com.univers.univers_backend.Enum.Role;
 import com.univers.univers_backend.Entity.User;
+import com.univers.univers_backend.Enum.Role;
 import com.univers.univers_backend.Repository.UserRepository;
+import io.github.cdimascio.dotenv.Dotenv;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -16,19 +17,21 @@ public class AdminInitializer implements ApplicationRunner {
     private final PasswordEncoder passwordEncoder;
     private final Dotenv dotenv;
 
-    public AdminInitializer(UserRepository userRepository, PasswordEncoder passwordEncoder, Dotenv dotenv){
+    public AdminInitializer(
+            UserRepository userRepository, PasswordEncoder passwordEncoder, Dotenv dotenv) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.dotenv = dotenv;
     }
 
     @Override
-    public void run(ApplicationArguments args){
+    public void run(ApplicationArguments args) {
         String adminEmail = dotenv.get("ADMIN_EMAIL", "admin@univers.com");
         String adminPassword = dotenv.get("ADMIN_PASSWORD", "AdminPassword123");
         Role adminRole = Role.SUPER_ADMIN;
 
-        if(userRepository.existsByEmail(adminEmail) || userRepository.existsByRoles(adminRole)) return;
+        if (userRepository.existsByEmail(adminEmail) || userRepository.existsByRoles(adminRole))
+            return;
 
         User admin = new User();
         admin.setEmail(adminEmail);
@@ -37,9 +40,9 @@ public class AdminInitializer implements ApplicationRunner {
         admin.setLastname("Admin");
         admin.setRoles(Role.SUPER_ADMIN);
         admin.setActive(true);
+        admin.setEmailVerified(true);
 
         userRepository.save(admin);
         System.out.println("Admin user created with email: " + adminEmail);
-
     }
 }

@@ -7,13 +7,13 @@ import com.univers.univers_backend.Entity.User;
 import com.univers.univers_backend.Entity.Venue;
 import com.univers.univers_backend.Repository.UserRepository;
 import com.univers.univers_backend.Repository.VenueRepository;
-import jakarta.transaction.Transactional;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 @Service
@@ -43,7 +43,7 @@ public class VenueService {
         this.fileStorageService = fileStorageService; // Add to constructor
     }
 
-    @Transactional // Added Transactional
+    @Transactional
     public VenueDTO addVenue(VenueDTO venueDTO, MultipartFile imageFile) {
         Optional<Venue> existingVenue = venueRepository.findByNameIgnoreCase(venueDTO.name());
 

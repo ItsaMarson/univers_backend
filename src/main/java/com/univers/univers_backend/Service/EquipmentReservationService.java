@@ -20,7 +20,6 @@ import com.univers.univers_backend.Repository.EquipmentRepository;
 import com.univers.univers_backend.Repository.EquipmentReservationRepository;
 import com.univers.univers_backend.Repository.EventRepository;
 import com.univers.univers_backend.Repository.UserRepository;
-import jakarta.transaction.Transactional;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -31,6 +30,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 @Service
