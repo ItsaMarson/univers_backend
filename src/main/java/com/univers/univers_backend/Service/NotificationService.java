@@ -11,7 +11,6 @@ import java.util.Map;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,7 +24,6 @@ public class NotificationService {
     private final NotificationRepository notificationRepository;
     private final UserRepository userRepository;
 
-    @Autowired
     public NotificationService(
             SimpMessagingTemplate messagingTemplate,
             ObjectMapper objectMapper,
@@ -67,23 +65,40 @@ public class NotificationService {
 
                 if (payload instanceof Map) {
                     Map<?, ?> payloadMap = (Map<?, ?>) payload;
+                    String entityType = null;
+                    Long entityId = null;
+
                     if (payloadMap.containsKey("eventId")) {
-                        try {
-                            notification.setRelatedEntityId(
-                                    Long.parseLong(payloadMap.get("eventId").toString()));
-                            notification.setRelatedEntityType(
-                                    "Event"); // Assuming it's always Event for now
-                        } catch (NumberFormatException e) {
-                            log.warn(
-                                    "Could not parse eventId from notification payload for user {}",
-                                    username);
-                        }
+                        entityType = "EVENT";
+                        entityId =
+                                parseLongFromPayload(
+                                        payloadMap.get("eventId"), "eventId", username);
+                    } else if (payloadMap.containsKey("venueReservationId")) {
+                        entityType = "VENUE_RESERVATION";
+                        entityId =
+                                parseLongFromPayload(
+                                        payloadMap.get("venueReservationId"),
+                                        "venueReservationId",
+                                        username);
+                    } else if (payloadMap.containsKey("equipmentReservationId")) {
+                        entityType = "EQUIPMENT_RESERVATION";
+                        entityId =
+                                parseLongFromPayload(
+                                        payloadMap.get("equipmentReservationId"),
+                                        "equipmentReservationId",
+                                        username);
                     }
-                    // Add similar checks for other potential related entities
+
+                    notification.setRelatedEntityType(entityType);
+                    notification.setRelatedEntityId(entityId);
                 }
 
                 notificationRepository.save(notification);
-                log.info("Persisted notification for user '{}'", username);
+                log.info(
+                        "Persisted notification for user '{}' (EntityType: {}, EntityId: {})",
+                        username,
+                        notification.getRelatedEntityType(),
+                        notification.getRelatedEntityId());
             } else {
                 log.warn("Could not find user with email '{}' to persist notification.", username);
             }
@@ -91,12 +106,28 @@ public class NotificationService {
         } catch (JsonProcessingException e) {
             log.error("Error converting payload to JSON for user {}: {}", username, e.getMessage());
         } catch (Exception e) {
-            // Catch broader exceptions for WebSocket sending or DB saving
             log.error(
                     "Error processing or sending notification for user {}: {}",
                     username,
                     e.getMessage(),
                     e);
+        }
+    }
+
+    private Long parseLongFromPayload(Object value, String keyName, String username) {
+        if (value == null) {
+            log.warn("Payload key '{}' is null for user {}", keyName, username);
+            return null;
+        }
+        try {
+            return Long.parseLong(value.toString());
+        } catch (NumberFormatException e) {
+            log.warn(
+                    "Could not parse '{}' from notification payload value '{}' for user {}",
+                    keyName,
+                    value,
+                    username);
+            return null;
         }
     }
 
@@ -110,7 +141,6 @@ public class NotificationService {
             messagingTemplate.convertAndSend(destination, jsonPayload);
             log.info("Sent JSON notification via WebSocket to topic '{}'", destination);
             log.debug("Payload: {}", jsonPayload);
-            // Add persistence logic here if needed for topic messages
         } catch (JsonProcessingException e) {
             log.error(
                     "Error converting payload to JSON for topic {}: {}",

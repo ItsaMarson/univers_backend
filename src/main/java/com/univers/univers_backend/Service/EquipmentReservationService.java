@@ -4,7 +4,6 @@ package com.univers.univers_backend.Service;
 import com.univers.univers_backend.DTO.EquipmentApprovalDTO;
 import com.univers.univers_backend.DTO.EquipmentReservationDTO;
 import com.univers.univers_backend.DTO.UserDTO;
-// Import necessary entities
 import com.univers.univers_backend.Entity.Department;
 import com.univers.univers_backend.Entity.Equipment;
 import com.univers.univers_backend.Entity.EquipmentApproval;
@@ -13,7 +12,6 @@ import com.univers.univers_backend.Entity.Event;
 import com.univers.univers_backend.Entity.User;
 import com.univers.univers_backend.Enum.Role;
 import com.univers.univers_backend.Enum.Status;
-// Import necessary repositories
 import com.univers.univers_backend.Repository.DepartmentRepository;
 import com.univers.univers_backend.Repository.EquipmentApprovalRepository;
 import com.univers.univers_backend.Repository.EquipmentRepository;
@@ -21,6 +19,7 @@ import com.univers.univers_backend.Repository.EquipmentReservationRepository;
 import com.univers.univers_backend.Repository.EventRepository;
 import com.univers.univers_backend.Repository.UserRepository;
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -254,7 +253,10 @@ public class EquipmentReservationService {
         checkAndUpdateEquipmentReservationStatus(reservation);
 
         notifyRequester(
-                reservation, "received approval from " + currentUserRole.name(), currentUser);
+                reservation,
+                "received approval from " + currentUserRole.name(),
+                currentUser,
+                "EQUIPMENT_RESERVATION_APPROVED");
 
         return "Equipment reservation approved by "
                 + currentUserRole.name()
@@ -302,7 +304,7 @@ public class EquipmentReservationService {
         reservation.setStatus(Status.REJECTED);
         equipmentReservationRepository.save(reservation);
 
-        notifyRequester(reservation, "rejected", currentUser);
+        notifyRequester(reservation, "rejected", currentUser, "EQUIPMENT_RESERVATION_REJECTED");
 
         return "Equipment reservation rejected by "
                 + currentUserRole.name()
@@ -326,7 +328,8 @@ public class EquipmentReservationService {
         if (allRequiredApproved) {
             reservation.setStatus(Status.APPROVED);
             equipmentReservationRepository.save(reservation);
-            notifyRequester(reservation, "fully approved", null);
+            notifyRequester(
+                    reservation, "fully approved", null, "EQUIPMENT_RESERVATION_FULLY_APPROVED");
         }
     }
 
@@ -355,7 +358,9 @@ public class EquipmentReservationService {
 
         reservation.setStatus(Status.CANCELED);
         equipmentReservationRepository.save(reservation);
-        // Notify owner?
+        notifyEquipmentOwnerOfCancellation(reservation, currentUser);
+        notifyRequester(reservation, "cancelled", currentUser, "EQUIPMENT_RESERVATION_CANCELLED");
+
         return "Equipment reservation canceled successfully.";
     }
 
@@ -384,7 +389,6 @@ public class EquipmentReservationService {
         equipmentReservationRepository.delete(reservation);
     }
 
-    // --- Helper Methods ---
     private User getCurrentUser() {
         String username =
                 ((UserDetails)
@@ -407,17 +411,28 @@ public class EquipmentReservationService {
                             reservation.getEquipment().getName(),
                             reservation.getQuantity(),
                             reservation.getEvent().getEventName());
+
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("type", "EQUIPMENT_RESERVATION_REQUEST");
+            payload.put("message", message);
+            payload.put("equipmentReservationId", reservation.getId());
+            payload.put("relatedEntityType", "EQUIPMENT_RESERVATION");
+            payload.put("requesterName", reservation.getRequestingUser().getFullName());
+            payload.put("eventName", reservation.getEvent().getEventName());
+            payload.put("equipmentName", reservation.getEquipment().getName());
+
             notificationService.notifyUser(
-                    equipmentOwner.getEmail(), "/queue/notifications", Map.of("message", message));
+                    equipmentOwner.getEmail(), "/queue/notifications", payload);
             System.out.println(
                     "DEBUG: Notify Equipment Owner: "
                             + equipmentOwner.getEmail()
-                            + " - "
-                            + message);
+                            + " - Payload: "
+                            + payload);
         }
     }
 
-    private void notifyRequester(EquipmentReservation reservation, String action, User actor) {
+    private void notifyRequester(
+            EquipmentReservation reservation, String action, User actor, String notificationType) {
         User requester = reservation.getRequestingUser();
         if (requester != null && requester.getEmail() != null) {
             String actorName = (actor != null) ? actor.getFullName() : "System";
@@ -430,10 +445,52 @@ public class EquipmentReservationService {
                             reservation.getEvent().getEventName(),
                             action,
                             (actor != null ? " by " + actorName : ""));
-            notificationService.notifyUser(
-                    requester.getEmail(), "/queue/notifications", Map.of("message", message));
+
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("type", notificationType);
+            payload.put("message", message);
+            payload.put("equipmentReservationId", reservation.getId());
+            payload.put("relatedEntityType", "EQUIPMENT_RESERVATION");
+            payload.put("status", reservation.getStatus().name());
+            if (actor != null) {
+                payload.put("actorName", actorName);
+            }
+
+            notificationService.notifyUser(requester.getEmail(), "/queue/notifications", payload);
             System.out.println(
-                    "DEBUG: Notify Requester: " + requester.getEmail() + " - " + message);
+                    "DEBUG: Notify Requester: " + requester.getEmail() + " - Payload: " + payload);
+        }
+    }
+
+    private void notifyEquipmentOwnerOfCancellation(
+            EquipmentReservation reservation, User canceller) {
+        User equipmentOwner = reservation.getEquipment().getEquipmentOwner();
+        if (equipmentOwner != null
+                && equipmentOwner.getEmail() != null
+                && !equipmentOwner.getId().equals(canceller.getId())) {
+            String message =
+                    String.format(
+                            "Equipment reservation for '%s' (Qty: %d, Event: %s) was cancelled by"
+                                    + " %s.",
+                            reservation.getEquipment().getName(),
+                            reservation.getQuantity(),
+                            reservation.getEvent().getEventName(),
+                            canceller.getFullName());
+
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("type", "EQUIPMENT_RESERVATION_CANCELLED_INFO");
+            payload.put("message", message);
+            payload.put("equipmentReservationId", reservation.getId());
+            payload.put("relatedEntityType", "EQUIPMENT_RESERVATION");
+            payload.put("cancellerName", canceller.getFullName());
+
+            notificationService.notifyUser(
+                    equipmentOwner.getEmail(), "/queue/notifications", payload);
+            System.out.println(
+                    "DEBUG: Notify Owner of Cancellation: "
+                            + equipmentOwner.getEmail()
+                            + " - Payload: "
+                            + payload);
         }
     }
 

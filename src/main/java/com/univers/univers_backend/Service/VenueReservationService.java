@@ -19,6 +19,7 @@ import com.univers.univers_backend.Repository.VenueApprovalRepository;
 import com.univers.univers_backend.Repository.VenueRepository;
 import com.univers.univers_backend.Repository.VenueReservationRepository;
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -224,7 +225,10 @@ public class VenueReservationService {
         checkAndUpdateVenueReservationStatus(reservation);
 
         notifyRequester(
-                reservation, "received approval from " + currentUserRole.name(), currentUser);
+                reservation,
+                "received approval from " + currentUserRole.name(),
+                currentUser,
+                "VENUE_RESERVATION_APPROVED");
 
         return "Venue reservation approved successfully by "
                 + currentUserRole.name()
@@ -276,7 +280,7 @@ public class VenueReservationService {
         reservation.setStatus(Status.REJECTED);
         venueReservationRepository.save(reservation);
 
-        notifyRequester(reservation, "rejected", currentUser);
+        notifyRequester(reservation, "rejected", currentUser, "VENUE_RESERVATION_REJECTED");
 
         return "Venue reservation rejected successfully by "
                 + currentUserRole.name()
@@ -293,20 +297,16 @@ public class VenueReservationService {
                 venueApprovalRepository.findAllByVenueReservationAndStatus(
                         reservation, Status.APPROVED);
 
-        // Get the roles of users who have approved
         Set<Role> approvingRoles =
-                approvals.stream()
-                        .map(a -> a.getSignedBy().getRoles()) // Assumes single role per user
-                        .collect(Collectors.toSet());
+                approvals.stream().map(a -> a.getSignedBy().getRoles()).collect(Collectors.toSet());
 
-        // Check if all REQUIRED roles have approved
         boolean allRequiredApproved = approvingRoles.containsAll(REQUIRED_APPROVAL_ROLES);
 
         if (allRequiredApproved) {
             reservation.setStatus(Status.APPROVED);
             venueReservationRepository.save(reservation);
-            // Notify requester about final approval
-            notifyRequester(reservation, "fully approved", null); // Or pass the last approver
+            notifyRequester(
+                    reservation, "fully approved", null, "VENUE_RESERVATION_FULLY_APPROVED");
         }
         // Add logic for other statuses if needed (e.g., PARTIALLY_APPROVED)
     }
@@ -340,8 +340,8 @@ public class VenueReservationService {
         reservation.setStatus(Status.CANCELED);
         venueReservationRepository.save(reservation);
 
-        // Notify relevant parties (e.g., venue owner if it was pending/approved)
-        // notifyVenueOwnerOfCancellation(reservation);
+        notifyVenueOwnerOfCancellation(reservation, currentUser);
+        notifyRequester(reservation, "cancelled", currentUser, "VENUE_RESERVATION_CANCELLED");
 
         return "Venue reservation canceled successfully.";
     }
@@ -399,15 +399,28 @@ public class VenueReservationService {
                                     + " approval.",
                             reservation.getVenue().getName(),
                             reservation.getEvent().getEventName());
-            // Use notificationService similar to EventService/EventApprovalService
-            notificationService.notifyUser(
-                    venueOwner.getEmail(), "/queue/notifications", Map.of("message", message));
+
+            // Create payload with entity info
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("type", "VENUE_RESERVATION_REQUEST"); // Notification type
+            payload.put("message", message);
+            payload.put("venueReservationId", reservation.getId()); // Add ID
+            payload.put("relatedEntityType", "VENUE_RESERVATION"); // Add Type
+            payload.put("requesterName", reservation.getRequestingUser().getFullName());
+            payload.put("eventName", reservation.getEvent().getEventName());
+            payload.put("venueName", reservation.getVenue().getName());
+
+            notificationService.notifyUser(venueOwner.getEmail(), "/queue/notifications", payload);
             System.out.println(
-                    "DEBUG: Notify Venue Owner: " + venueOwner.getEmail() + " - " + message);
+                    "DEBUG: Notify Venue Owner: "
+                            + venueOwner.getEmail()
+                            + " - Payload: "
+                            + payload);
         }
     }
 
-    private void notifyRequester(VenueReservation reservation, String action, User actor) {
+    private void notifyRequester(
+            VenueReservation reservation, String action, User actor, String notificationType) {
         User requester = reservation.getRequestingUser();
         if (requester != null && requester.getEmail() != null) {
             String actorName = (actor != null) ? actor.getFullName() : "System";
@@ -418,15 +431,51 @@ public class VenueReservationService {
                             reservation.getEvent().getEventName(),
                             action,
                             (actor != null ? " by " + actorName : ""));
-            // Use notificationService
-            notificationService.notifyUser(
-                    requester.getEmail(), "/queue/notifications", Map.of("message", message));
+
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("type", notificationType);
+            payload.put("message", message);
+            payload.put("venueReservationId", reservation.getId());
+            payload.put("relatedEntityType", "VENUE_RESERVATION");
+            payload.put("status", reservation.getStatus().name());
+            if (actor != null) {
+                payload.put("actorName", actorName);
+            }
+
+            notificationService.notifyUser(requester.getEmail(), "/queue/notifications", payload);
             System.out.println(
-                    "DEBUG: Notify Requester: " + requester.getEmail() + " - " + message);
+                    "DEBUG: Notify Requester: " + requester.getEmail() + " - Payload: " + payload);
         }
     }
 
-    // --- Mappers ---
+    private void notifyVenueOwnerOfCancellation(VenueReservation reservation, User canceller) {
+        User venueOwner = reservation.getVenue().getVenueOwner();
+        if (venueOwner != null
+                && venueOwner.getEmail() != null
+                && !venueOwner.getId().equals(canceller.getId())) {
+            String message =
+                    String.format(
+                            "Venue reservation for '%s' (Event: %s) was cancelled by %s.",
+                            reservation.getVenue().getName(),
+                            reservation.getEvent().getEventName(),
+                            canceller.getFullName());
+
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("type", "VENUE_RESERVATION_CANCELLED_INFO");
+            payload.put("message", message);
+            payload.put("venueReservationId", reservation.getId());
+            payload.put("relatedEntityType", "VENUE_RESERVATION");
+            payload.put("cancellerName", canceller.getFullName());
+
+            notificationService.notifyUser(venueOwner.getEmail(), "/queue/notifications", payload);
+            System.out.println(
+                    "DEBUG: Notify Owner of Cancellation: "
+                            + venueOwner.getEmail()
+                            + " - Payload: "
+                            + payload);
+        }
+    }
+
     public UserDTO mapUserToDTO(User user) {
         if (user == null) return null;
         String profileImageUrl = null;
@@ -461,7 +510,6 @@ public class VenueReservationService {
 
     public VenueReservationDTO mapToDTO(VenueReservation reservation) {
         UserDTO requesterDto = mapUserToDTO(reservation.getRequestingUser());
-        // available
         List<VenueApprovalDTO> approvalDTOs =
                 reservation.getApprovals() != null
                         ? reservation.getApprovals().stream()

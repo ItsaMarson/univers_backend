@@ -15,6 +15,7 @@ import com.univers.univers_backend.Repository.UserRepository;
 import com.univers.univers_backend.Repository.VenueRepository;
 import java.time.LocalDateTime;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -208,25 +209,27 @@ public class EventService {
             if (eventVenue != null && eventVenue.getVenueOwner() != null) {
                 User venueOwner = eventVenue.getVenueOwner();
                 if (venueOwner.getEmail() != null) {
-                    Map<String, String> payload =
-                            Map.of(
-                                    "type",
-                                    "EVENT_APPROVAL_REQUEST",
-                                    "eventId",
-                                    savedEvent.getId().toString(),
-                                    "eventName",
-                                    savedEvent.getEventName(),
-                                    "message",
-                                    "New event '"
-                                            + savedEvent.getEventName()
-                                            + "' has been created and requires venue reservation"
-                                            + " approval.", // Adjusted message
-                                    "requester",
-                                    savedEvent.getOrganizer().getFullName());
+                    Map<String, Object> payload = new HashMap<>();
+                    payload.put("type", "VENUE_RESERVATION_REQUEST");
+                    payload.put(
+                            "message",
+                            "New event '"
+                                    + savedEvent.getEventName()
+                                    + "' has been created and requires venue reservation"
+                                    + " approval.");
+                    payload.put("eventId", savedEvent.getId());
+                    payload.put("relatedEntityType", "EVENT");
+                    // Optionally add venueReservationId if available and relevant here
+                    // payload.put("venueReservationId", createdReservation.id());
+                    payload.put("eventName", savedEvent.getEventName());
+                    payload.put("requester", savedEvent.getOrganizer().getFullName());
+                    payload.put("venueName", eventVenue.getName());
+
                     notificationService.notifyUser(
                             venueOwner.getEmail(), "/queue/notifications", payload);
                 }
             }
+
             User eventOrganizer = savedEvent.getOrganizer();
             if (eventOrganizer != null
                     && eventOrganizer.getDepartment() != null
@@ -234,22 +237,22 @@ public class EventService {
                 User deptHead = eventOrganizer.getDepartment().getDeptHead();
                 if (deptHead.getEmail() != null
                         && !deptHead.getId().equals(eventOrganizer.getId())) {
-                    Map<String, String> payload =
-                            Map.of(
-                                    "type",
-                                    "EVENT_APPROVAL_REQUEST",
-                                    "eventId",
-                                    savedEvent.getId().toString(),
-                                    "eventName",
-                                    savedEvent.getEventName(),
-                                    "message",
-                                    "New event '"
-                                            + savedEvent.getEventName()
-                                            + "' by "
-                                            + eventOrganizer.getFullName()
-                                            + " has been created (Venue reservation pending).",
-                                    "requester",
-                                    eventOrganizer.getFullName());
+                    Map<String, Object> payload = new HashMap<>();
+                    payload.put("type", "EVENT_APPROVAL_REQUEST");
+                    payload.put(
+                            "message",
+                            "New event '"
+                                    + savedEvent.getEventName()
+                                    + "' by "
+                                    + eventOrganizer.getFullName()
+                                    + " has been created and requires your approval (Venue"
+                                    + " reservation pending).");
+                    payload.put("eventId", savedEvent.getId());
+                    payload.put("relatedEntityType", "EVENT");
+                    payload.put("eventName", savedEvent.getEventName());
+                    payload.put("requester", eventOrganizer.getFullName());
+                    payload.put("departmentName", eventOrganizer.getDepartment().getName());
+
                     notificationService.notifyUser(
                             deptHead.getEmail(), "/queue/notifications", payload);
                 }
@@ -467,8 +470,88 @@ public class EventService {
                                         new NoSuchElementException(
                                                 "Event not found with ID: " + eventId));
 
+        if (event.getStatus() == Status.CANCELED) {
+            return "Event is already canceled.";
+        }
+
         event.setStatus(Status.CANCELED);
         eventRepository.save(event);
+
+        User canceller = getCurrentUser();
+        User organizer = event.getOrganizer();
+
+        if (organizer != null
+                && organizer.getEmail() != null
+                && !organizer.getId().equals(canceller.getId())) {
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("type", "EVENT_CANCELLED");
+            payload.put(
+                    "message",
+                    "Your event '"
+                            + event.getEventName()
+                            + "' has been cancelled by "
+                            + canceller.getFullName()
+                            + ".");
+            payload.put("eventId", event.getId());
+            payload.put("relatedEntityType", "EVENT");
+            payload.put("eventName", event.getEventName());
+            payload.put("cancellerName", canceller.getFullName());
+            notificationService.notifyUser(organizer.getEmail(), "/queue/notifications", payload);
+        }
+
+        Venue venue = event.getEventVenue();
+        if (venue != null
+                && venue.getVenueOwner() != null
+                && venue.getVenueOwner().getEmail() != null
+                && !venue.getVenueOwner().getId().equals(canceller.getId())) {
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("type", "EVENT_CANCELLED_INFO"); // Different type for info
+            payload.put(
+                    "message",
+                    "Event '"
+                            + event.getEventName()
+                            + "' scheduled at your venue '"
+                            + venue.getName()
+                            + "' has been cancelled by "
+                            + canceller.getFullName()
+                            + ".");
+            payload.put("eventId", event.getId());
+            payload.put("relatedEntityType", "EVENT");
+            payload.put("eventName", event.getEventName());
+            payload.put("venueName", venue.getName());
+            payload.put("cancellerName", canceller.getFullName());
+            notificationService.notifyUser(
+                    venue.getVenueOwner().getEmail(), "/queue/notifications", payload);
+        }
+
+        if (organizer != null
+                && organizer.getDepartment() != null
+                && organizer.getDepartment().getDeptHead() != null) {
+            User deptHead = organizer.getDepartment().getDeptHead();
+            if (deptHead != null
+                    && deptHead.getEmail() != null
+                    && !deptHead.getId().equals(canceller.getId())) {
+                Map<String, Object> payload = new HashMap<>();
+                payload.put("type", "EVENT_CANCELLED_INFO");
+                payload.put(
+                        "message",
+                        "Event '"
+                                + event.getEventName()
+                                + "' organized by "
+                                + organizer.getFullName()
+                                + " from your department has been cancelled by "
+                                + canceller.getFullName()
+                                + ".");
+                payload.put("eventId", event.getId());
+                payload.put("relatedEntityType", "EVENT");
+                payload.put("eventName", event.getEventName());
+                payload.put("organizerName", organizer.getFullName());
+                payload.put("cancellerName", canceller.getFullName());
+                notificationService.notifyUser(
+                        deptHead.getEmail(), "/queue/notifications", payload);
+            }
+        }
+        // Add notifications for other relevant roles (equipment owners, etc.) if needed
 
         return "Event canceled successfully";
     }
