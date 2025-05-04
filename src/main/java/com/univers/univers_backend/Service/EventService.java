@@ -3,6 +3,8 @@ package com.univers.univers_backend.Service;
 
 import com.univers.univers_backend.DTO.EventDTO;
 import com.univers.univers_backend.DTO.UserDTO;
+import com.univers.univers_backend.DTO.VenueReservationDTO;
+import com.univers.univers_backend.Entity.Department;
 import com.univers.univers_backend.Entity.Event;
 import com.univers.univers_backend.Entity.User;
 import com.univers.univers_backend.Entity.Venue;
@@ -32,6 +34,7 @@ public class EventService {
     private final VenueRepository venueRepository;
     private final FileStorageService fileStorageService;
     private final NotificationService notificationService;
+    private final VenueReservationService venueReservationService;
 
     @Value("${minio.bucket.letters}")
     private String lettersBucketName;
@@ -47,11 +50,13 @@ public class EventService {
             UserRepository userRepository,
             VenueRepository venueRepository,
             FileStorageService fileStorageService,
+            VenueReservationService venueReservationService,
             NotificationService notificationService) {
         this.eventRepository = eventRepository;
         this.userRepository = userRepository;
         this.venueRepository = venueRepository;
         this.fileStorageService = fileStorageService;
+        this.venueReservationService = venueReservationService;
         this.notificationService = notificationService;
     }
 
@@ -83,6 +88,36 @@ public class EventService {
             throw new IllegalArgumentException(
                     "There is a scheduling conflict with another event at this venue and time.");
         }
+        try {
+            VenueReservationDTO tempReservationCheckDto =
+                    new VenueReservationDTO(
+                            null, // id
+                            null, // eventId (not created yet)
+                            null, // eventName
+                            null, // requestingUser
+                            organizer.getDepartment() != null
+                                    ? organizer.getDepartment().getId()
+                                    : null, // departmentId
+                            null, // departmentName
+                            venue.getId(), // venueId
+                            null, // venueName
+                            eventDTO.startTime(), // startTime
+                            eventDTO.endTime(), // endTime
+                            null, // status
+                            null, // approvals
+                            null, // createdAt
+                            null // updatedAt
+                            );
+            // Call a hypothetical conflict check method (or adapt createVenueReservation to allow
+            // checks)
+            // This part might require adjustment in VenueReservationService or its repository
+            // For now, we rely on the check within the actual createVenueReservation call later.
+            // If VenueReservationService.createVenueReservation throws due to conflict, the
+            // @Transactional will rollback the event.
+
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("Venue conflict detected: " + e.getMessage());
+        }
 
         Event event = new Event();
         event.setEventName(eventDTO.eventName());
@@ -97,9 +132,8 @@ public class EventService {
             String letterObjectName =
                     fileStorageService.uploadFile(
                             approvedLetterFile, lettersBucketName, "approved-letters/");
-            event.setApprovedLetterPath(letterObjectName); // Store object name
+            event.setApprovedLetterPath(letterObjectName);
         }
-
         if (eventImageFile != null && !eventImageFile.isEmpty()) {
             String imageObjectName =
                     fileStorageService.uploadFile(
@@ -108,6 +142,67 @@ public class EventService {
         }
 
         Event savedEvent = eventRepository.save(event);
+
+        try {
+            Department organizerDept = organizer.getDepartment();
+            Long departmentIdForReservation = organizerDept != null ? organizerDept.getId() : null;
+            if (departmentIdForReservation == null) {
+                System.err.println(
+                        "Warning: Organizer "
+                                + organizer.getId()
+                                + " has no department assigned. Cannot set department for venue"
+                                + " reservation.");
+            }
+
+            VenueReservationDTO reservationRequestDTO =
+                    new VenueReservationDTO(
+                            null, // id - will be generated
+                            savedEvent.getId(), // Link to the newly created event
+                            savedEvent.getEventName(), // Use event name
+                            mapUserToDTO(organizer), // Pass organizer DTO (or null if not needed by
+                            // create)
+                            departmentIdForReservation, // Use organizer's department ID
+                            organizerDept != null
+                                    ? organizerDept.getName()
+                                    : null, // Use organizer's department name
+                            venue.getId(), // Venue ID
+                            venue.getName(), // Venue Name
+                            savedEvent.getStartTime(), // Use event start time
+                            savedEvent.getEndTime(), // Use event end time
+                            Status.PENDING.name(), // Initial status for reservation
+                            null, // approvals - initially empty
+                            null, // createdAt - will be generated
+                            null // updatedAt - will be generated
+                            );
+
+            VenueReservationDTO createdReservation =
+                    venueReservationService.createVenueReservation(
+                            reservationRequestDTO, null); // Pass null for letter file
+
+            System.out.println(
+                    "Successfully created venue reservation ID: "
+                            + createdReservation.id()
+                            + " for event ID: "
+                            + savedEvent.getId());
+
+        } catch (IllegalArgumentException | NoSuchElementException e) {
+            System.err.println(
+                    "Error automatically creating venue reservation for event "
+                            + savedEvent.getId()
+                            + ": "
+                            + e.getMessage());
+            throw new RuntimeException(
+                    "Failed to create associated venue reservation: " + e.getMessage(), e);
+        } catch (Exception e) {
+            System.err.println(
+                    "Unexpected error automatically creating venue reservation for event "
+                            + savedEvent.getId()
+                            + ": "
+                            + e.getMessage());
+            throw new RuntimeException(
+                    "Unexpected error creating associated venue reservation: " + e.getMessage(), e);
+        }
+
         try {
             Venue eventVenue = savedEvent.getEventVenue();
             if (eventVenue != null && eventVenue.getVenueOwner() != null) {
@@ -124,14 +219,14 @@ public class EventService {
                                     "message",
                                     "New event '"
                                             + savedEvent.getEventName()
-                                            + "' requires your approval as Venue Owner.",
+                                            + "' has been created and requires venue reservation"
+                                            + " approval.", // Adjusted message
                                     "requester",
                                     savedEvent.getOrganizer().getFullName());
                     notificationService.notifyUser(
                             venueOwner.getEmail(), "/queue/notifications", payload);
                 }
             }
-
             User eventOrganizer = savedEvent.getOrganizer();
             if (eventOrganizer != null
                     && eventOrganizer.getDepartment() != null
@@ -152,7 +247,7 @@ public class EventService {
                                             + savedEvent.getEventName()
                                             + "' by "
                                             + eventOrganizer.getFullName()
-                                            + " requires your approval as Department Head.",
+                                            + " has been created (Venue reservation pending).",
                                     "requester",
                                     eventOrganizer.getFullName());
                     notificationService.notifyUser(
@@ -167,6 +262,7 @@ public class EventService {
                             + ": "
                             + e.getMessage());
         }
+
         return mapToDTO(savedEvent);
     }
 

@@ -54,8 +54,6 @@ public class VenueReservation {
     @Column(nullable = false)
     private Status status;
 
-    private String reservationLetterPath;
-
     @OneToMany(mappedBy = "venueReservation", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<VenueApproval> approvals;
 
@@ -138,14 +136,6 @@ public class VenueReservation {
 
     public void setStatus(Status status) {
         this.status = status;
-    }
-
-    public String getReservationLetterPath() {
-        return reservationLetterPath;
-    }
-
-    public void setReservationLetterPath(String reservationLetterPath) {
-        this.reservationLetterPath = reservationLetterPath;
     }
 
     public List<VenueApproval> getApprovals() {

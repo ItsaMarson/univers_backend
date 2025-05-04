@@ -29,17 +29,17 @@ public interface EquipmentReservationRepository extends JpaRepository<EquipmentR
 
     List<EquipmentReservation> findByRequestingUser(User requestingUser);
 
-    // Find pending reservations for the equipment owner
     @Query(
             "SELECT er FROM EquipmentReservation er WHERE er.status = 'PENDING' AND"
                     + " er.equipment.equipmentOwner.id = :equipmentOwnerId")
     List<EquipmentReservation> findPendingReservationsForEquipmentOwner(
             @Param("equipmentOwnerId") Long equipmentOwnerId);
 
-    // Find all reservations for the equipment owner
     @Query(
             "SELECT er FROM EquipmentReservation er WHERE er.equipment.equipmentOwner.id ="
                     + " :equipmentOwnerId")
     List<EquipmentReservation> findAllReservationsForEquipmentOwner(
             @Param("equipmentOwnerId") Long equipmentOwnerId);
+
+    List<EquipmentReservation> findByEvent_Id(Long eventId);
 }

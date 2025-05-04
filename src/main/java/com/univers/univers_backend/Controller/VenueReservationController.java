@@ -19,7 +19,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/venue-reservations")
@@ -48,13 +47,10 @@ public class VenueReservationController {
     @PostMapping
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<?> createVenueReservation(
-            @RequestPart("reservation") VenueReservationDTO reservationDTO,
-            @RequestPart(value = "reservationLetter", required = false)
-                    MultipartFile reservationLetterFile) {
+            @RequestPart("reservation") VenueReservationDTO reservationDTO) {
         try {
             VenueReservationDTO createdReservation =
-                    venueReservationService.createVenueReservation(
-                            reservationDTO, reservationLetterFile);
+                    venueReservationService.createVenueReservation(reservationDTO);
             return new ResponseEntity<>(createdReservation, HttpStatus.CREATED);
         } catch (IllegalArgumentException | NoSuchElementException e) {
             return ResponseEntity.badRequest().body(e.getMessage());

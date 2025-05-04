@@ -4,7 +4,6 @@ package com.univers.univers_backend.Service;
 import com.univers.univers_backend.DTO.UserDTO;
 import com.univers.univers_backend.DTO.VenueApprovalDTO;
 import com.univers.univers_backend.DTO.VenueReservationDTO;
-// Import necessary entities
 import com.univers.univers_backend.Entity.Department;
 import com.univers.univers_backend.Entity.Event;
 import com.univers.univers_backend.Entity.User;
@@ -13,7 +12,6 @@ import com.univers.univers_backend.Entity.VenueApproval;
 import com.univers.univers_backend.Entity.VenueReservation;
 import com.univers.univers_backend.Enum.Role;
 import com.univers.univers_backend.Enum.Status;
-// Import necessary repositories
 import com.univers.univers_backend.Repository.DepartmentRepository;
 import com.univers.univers_backend.Repository.EventRepository;
 import com.univers.univers_backend.Repository.UserRepository;
@@ -41,7 +39,7 @@ public class VenueReservationService {
     private final EventRepository eventRepository;
     private final VenueRepository venueRepository;
     private final UserRepository userRepository;
-    private final DepartmentRepository departmentRepository; // Assuming you have this
+    private final DepartmentRepository departmentRepository;
     private final FileStorageService fileStorageService;
     private final NotificationService notificationService;
 
@@ -64,9 +62,6 @@ public class VenueReservationService {
                     Role.VPAA,
                     Role.FAO,
                     Role.SSD);
-
-    @Value("${minio.bucket.venuesreservationletters}")
-    private String reservationLettersBucketName;
 
     @Value("${minio.bucket.users}")
     private String usersBucketName;
@@ -147,15 +142,6 @@ public class VenueReservationService {
         newReservation.setVenue(venue);
         newReservation.setStartTime(startTime);
         newReservation.setEndTime(endTime);
-
-        if (reservationLetterFile != null && !reservationLetterFile.isEmpty()) {
-            String letterObjectName =
-                    fileStorageService.uploadFile(
-                            reservationLetterFile,
-                            reservationLettersBucketName,
-                            "reservation-letters/");
-            newReservation.setReservationLetterPath(letterObjectName);
-        }
 
         VenueReservation savedReservation = venueReservationRepository.save(newReservation);
 
@@ -387,15 +373,6 @@ public class VenueReservationService {
                             + " state.");
         }
 
-        // Delete associated letter file
-        if (reservation.getReservationLetterPath() != null
-                && !reservation.getReservationLetterPath().isBlank()) {
-            fileStorageService.deleteFile(
-                    reservation.getReservationLetterPath(), reservationLettersBucketName);
-        }
-
-        // Approvals are deleted via cascade
-
         venueReservationRepository.delete(reservation);
     }
 
@@ -483,16 +460,7 @@ public class VenueReservationService {
     }
 
     public VenueReservationDTO mapToDTO(VenueReservation reservation) {
-        String letterUrl = null;
-        if (reservation.getReservationLetterPath() != null
-                && !reservation.getReservationLetterPath().isBlank()) {
-            letterUrl =
-                    fileStorageService.getFileUrl(
-                            reservation.getReservationLetterPath(), reservationLettersBucketName);
-        }
-
-        UserDTO requesterDto =
-                mapUserToDTO(reservation.getRequestingUser()); // Reuse existing mapper if
+        UserDTO requesterDto = mapUserToDTO(reservation.getRequestingUser());
         // available
         List<VenueApprovalDTO> approvalDTOs =
                 reservation.getApprovals() != null
@@ -513,7 +481,6 @@ public class VenueReservationService {
                 reservation.getStartTime(),
                 reservation.getEndTime(),
                 reservation.getStatus().name(),
-                letterUrl,
                 approvalDTOs,
                 reservation.getCreatedAt(),
                 reservation.getUpdatedAt());
@@ -525,7 +492,7 @@ public class VenueReservationService {
                 approval.getVenueReservation().getId(),
                 approval.getSignedBy().getId(),
                 approval.getSignedBy().getFullName(),
-                approval.getSignedBy().getRoles().name(), // Assuming single role
+                approval.getSignedBy().getRoles().name(),
                 approval.getRemarks(),
                 approval.getStatus().name(),
                 approval.getDateSigned());
@@ -548,7 +515,7 @@ public class VenueReservationService {
     public List<VenueReservationDTO> getPendingReservationsForVenueOwner() {
         User currentUser = getCurrentUser();
         if (!currentUser.getRoles().toString().contains(Role.VENUE_OWNER.toString())) {
-            return List.of(); // Or throw exception
+            return List.of();
         }
         List<VenueReservation> reservations =
                 venueReservationRepository.findPendingReservationsForVenueOwner(

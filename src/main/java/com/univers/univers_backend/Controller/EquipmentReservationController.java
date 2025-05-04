@@ -19,7 +19,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/equipment-reservations")
@@ -34,13 +33,10 @@ public class EquipmentReservationController {
     @PostMapping
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<?> createEquipmentReservation(
-            @RequestPart("reservation") EquipmentReservationDTO reservationDTO,
-            @RequestPart(value = "reservationLetter", required = false)
-                    MultipartFile reservationLetterFile) {
+            @RequestPart("reservation") EquipmentReservationDTO reservationDTO) {
         try {
             EquipmentReservationDTO createdReservation =
-                    equipmentReservationService.createEquipmentReservation(
-                            reservationDTO, reservationLetterFile);
+                    equipmentReservationService.createEquipmentReservation(reservationDTO);
             return new ResponseEntity<>(createdReservation, HttpStatus.CREATED);
         } catch (IllegalArgumentException | NoSuchElementException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
@@ -87,6 +83,24 @@ public class EquipmentReservationController {
             System.err.println(
                     "Error getting equipment reservation by ID "
                             + reservationId
+                            + ": "
+                            + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("An unexpected error occurred.");
+        }
+    }
+
+    @GetMapping("/event/{eventId}")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<?> getReservationsByEventId(@PathVariable Long eventId) {
+        try {
+            List<EquipmentReservationDTO> reservations =
+                    equipmentReservationService.getReservationsByEventId(eventId);
+            return ResponseEntity.ok(reservations);
+        } catch (Exception e) {
+            System.err.println(
+                    "Error getting equipment reservations for event ID "
+                            + eventId
                             + ": "
                             + e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)

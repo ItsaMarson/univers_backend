@@ -17,7 +17,6 @@ public record EquipmentReservationDTO(
         LocalDateTime startTime,
         LocalDateTime endTime,
         String status,
-        String reservationLetterUrl,
         List<EquipmentApprovalDTO> approvals,
         LocalDateTime createdAt,
         LocalDateTime updatedAt) {}

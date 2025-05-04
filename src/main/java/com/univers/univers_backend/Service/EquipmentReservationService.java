@@ -31,7 +31,6 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.multipart.MultipartFile;
 
 @Service
 public class EquipmentReservationService {
@@ -39,21 +38,20 @@ public class EquipmentReservationService {
     private final EquipmentReservationRepository equipmentReservationRepository;
     private final EquipmentApprovalRepository equipmentApprovalRepository;
     private final EventRepository eventRepository;
-    private final EquipmentRepository equipmentRepository; // Assuming this exists
+    private final EquipmentRepository equipmentRepository;
     private final UserRepository userRepository;
     private final DepartmentRepository departmentRepository;
-    private final FileStorageService fileStorageService;
     private final NotificationService notificationService;
+    private final FileStorageService fileStorageService;
 
     // Define roles that can approve/reject equipment reservations
     // Assuming EQUIPMENT_OWNER is the primary role
-    private static final Set<Role> EQUIPMENT_APPROVER_ROLES =
-            Set.of(Role.EQUIPMENT_OWNER /*, Add other roles if needed */);
+    private static final Set<Role> EQUIPMENT_APPROVER_ROLES = Set.of(Role.EQUIPMENT_OWNER /*
+                                                                                               * , Add other roles if
+                                                                                               * needed
+                                                                                               */);
     // Define roles REQUIRED for the reservation to become APPROVED
     private static final Set<Role> REQUIRED_APPROVAL_ROLES = Set.of(Role.EQUIPMENT_OWNER);
-
-    @Value("${minio.bucket.equipment-reservation-letters}")
-    private String reservationLettersBucketName;
 
     @Value("${minio.bucket.users}")
     private String usersBucketName;
@@ -80,7 +78,7 @@ public class EquipmentReservationService {
 
     @Transactional
     public EquipmentReservationDTO createEquipmentReservation(
-            EquipmentReservationDTO reservationDTO, MultipartFile reservationLetterFile) {
+            EquipmentReservationDTO reservationDTO) {
         User requestingUser = getCurrentUser();
 
         Event event =
@@ -108,7 +106,8 @@ public class EquipmentReservationService {
             // Check if the requesting user has a department assigned
             Department userDepartment = requestingUser.getDepartment();
             if (userDepartment == null) {
-                // Handle the case where the user has no department and none was provided in the DTO
+                // Handle the case where the user has no department and none was provided in the
+                // DTO
                 throw new IllegalArgumentException(
                         "Requesting user '"
                                 + requestingUser.getEmail()
@@ -139,7 +138,8 @@ public class EquipmentReservationService {
             throw new IllegalArgumentException("Requested quantity must be positive.");
         }
 
-        // Check Availability (Simplified: checks total quantity reserved in the overlapping period)
+        // Check Availability (Simplified: checks total quantity reserved in the
+        // overlapping period)
         int currentlyReserved =
                 equipmentReservationRepository
                         .findOverlappingReservations(equipment.getId(), startTime, endTime)
@@ -148,7 +148,8 @@ public class EquipmentReservationService {
                                 r ->
                                         r.getStatus() == Status.APPROVED
                                                 || r.getStatus()
-                                                        == Status.PENDING) // Consider pending as
+                                                        == Status.PENDING) // Consider pending
+                        // as
                         // potentially unavailable
                         .mapToInt(EquipmentReservation::getQuantity)
                         .sum();
@@ -169,20 +170,10 @@ public class EquipmentReservationService {
         newReservation.setQuantity(requestedQuantity);
         newReservation.setStartTime(startTime);
         newReservation.setEndTime(endTime);
-        // Status set by @PrePersist
-
-        if (reservationLetterFile != null && !reservationLetterFile.isEmpty()) {
-            String letterObjectName =
-                    fileStorageService.uploadFile(
-                            reservationLetterFile,
-                            reservationLettersBucketName,
-                            "equipment-reservation-letters/");
-            newReservation.setReservationLetterPath(letterObjectName);
-        }
 
         EquipmentReservation savedReservation = equipmentReservationRepository.save(newReservation);
 
-        notifyEquipmentOwner(savedReservation); // Notify the equipment owner
+        notifyEquipmentOwner(savedReservation);
 
         return mapToDTO(savedReservation);
     }
@@ -209,6 +200,12 @@ public class EquipmentReservationService {
         User currentUser = getCurrentUser();
         List<EquipmentReservation> reservations =
                 equipmentReservationRepository.findByRequestingUser(currentUser);
+        return reservations.stream().map(this::mapToDTO).collect(Collectors.toList());
+    }
+
+    public List<EquipmentReservationDTO> getReservationsByEventId(Long eventId) {
+        List<EquipmentReservation> reservations =
+                equipmentReservationRepository.findByEvent_Id(eventId);
         return reservations.stream().map(this::mapToDTO).collect(Collectors.toList());
     }
 
@@ -384,12 +381,6 @@ public class EquipmentReservationService {
             throw new SecurityException("Cannot delete this reservation.");
         }
 
-        if (reservation.getReservationLetterPath() != null
-                && !reservation.getReservationLetterPath().isBlank()) {
-            fileStorageService.deleteFile(
-                    reservation.getReservationLetterPath(), reservationLettersBucketName);
-        }
-
         equipmentReservationRepository.delete(reservation);
     }
 
@@ -446,15 +437,7 @@ public class EquipmentReservationService {
         }
     }
 
-    // --- Mappers ---
     public EquipmentReservationDTO mapToDTO(EquipmentReservation reservation) {
-        String letterUrl = null;
-        if (reservation.getReservationLetterPath() != null
-                && !reservation.getReservationLetterPath().isBlank()) {
-            letterUrl =
-                    fileStorageService.getFileUrl(
-                            reservation.getReservationLetterPath(), reservationLettersBucketName);
-        }
         UserDTO requesterDto = mapUserToDTO(reservation.getRequestingUser());
         List<EquipmentApprovalDTO> approvalDTOs =
                 reservation.getApprovals() != null
@@ -476,7 +459,6 @@ public class EquipmentReservationService {
                 reservation.getStartTime(),
                 reservation.getEndTime(),
                 reservation.getStatus().name(),
-                letterUrl,
                 approvalDTOs,
                 reservation.getCreatedAt(),
                 reservation.getUpdatedAt());

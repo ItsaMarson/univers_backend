@@ -16,7 +16,6 @@ public record VenueReservationDTO(
         LocalDateTime startTime,
         LocalDateTime endTime,
         String status,
-        String reservationLetterUrl,
         List<VenueApprovalDTO> approvals,
         LocalDateTime createdAt,
         LocalDateTime updatedAt) {}

@@ -38,26 +38,24 @@ public class EquipmentReservation {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "department_id", nullable = false)
-    private Department department; // Department making the reservation
+    private Department department;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "equipment_id", nullable = false)
-    private Equipment equipment; // Equipment being reserved
+    private Equipment equipment;
 
     @Column(nullable = false)
-    private Integer quantity; // Quantity of equipment requested
+    private Integer quantity;
 
     @Column(nullable = false)
-    private LocalDateTime startTime; // Start time of reservation (likely from event)
+    private LocalDateTime startTime;
 
     @Column(nullable = false)
-    private LocalDateTime endTime; // End time of reservation (likely from event)
+    private LocalDateTime endTime;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private Status status; // PENDING, APPROVED, REJECTED, CANCELED
-
-    private String reservationLetterPath; // Path to the uploaded reservation letter
+    private Status status;
 
     @OneToMany(mappedBy = "equipmentReservation", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<EquipmentApproval> approvals;
@@ -70,7 +68,7 @@ public class EquipmentReservation {
     @PrePersist
     protected void onCreate() {
         this.createdAt = LocalDateTime.now();
-        this.status = Status.PENDING; // Default status
+        this.status = Status.PENDING;
     }
 
     @PreUpdate
@@ -149,14 +147,6 @@ public class EquipmentReservation {
 
     public void setStatus(Status status) {
         this.status = status;
-    }
-
-    public String getReservationLetterPath() {
-        return reservationLetterPath;
-    }
-
-    public void setReservationLetterPath(String reservationLetterPath) {
-        this.reservationLetterPath = reservationLetterPath;
     }
 
     public List<EquipmentApproval> getApprovals() {
