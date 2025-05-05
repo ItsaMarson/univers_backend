@@ -402,10 +402,11 @@ public class VenueReservationService {
 
             // Create payload with entity info
             Map<String, Object> payload = new HashMap<>();
-            payload.put("type", "VENUE_RESERVATION_REQUEST"); // Notification type
+            payload.put("type", "VENUE_RESERVATION_REQUEST");
             payload.put("message", message);
-            payload.put("venueReservationId", reservation.getId()); // Add ID
-            payload.put("relatedEntityType", "VENUE_RESERVATION"); // Add Type
+            payload.put("venueReservationId", reservation.getId());
+            payload.put("relatedEntityType", "VENUE_RESERVATION");
+            payload.put("eventId", reservation.getEvent().getId());
             payload.put("requesterName", reservation.getRequestingUser().getFullName());
             payload.put("eventName", reservation.getEvent().getEventName());
             payload.put("venueName", reservation.getVenue().getName());
@@ -437,6 +438,7 @@ public class VenueReservationService {
             payload.put("message", message);
             payload.put("venueReservationId", reservation.getId());
             payload.put("relatedEntityType", "VENUE_RESERVATION");
+            payload.put("eventId", reservation.getEvent().getId());
             payload.put("status", reservation.getStatus().name());
             if (actor != null) {
                 payload.put("actorName", actorName);
@@ -465,6 +467,7 @@ public class VenueReservationService {
             payload.put("message", message);
             payload.put("venueReservationId", reservation.getId());
             payload.put("relatedEntityType", "VENUE_RESERVATION");
+            payload.put("eventId", reservation.getEvent().getId());
             payload.put("cancellerName", canceller.getFullName());
 
             notificationService.notifyUser(venueOwner.getEmail(), "/queue/notifications", payload);

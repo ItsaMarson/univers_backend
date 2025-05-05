@@ -417,6 +417,7 @@ public class EquipmentReservationService {
             payload.put("message", message);
             payload.put("equipmentReservationId", reservation.getId());
             payload.put("relatedEntityType", "EQUIPMENT_RESERVATION");
+            payload.put("eventId", reservation.getEvent().getId());
             payload.put("requesterName", reservation.getRequestingUser().getFullName());
             payload.put("eventName", reservation.getEvent().getEventName());
             payload.put("equipmentName", reservation.getEquipment().getName());
@@ -451,6 +452,7 @@ public class EquipmentReservationService {
             payload.put("message", message);
             payload.put("equipmentReservationId", reservation.getId());
             payload.put("relatedEntityType", "EQUIPMENT_RESERVATION");
+            payload.put("eventId", reservation.getEvent().getId());
             payload.put("status", reservation.getStatus().name());
             if (actor != null) {
                 payload.put("actorName", actorName);
@@ -482,6 +484,7 @@ public class EquipmentReservationService {
             payload.put("message", message);
             payload.put("equipmentReservationId", reservation.getId());
             payload.put("relatedEntityType", "EQUIPMENT_RESERVATION");
+            payload.put("eventId", reservation.getEvent().getId());
             payload.put("cancellerName", canceller.getFullName());
 
             notificationService.notifyUser(

@@ -67,6 +67,7 @@ public class NotificationService {
                     Map<?, ?> payloadMap = (Map<?, ?>) payload;
                     String entityType = null;
                     Long entityId = null;
+                    Long eventId = null;
 
                     if (payloadMap.containsKey("eventId")) {
                         entityType = "EVENT";
@@ -91,8 +92,14 @@ public class NotificationService {
 
                     notification.setRelatedEntityType(entityType);
                     notification.setRelatedEntityId(entityId);
-                }
 
+                    if (payloadMap.containsKey("eventId")) {
+                        eventId =
+                                parseLongFromPayload(
+                                        payloadMap.get("eventId"), "eventId", username);
+                        notification.setEventId(eventId); // Set the dedicated eventId field
+                    }
+                }
                 notificationRepository.save(notification);
                 log.info(
                         "Persisted notification for user '{}' (EntityType: {}, EntityId: {})",
@@ -120,12 +127,17 @@ public class NotificationService {
             return null;
         }
         try {
+            if (value instanceof Integer) {
+                return ((Integer) value).longValue();
+            }
             return Long.parseLong(value.toString());
         } catch (NumberFormatException e) {
             log.warn(
-                    "Could not parse '{}' from notification payload value '{}' for user {}",
+                    "Could not parse '{}' from notification payload value '{}' (type: {}) for user"
+                            + " {}",
                     keyName,
                     value,
+                    value.getClass().getSimpleName(),
                     username);
             return null;
         }

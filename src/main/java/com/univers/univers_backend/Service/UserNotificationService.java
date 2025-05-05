@@ -69,6 +69,7 @@ public class UserNotificationService {
 
         return new NotificationDTO(
                 notification.getId(),
+                notification.getEventId(),
                 messageObject, // Use the parsed object
                 notification.getCreatedAt(),
                 notification.isRead(),

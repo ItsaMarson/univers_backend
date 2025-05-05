@@ -5,6 +5,7 @@ import java.time.LocalDateTime;
 
 public record NotificationDTO(
         Long id,
+        Long eventId,
         Object message,
         LocalDateTime createdAt,
         boolean isRead,
