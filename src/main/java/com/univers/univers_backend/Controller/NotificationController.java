@@ -5,7 +5,6 @@ import com.univers.univers_backend.DTO.NotificationDTO;
 import com.univers.univers_backend.Service.UserNotificationService;
 import java.util.List;
 import java.util.Map;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
@@ -23,7 +22,6 @@ public class NotificationController {
 
     private final UserNotificationService userNotificationService;
 
-    @Autowired
     public NotificationController(UserNotificationService userNotificationService) {
         this.userNotificationService = userNotificationService;
     }

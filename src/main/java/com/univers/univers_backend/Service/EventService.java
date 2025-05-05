@@ -177,8 +177,7 @@ public class EventService {
                             );
 
             VenueReservationDTO createdReservation =
-                    venueReservationService.createVenueReservation(
-                            reservationRequestDTO, null); // Pass null for letter file
+                    venueReservationService.createVenueReservation(reservationRequestDTO);
 
             System.out.println(
                     "Successfully created venue reservation ID: "

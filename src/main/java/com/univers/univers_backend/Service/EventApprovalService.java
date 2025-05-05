@@ -78,9 +78,6 @@ public class EventApprovalService {
             event.setStatus(Status.APPROVED);
             eventRepository.save(event);
 
-            // TODO: Optionally send notification to organizer
-            // notificationService.notifyUser(event.getOrganizer().getEmail(),
-            // "/topic/events",
             User organizer = event.getOrganizer();
             if (organizer != null && organizer.getEmail() != null) {
                 String messageText =
