@@ -339,7 +339,7 @@ public class VenueReservationService {
         venueReservationRepository.save(reservation);
 
         notifyVenueOwnerOfCancellation(reservation, currentUser);
-        notifyRequester(reservation, "cancelled", currentUser, "VENUE_RESERVATION_CANCELLED");
+        notifyRequester(reservation, "canceled", currentUser, "VENUE_RESERVATION_CANCELED");
 
         return "Venue reservation canceled successfully.";
     }
@@ -455,13 +455,13 @@ public class VenueReservationService {
                 && !venueOwner.getId().equals(canceller.getId())) {
             String message =
                     String.format(
-                            "Venue reservation for '%s' (Event: %s) was cancelled by %s.",
+                            "Venue reservation for '%s' (Event: %s) was canceled by %s.",
                             reservation.getVenue().getName(),
                             reservation.getEvent().getEventName(),
                             canceller.getFullName());
 
             Map<String, Object> payload = new HashMap<>();
-            payload.put("type", "VENUE_RESERVATION_CANCELLED_INFO");
+            payload.put("type", "VENUE_RESERVATION_CANCELED_INFO");
             payload.put("message", message);
             payload.put("venueReservationId", reservation.getId());
             payload.put("relatedEntityType", "VENUE_RESERVATION");

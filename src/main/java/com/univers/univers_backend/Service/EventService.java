@@ -483,12 +483,12 @@ public class EventService {
                 && organizer.getEmail() != null
                 && !organizer.getId().equals(canceller.getId())) {
             Map<String, Object> payload = new HashMap<>();
-            payload.put("type", "EVENT_CANCELLED");
+            payload.put("type", "EVENT_CANCELED");
             payload.put(
                     "message",
                     "Your event '"
                             + event.getEventName()
-                            + "' has been cancelled by "
+                            + "' has been canceled by "
                             + canceller.getFullName()
                             + ".");
             payload.put("eventId", event.getId());
@@ -504,14 +504,14 @@ public class EventService {
                 && venue.getVenueOwner().getEmail() != null
                 && !venue.getVenueOwner().getId().equals(canceller.getId())) {
             Map<String, Object> payload = new HashMap<>();
-            payload.put("type", "EVENT_CANCELLED_INFO"); // Different type for info
+            payload.put("type", "EVENT_CANCELED_INFO"); // Different type for info
             payload.put(
                     "message",
                     "Event '"
                             + event.getEventName()
                             + "' scheduled at your venue '"
                             + venue.getName()
-                            + "' has been cancelled by "
+                            + "' has been canceled by "
                             + canceller.getFullName()
                             + ".");
             payload.put("eventId", event.getId());
@@ -531,14 +531,14 @@ public class EventService {
                     && deptHead.getEmail() != null
                     && !deptHead.getId().equals(canceller.getId())) {
                 Map<String, Object> payload = new HashMap<>();
-                payload.put("type", "EVENT_CANCELLED_INFO");
+                payload.put("type", "EVENT_CANCELED_INFO");
                 payload.put(
                         "message",
                         "Event '"
                                 + event.getEventName()
                                 + "' organized by "
                                 + organizer.getFullName()
-                                + " from your department has been cancelled by "
+                                + " from your department has been canceled by "
                                 + canceller.getFullName()
                                 + ".");
                 payload.put("eventId", event.getId());

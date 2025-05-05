@@ -359,7 +359,7 @@ public class EquipmentReservationService {
         reservation.setStatus(Status.CANCELED);
         equipmentReservationRepository.save(reservation);
         notifyEquipmentOwnerOfCancellation(reservation, currentUser);
-        notifyRequester(reservation, "cancelled", currentUser, "EQUIPMENT_RESERVATION_CANCELLED");
+        notifyRequester(reservation, "canceled", currentUser, "EQUIPMENT_RESERVATION_CANCELED");
 
         return "Equipment reservation canceled successfully.";
     }
@@ -472,7 +472,7 @@ public class EquipmentReservationService {
                 && !equipmentOwner.getId().equals(canceller.getId())) {
             String message =
                     String.format(
-                            "Equipment reservation for '%s' (Qty: %d, Event: %s) was cancelled by"
+                            "Equipment reservation for '%s' (Qty: %d, Event: %s) was canceled by"
                                     + " %s.",
                             reservation.getEquipment().getName(),
                             reservation.getQuantity(),
@@ -480,7 +480,7 @@ public class EquipmentReservationService {
                             canceller.getFullName());
 
             Map<String, Object> payload = new HashMap<>();
-            payload.put("type", "EQUIPMENT_RESERVATION_CANCELLED_INFO");
+            payload.put("type", "EQUIPMENT_RESERVATION_CANCELED_INFO");
             payload.put("message", message);
             payload.put("equipmentReservationId", reservation.getId());
             payload.put("relatedEntityType", "EQUIPMENT_RESERVATION");
