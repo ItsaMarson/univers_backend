@@ -31,6 +31,10 @@ public class Event {
     @JoinColumn(name = "venue_id")
     private Venue eventVenue;
 
+    @ManyToOne
+    @JoinColumn(name = "department_id")
+    private Department department;
+
     @Column(updatable = false)
     private LocalDateTime createdAt;
 
@@ -133,6 +137,14 @@ public class Event {
 
     public void setEventVenue(Venue eventVenue) {
         this.eventVenue = eventVenue;
+    }
+
+    public Department getDepartment() {
+        return department;
+    }
+
+    public void setDepartment(Department department) {
+        this.department = department;
     }
 
     public String getApprovedLetterPath() {

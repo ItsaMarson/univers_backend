@@ -9,6 +9,7 @@ public record EventDTO(
         String eventType,
         UserDTO organizer,
         Long eventVenueId,
+        Long departmentId,
         LocalDateTime startTime,
         LocalDateTime endTime,
         String status,

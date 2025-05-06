@@ -116,4 +116,8 @@ public class DepartmentService {
         departmentRepository.save(department);
         return "Department has been successfully updated.";
     }
+
+    public Department getDepartmentById(Long departmentId) {
+        return departmentRepository.findById(departmentId).orElse(null);
+    }
 }

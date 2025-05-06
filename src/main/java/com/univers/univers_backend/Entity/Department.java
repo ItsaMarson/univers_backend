@@ -1,14 +1,12 @@
+/* (C)2025 */
 package com.univers.univers_backend.Entity;
 
 import jakarta.persistence.*;
-
 import java.time.LocalDateTime;
-
 
 @Entity
 @Table(name = "department")
 public class Department {
-
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -25,21 +23,26 @@ public class Department {
 
     LocalDateTime createdAt;
     LocalDateTime updatedAt;
+
     @PrePersist
-    protected void OnCreate(){
+    protected void OnCreate() {
         this.createdAt = LocalDateTime.now();
     }
 
     @PreUpdate
-    protected void onUpdate(){
+    protected void onUpdate() {
         this.updatedAt = LocalDateTime.now();
     }
 
+    public Department() {}
 
-    public Department() {
-    }
-
-    public Department(Long id, String name, String description, User deptHead, LocalDateTime createdAt, LocalDateTime updatedAt) {
+    public Department(
+            Long id,
+            String name,
+            String description,
+            User deptHead,
+            LocalDateTime createdAt,
+            LocalDateTime updatedAt) {
         this.id = id;
         this.name = name;
         this.description = description;

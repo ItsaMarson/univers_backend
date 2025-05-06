@@ -20,6 +20,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -36,6 +38,8 @@ public class EventService {
     private final FileStorageService fileStorageService;
     private final NotificationService notificationService;
     private final VenueReservationService venueReservationService;
+    private final DepartmentService departmentService;
+    private static final Logger logger = LoggerFactory.getLogger(EventService.class);
 
     @Value("${minio.bucket.letters}")
     private String lettersBucketName;
@@ -52,12 +56,14 @@ public class EventService {
             VenueRepository venueRepository,
             FileStorageService fileStorageService,
             VenueReservationService venueReservationService,
+            DepartmentService departmentService,
             NotificationService notificationService) {
         this.eventRepository = eventRepository;
         this.userRepository = userRepository;
         this.venueRepository = venueRepository;
         this.fileStorageService = fileStorageService;
         this.venueReservationService = venueReservationService;
+        this.departmentService = departmentService;
         this.notificationService = notificationService;
     }
 
@@ -82,6 +88,26 @@ public class EventService {
                                         new IllegalArgumentException(
                                                 "Invalid venue ID: " + eventDTO.eventVenueId()));
 
+        Long eventDepartmentId = eventDTO.departmentId();
+        Department eventDepartment = null;
+        if (eventDepartmentId != null) {
+            eventDepartment = departmentService.getDepartmentById(eventDepartmentId);
+            if (eventDepartment == null) {
+                throw new IllegalArgumentException("Invalid department ID: " + eventDepartmentId);
+            }
+        } else {
+            // Fallback to organizer's department if no specific departmentId is provided for the
+            // event
+            // Or throw an error if departmentId is strictly required for an event
+            // For now, let's assume it's optional and can fallback or be null
+            // If it's mandatory, uncomment the error or ensure eventDTO.departmentId() is always
+            // present
+            // throw new IllegalArgumentException("Department ID is required for the event.");
+            System.err.println(
+                    "Warning: No specific departmentId provided for event, attempting to use"
+                            + " organizer's department for reservation.");
+        }
+
         List<Event> conflictingEvents =
                 eventRepository.findConflictingEvents(
                         venue.getId(), eventDTO.startTime(), eventDTO.endTime());
@@ -90,15 +116,20 @@ public class EventService {
                     "There is a scheduling conflict with another event at this venue and time.");
         }
         try {
+            Long departmentIdForTempCheck =
+                    eventDepartmentId != null
+                            ? eventDepartmentId
+                            : (organizer.getDepartment() != null
+                                    ? organizer.getDepartment().getId()
+                                    : null);
+
             VenueReservationDTO tempReservationCheckDto =
                     new VenueReservationDTO(
                             null, // id
                             null, // eventId (not created yet)
                             null, // eventName
                             null, // requestingUser
-                            organizer.getDepartment() != null
-                                    ? organizer.getDepartment().getId()
-                                    : null, // departmentId
+                            departmentIdForTempCheck,
                             null, // departmentName
                             venue.getId(), // venueId
                             null, // venueName
@@ -125,6 +156,7 @@ public class EventService {
         event.setEventType(eventDTO.eventType());
         event.setStartTime(eventDTO.startTime());
         event.setEndTime(eventDTO.endTime());
+        event.setDepartment(eventDepartment);
         event.setOrganizer(organizer);
         event.setEventVenue(venue);
         event.setStatus(Status.PENDING);
@@ -145,14 +177,30 @@ public class EventService {
         Event savedEvent = eventRepository.save(event);
 
         try {
-            Department organizerDept = organizer.getDepartment();
-            Long departmentIdForReservation = organizerDept != null ? organizerDept.getId() : null;
+            // Use the event's specified departmentId for the reservation if available,
+            // otherwise fallback to the organizer's department.
+            Long departmentIdForReservation = eventDepartmentId;
+            String departmentNameForReservation = null;
+
+            if (departmentIdForReservation != null && eventDepartment != null) {
+                departmentNameForReservation = eventDepartment.getName();
+            } else {
+                // Fallback to organizer's department if event specific one is not set
+                Department organizerDept = organizer.getDepartment();
+                if (organizerDept != null) {
+                    departmentIdForReservation = organizerDept.getId();
+                    departmentNameForReservation = organizerDept.getName();
+                }
+            }
+
             if (departmentIdForReservation == null) {
                 System.err.println(
                         "Warning: Organizer "
                                 + organizer.getId()
-                                + " has no department assigned. Cannot set department for venue"
-                                + " reservation.");
+                                + " has no department assigned, and no specific department provided"
+                                + " for event. Cannot set department for venue reservation.");
+                // Depending on your business logic, you might want to throw an error here
+                // if a department is mandatory for a venue reservation.
             }
 
             VenueReservationDTO reservationRequestDTO =
@@ -162,10 +210,8 @@ public class EventService {
                             savedEvent.getEventName(), // Use event name
                             mapUserToDTO(organizer), // Pass organizer DTO (or null if not needed by
                             // create)
-                            departmentIdForReservation, // Use organizer's department ID
-                            organizerDept != null
-                                    ? organizerDept.getName()
-                                    : null, // Use organizer's department name
+                            departmentIdForReservation, // Use the determined department ID
+                            departmentNameForReservation, // Use the determined department name
                             venue.getId(), // Venue ID
                             venue.getName(), // Venue Name
                             savedEvent.getStartTime(), // Use event start time
@@ -330,7 +376,27 @@ public class EventService {
             throw new IllegalArgumentException("You are not authorized to update this event.");
         }
 
-        Venue newVenue = event.getEventVenue(); // Default to existing venue
+        Department newDepartment = event.getDepartment();
+        if (updatedEventDTO.departmentId() != null) {
+            if (event.getDepartment() == null
+                    || !updatedEventDTO.departmentId().equals(event.getDepartment().getId())) {
+                // Corrected part:
+                Department fetchedDepartment =
+                        departmentService.getDepartmentById(updatedEventDTO.departmentId());
+                if (fetchedDepartment == null) {
+                    throw new IllegalArgumentException(
+                            "Department not found with ID: " + updatedEventDTO.departmentId());
+                }
+                newDepartment = fetchedDepartment;
+            }
+        } else {
+            logger.warn(
+                    "departmentId in updatedEventDTO is null for event {}. Department will not be"
+                            + " changed unless it was already null.",
+                    eventId);
+        }
+
+        Venue newVenue = event.getEventVenue();
         if (updatedEventDTO.eventVenueId() != null
                 && (event.getEventVenue() == null
                         || !updatedEventDTO.eventVenueId().equals(event.getEventVenue().getId()))) {
@@ -380,6 +446,7 @@ public class EventService {
                 updatedEventDTO.eventType() != null
                         ? updatedEventDTO.eventType()
                         : event.getEventType());
+        event.setDepartment(newDepartment);
         event.setStartTime(newStartTime);
         event.setEndTime(newEndTime);
         event.setEventVenue(newVenue);
@@ -599,12 +666,18 @@ public class EventService {
 
         UserDTO organizerDto = mapUserToDTO(event.getOrganizer());
 
+        Long departmentId = null;
+        if (event.getDepartment() != null) {
+            departmentId = event.getDepartment().getId();
+        }
+
         return new EventDTO(
                 event.getId(),
                 event.getEventName(),
                 event.getEventType(),
                 organizerDto,
                 event.getEventVenue() != null ? event.getEventVenue().getId() : null,
+                departmentId,
                 event.getStartTime(),
                 event.getEndTime(),
                 event.getStatus() != null ? event.getStatus().toString() : null,
