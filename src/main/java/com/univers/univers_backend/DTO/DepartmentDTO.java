@@ -8,6 +8,7 @@ public record DepartmentDTO(
         Long id,
         @NotBlank String name,
         String description,
-        Long deptHead,
+        Long deptHeadId,
+        UserDTO deptHead,
         LocalDateTime createdAt,
         LocalDateTime updatedAt) {}

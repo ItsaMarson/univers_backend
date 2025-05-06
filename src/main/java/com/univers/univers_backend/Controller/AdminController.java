@@ -92,33 +92,60 @@ public class AdminController {
         return ResponseEntity.ok(responseMessage);
     }
 
+    @GetMapping("/department/{id}")
+    public ResponseEntity<DepartmentDTO> getDepartmentById(@PathVariable Long id) {
+        try {
+            DepartmentDTO departmentDTO = departmentService.getDepartmentDtoById(id);
+            return ResponseEntity.ok(departmentDTO);
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
+        }
+    }
+
     @PostMapping("/departments")
     public ResponseEntity<String> addDepartment(@RequestBody DepartmentDTO departmentDTO) {
-        String responseMessage = departmentService.addDepartment(departmentDTO);
-
-        if ("Department already exists.".equals(responseMessage)) {
-            return ResponseEntity.badRequest().body(responseMessage);
+        String response = departmentService.addDepartment(departmentDTO);
+        if (response.contains("already exists")) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
         }
-        return ResponseEntity.ok().body(responseMessage);
+        if (response.contains("Invalid department head")) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+        }
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
-    @PatchMapping("/departments/{departmentId}")
+    @PatchMapping("/department/{id}")
     public ResponseEntity<String> updateDepartment(
-            @PathVariable Long departmentId, @RequestBody DepartmentDTO updatedDept) {
-        String responseMessage = departmentService.updateDepartment(departmentId, updatedDept);
-
-        if ("Department does not exist".equals(responseMessage)
-                || "Invalid department head".equals(responseMessage)) {
-            return ResponseEntity.badRequest().body(responseMessage);
+            @PathVariable Long id, @RequestBody DepartmentDTO departmentDTO) {
+        String response = departmentService.updateDepartment(id, departmentDTO);
+        if (response.contains("does not exist")) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
         }
-        return ResponseEntity.ok(responseMessage);
+        if (response.contains("Invalid department head")) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+        }
+        return ResponseEntity.ok(response);
     }
 
-    @PostMapping("/{departmentId}/assign-head/{userId}")
+    @DeleteMapping("/department/{id}")
+    public ResponseEntity<String> deleteDepartment(@PathVariable Long id) {
+        String response = departmentService.deleteDepartment(id);
+        if (response.contains("not found")) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+        }
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/department/{departmentId}/assignHead/{userId}")
     public ResponseEntity<String> assignDepartmentHead(
             @PathVariable Long departmentId, @PathVariable Long userId) {
-        String message = departmentService.assignDepartmentHead(departmentId, userId);
-        return ResponseEntity.ok(message);
+        try {
+            String response = departmentService.assignDepartmentHead(departmentId, userId);
+            return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+            // Catching generic RuntimeException, consider more specific exceptions
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+        }
     }
 
     @PostMapping("/venues")
