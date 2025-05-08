@@ -64,4 +64,42 @@ public class UserMapper {
                 user.getCreatedAt(),
                 user.getUpdatedAt());
     }
+
+    public UserDTO toDtoWithoutDepartment(User user) {
+        if (user == null) {
+            return null;
+        }
+        String profileImageUrl = null;
+        if (user.getProfileImagePath() != null && !user.getProfileImagePath().isBlank()) {
+            try {
+                profileImageUrl =
+                        fileStorageService.getFileUrl(user.getProfileImagePath(), usersBucketName);
+            } catch (Exception e) {
+                System.err.println(
+                        "Error generating image URL for user "
+                                + user.getPublicId()
+                                + ": "
+                                + e.getMessage());
+            }
+        }
+
+        // Intentionally skip mapping the department to break cycles
+        DepartmentDTO departmentDto = null; 
+
+        return new UserDTO(
+                user.getPublicId(),
+                user.getEmail(),
+                user.getFirstname(),
+                user.getLastname(),
+                user.getId_number(),
+                user.getPhone_number(),
+                user.getTelephoneNumber(),
+                user.getRoles() != null ? user.getRoles().name() : null,
+                departmentDto, // This will be null
+                user.getEmailVerified(),
+                user.isActive(),
+                profileImageUrl,
+                user.getCreatedAt(),
+                user.getUpdatedAt());
+    }
 }

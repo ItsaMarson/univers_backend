@@ -31,7 +31,7 @@ public class DepartmentMapper {
             // Using @Lazy might be enough for Spring to manage the proxying.
             // Alternatively, UserMapper might need a toDto(User user, boolean mapDepartment)
             // variant.
-            deptHeadDto = userMapper.toDto(department.getDeptHead());
+            deptHeadDto = userMapper.toDtoWithoutDepartment(department.getDeptHead());
         }
 
         return new DepartmentDTO(
