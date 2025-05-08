@@ -116,10 +116,14 @@ public class EventApprovalService {
         if (currentUserRole == Role.VENUE_OWNER) {
             return approveByVenueOwner(eventId, currentUser, remarks);
         } else if ((currentUserRole == Role.EQUIPMENT_OWNER || currentUserRole == Role.MSDO)
-                && currentUser.getDepartment().getName() == "MSDO") {
+                && currentUser.getDepartment() != null
+                && currentUser.getDepartment().getName() != null
+                && currentUser.getDepartment().getName().contains("MSDO")) {
             return approveByMSDO(eventId, currentUser, remarks);
         } else if ((currentUserRole == Role.EQUIPMENT_OWNER || currentUserRole == Role.OPC)
-                && currentUser.getDepartment().getName() == "OPC") {
+                && currentUser.getDepartment() != null
+                && currentUser.getDepartment().getName() != null
+                && currentUser.getDepartment().getName().contains("OPC")) {
             return approveByOPC(eventId, currentUser, remarks);
         } else if (currentUserRole == Role.DEPT_HEAD) {
             return approveByDepartmentHead(eventId, currentUser, remarks);
@@ -348,7 +352,7 @@ public class EventApprovalService {
     }
 
     public String approveByOPC(UUID eventId, User approver, String remarks) {
-        return approve(eventId, approver, remarks, Role.EQUIPMENT_OWNER);
+        return approve(eventId, approver, remarks, Role.OPC);
     }
 
     public String approveByVPAdmin(UUID eventId, User approver, String remarks) {
@@ -421,15 +425,109 @@ public class EventApprovalService {
 
         List<EventApproval> approvals =
                 eventApprovalRepository.findAllByEventAndStatus(event, Status.APPROVED);
-        boolean hasDeptHeadApproval =
-                approvals.stream().anyMatch(a -> a.getSignedBy().getRoles() == Role.DEPT_HEAD);
-        boolean hasVenueOwnerApproval =
-                approvals.stream().anyMatch(a -> a.getSignedBy().getRoles() == Role.VENUE_OWNER);
-        boolean hasMSDOApproval =
-                approvals.stream()
-                        .anyMatch(a -> a.getSignedBy().getRoles() == Role.EQUIPMENT_OWNER);
 
-        boolean isFullyApproved = hasDeptHeadApproval && hasVenueOwnerApproval && hasMSDOApproval;
+        // 1. Check for Organizer's Department Head Approval
+        boolean organizerDeptHeadApproved = false;
+        if (event.getOrganizer() != null
+                && event.getOrganizer().getDepartment() != null
+                && event.getOrganizer().getDepartment().getDeptHead() != null) {
+            User requiredDeptHead = event.getOrganizer().getDepartment().getDeptHead();
+            organizerDeptHeadApproved =
+                    approvals.stream()
+                            .anyMatch(
+                                    a ->
+                                            a.getSignedBy().getId().equals(requiredDeptHead.getId())
+                                                    && a.getSignedBy().getRoles()
+                                                            == Role.DEPT_HEAD);
+        } else {
+            // If no specific department head for the organizer, this condition is not met for full
+            // approval based on this specific check.
+            // Alternatively, if any DEPT_HEAD approval was acceptable, the logic would be:
+            // organizerDeptHeadApproved = approvals.stream().anyMatch(a ->
+            // a.getSignedBy().getRoles() == Role.DEPT_HEAD);
+            // Sticking to specific DH for now.
+            organizerDeptHeadApproved = false;
+        }
+
+        // 2. Check for Event's Venue Owner Approval
+        boolean eventVenueOwnerApproved = false;
+        if (event.getEventVenue() != null && event.getEventVenue().getVenueOwner() != null) {
+            User requiredVenueOwner = event.getEventVenue().getVenueOwner();
+            eventVenueOwnerApproved =
+                    approvals.stream()
+                            .anyMatch(
+                                    a ->
+                                            a.getSignedBy()
+                                                            .getId()
+                                                            .equals(requiredVenueOwner.getId())
+                                                    && a.getSignedBy().getRoles()
+                                                            == Role.VENUE_OWNER);
+        } else {
+            // If no venue is assigned to the event, or the venue has no owner,
+            // this specific approval is considered not applicable/waived for the purpose of this
+            // check.
+            eventVenueOwnerApproved = true;
+        }
+
+        // 3. Check for MSDO-related Approval
+        boolean msdoApproved =
+                approvals.stream()
+                        .anyMatch(
+                                a -> {
+                                    User signedBy = a.getSignedBy();
+                                    boolean isMSDORole = signedBy.getRoles() == Role.MSDO;
+                                    boolean isEquipmentOwnerInMSDODept =
+                                            signedBy.getRoles() == Role.EQUIPMENT_OWNER
+                                                    && signedBy.getDepartment() != null
+                                                    && signedBy.getDepartment().getName() != null
+                                                    && signedBy.getDepartment()
+                                                            .getName()
+                                                            .contains("MSDO");
+                                    return isMSDORole || isEquipmentOwnerInMSDODept;
+                                });
+
+        // 4. Check for OPC-related Approval
+        boolean opcApproved =
+                approvals.stream()
+                        .anyMatch(
+                                a -> {
+                                    User signedBy = a.getSignedBy();
+                                    boolean isOPCRole = signedBy.getRoles() == Role.OPC;
+                                    boolean isEquipmentOwnerInOPCDept =
+                                            signedBy.getRoles() == Role.EQUIPMENT_OWNER
+                                                    && signedBy.getDepartment() != null
+                                                    && signedBy.getDepartment().getName() != null
+                                                    && signedBy.getDepartment()
+                                                            .getName()
+                                                            .contains("OPC");
+                                    return isOPCRole || isEquipmentOwnerInOPCDept;
+                                });
+
+        // 5. Check for VP_ADMIN Approval
+        boolean vpAdminApproved =
+                approvals.stream().anyMatch(a -> a.getSignedBy().getRoles() == Role.VP_ADMIN);
+
+        // 6. Check for VPAA Approval
+        boolean vpaaApproved =
+                approvals.stream().anyMatch(a -> a.getSignedBy().getRoles() == Role.VPAA);
+
+        // 7. Check for SSD Approval
+        boolean ssdApproved =
+                approvals.stream().anyMatch(a -> a.getSignedBy().getRoles() == Role.SSD);
+
+        // 8. Check for FAO Approval
+        boolean faoApproved =
+                approvals.stream().anyMatch(a -> a.getSignedBy().getRoles() == Role.FAO);
+
+        boolean isFullyApproved =
+                organizerDeptHeadApproved
+                        && eventVenueOwnerApproved
+                        && msdoApproved
+                        && opcApproved
+                        && vpAdminApproved
+                        && vpaaApproved
+                        && ssdApproved
+                        && faoApproved;
 
         if (isFullyApproved) {
             if (event.getStatus() != Status.APPROVED) {

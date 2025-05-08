@@ -51,8 +51,9 @@ public class EquipmentService {
                                         new IllegalArgumentException(
                                                 "User not found with Public ID: " + userId));
 
-        if (!requester.getRoles().equals(Role.EQUIPMENT_OWNER)
-                && !requester.getRoles().equals(Role.SUPER_ADMIN)) {
+        List<Role> authorizedRoles =
+                List.of(Role.EQUIPMENT_OWNER, Role.SUPER_ADMIN, Role.MSDO, Role.OPC);
+        if (!authorizedRoles.contains(requester.getRoles())) {
             throw new IllegalArgumentException("User is not authorized to add equipment.");
         }
 
@@ -76,11 +77,12 @@ public class EquipmentService {
                                                     "Specified Equipment Owner not found with"
                                                             + " Public ID: "
                                                             + ownerPublicIdFromRequest));
-            if (!owner.getRoles().equals(Role.EQUIPMENT_OWNER)) {
+            if (!authorizedRoles.contains(owner.getRoles())) {
                 throw new IllegalArgumentException(
                         "Specified user (Public ID: "
                                 + owner.getPublicId()
-                                + ") is not an Equipment Owner.");
+                                + ") is not an authorized Equipment Manager (EQUIPMENT_OWNER, MSDO,"
+                                + " OPC).");
             }
         } else {
             owner = requester;
@@ -155,8 +157,14 @@ public class EquipmentService {
                                         new IllegalArgumentException(
                                                 "User (requester) not found with ID: " + userId));
 
-        if (!equipment.getEquipmentOwner().getPublicId().equals(UUID.fromString(userId))
-                && !requester.getRoles().equals(Role.SUPER_ADMIN)) {
+        List<Role> equipmentManagerRoles = List.of(Role.EQUIPMENT_OWNER, Role.MSDO, Role.OPC);
+
+        if (!requester.getRoles().equals(Role.SUPER_ADMIN)
+                && !(equipmentManagerRoles.contains(requester.getRoles())
+                        && equipment
+                                .getEquipmentOwner()
+                                .getPublicId()
+                                .equals(UUID.fromString(userId)))) {
             throw new IllegalArgumentException("User is not authorized to update this equipment.");
         }
 
@@ -195,11 +203,13 @@ public class EquipmentService {
                                                     "Specified new Equipment Owner not found with"
                                                             + " Public ID: "
                                                             + newOwnerPublicIdFromRequest));
-            if (!newOwner.getRoles().equals(Role.EQUIPMENT_OWNER)) {
+            if (!equipmentManagerRoles.contains(newOwner.getRoles())
+                    && !newOwner.getRoles().equals(Role.SUPER_ADMIN)) {
                 throw new IllegalArgumentException(
                         "Specified new owner (Public ID: "
                                 + newOwner.getPublicId()
-                                + ") is not an Equipment Owner.");
+                                + ") is not an authorized Equipment Manager (EQUIPMENT_OWNER, MSDO,"
+                                + " OPC).");
             }
             equipment.setEquipmentOwner(newOwner);
         }
@@ -236,8 +246,14 @@ public class EquipmentService {
                                         new IllegalArgumentException(
                                                 "User (requester) not found with ID: " + userId));
 
-        if (!equipment.getEquipmentOwner().getPublicId().equals(UUID.fromString(userId))
-                && !requester.getRoles().equals(Role.SUPER_ADMIN)) {
+        List<Role> equipmentManagerRoles = List.of(Role.EQUIPMENT_OWNER, Role.MSDO, Role.OPC);
+
+        if (!requester.getRoles().equals(Role.SUPER_ADMIN)
+                && !(equipmentManagerRoles.contains(requester.getRoles())
+                        && equipment
+                                .getEquipmentOwner()
+                                .getPublicId()
+                                .equals(UUID.fromString(userId)))) {
             throw new IllegalArgumentException("User is not authorized to delete this equipment.");
         }
 
