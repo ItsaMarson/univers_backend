@@ -7,8 +7,10 @@ import com.univers.univers_backend.Entity.Notification;
 import com.univers.univers_backend.Entity.User;
 import com.univers.univers_backend.Repository.NotificationRepository;
 import com.univers.univers_backend.Repository.UserRepository;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -61,51 +63,97 @@ public class NotificationService {
             if (recipientOpt.isPresent()) {
                 Notification notification = new Notification();
                 notification.setRecipient(recipientOpt.get());
-                notification.setMessage(jsonPayload);
+                notification.setMessage(
+                        jsonPayload); // The raw JSON payload is stored as the message
 
                 if (payload instanceof Map) {
                     Map<?, ?> payloadMap = (Map<?, ?>) payload;
                     String entityType = null;
-                    Long entityId = null;
-                    Long eventId = null;
+                    UUID relatedPublicId = null;
+                    UUID eventPublicId = null;
 
-                    if (payloadMap.containsKey("eventId")) {
-                        entityType = "EVENT";
-                        entityId =
-                                parseLongFromPayload(
-                                        payloadMap.get("eventId"), "eventId", username);
-                    } else if (payloadMap.containsKey("venueReservationId")) {
+                    // Attempt to parse a specific eventPublicId if provided
+                    if (payloadMap.containsKey("eventPublicId")) {
+                        eventPublicId =
+                                parseUUIDFromPayload(
+                                        payloadMap.get("eventPublicId"), "eventPublicId", username);
+                    }
+
+                    // Determine related entity and its public ID
+                    if (payloadMap.containsKey("venueReservationId")) {
                         entityType = "VENUE_RESERVATION";
-                        entityId =
-                                parseLongFromPayload(
+                        relatedPublicId =
+                                parseUUIDFromPayload(
                                         payloadMap.get("venueReservationId"),
                                         "venueReservationId",
                                         username);
+                        // If eventPublicId wasn't set directly, try to get it from "eventId" for
+                        // compatibility
+                        if (eventPublicId == null && payloadMap.containsKey("eventId")) {
+                            eventPublicId =
+                                    parseUUIDFromPayload(
+                                            payloadMap.get("eventId"), "eventId", username);
+                        }
                     } else if (payloadMap.containsKey("equipmentReservationId")) {
                         entityType = "EQUIPMENT_RESERVATION";
-                        entityId =
-                                parseLongFromPayload(
+                        relatedPublicId =
+                                parseUUIDFromPayload(
                                         payloadMap.get("equipmentReservationId"),
                                         "equipmentReservationId",
                                         username);
-                    }
-
-                    notification.setRelatedEntityType(entityType);
-                    notification.setRelatedEntityId(entityId);
-
-                    if (payloadMap.containsKey("eventId")) {
-                        eventId =
-                                parseLongFromPayload(
+                        if (eventPublicId == null && payloadMap.containsKey("eventId")) {
+                            eventPublicId =
+                                    parseUUIDFromPayload(
+                                            payloadMap.get("eventId"), "eventId", username);
+                        }
+                    } else if (payloadMap.containsKey("eventId")) {
+                        // If "eventId" is the primary identifier, it's both the event and the
+                        // related entity
+                        UUID parsedEventId =
+                                parseUUIDFromPayload(
                                         payloadMap.get("eventId"), "eventId", username);
-                        notification.setEventId(eventId); // Set the dedicated eventId field
+                        if (eventPublicId == null) {
+                            eventPublicId = parsedEventId;
+                        }
+                        // Only set as related if no other more specific related entity was found
+                        if (relatedPublicId == null) {
+                            entityType = "EVENT";
+                            relatedPublicId = parsedEventId;
+                        }
                     }
+
+                    // Allow direct override from payload if provided
+                    if (payloadMap.containsKey("relatedEntityType")) {
+                        entityType = (String) payloadMap.get("relatedEntityType");
+                    }
+                    if (payloadMap.containsKey("relatedEntityPublicId")) {
+                        relatedPublicId =
+                                parseUUIDFromPayload(
+                                        payloadMap.get("relatedEntityPublicId"),
+                                        "relatedEntityPublicId",
+                                        username);
+                    }
+
+                    notification.setEventPublicId(eventPublicId);
+                    notification.setRelatedEntityType(entityType);
+                    notification.setRelatedEntityPublicId(relatedPublicId);
                 }
+
                 notificationRepository.save(notification);
                 log.info(
-                        "Persisted notification for user '{}' (EntityType: {}, EntityId: {})",
+                        "Persisted notification for user '{}' (Message snippet: {}, EventPublicId:"
+                                + " {}, RelatedEntityType: {}, RelatedEntityPublicId: {})",
                         username,
+                        notification
+                                .getMessage()
+                                .substring(
+                                        0,
+                                        Math.min(
+                                                notification.getMessage().length(),
+                                                50)), // Log a snippet
+                        notification.getEventPublicId(),
                         notification.getRelatedEntityType(),
-                        notification.getRelatedEntityId());
+                        notification.getRelatedEntityPublicId());
             } else {
                 log.warn("Could not find user with email '{}' to persist notification.", username);
             }
@@ -121,20 +169,20 @@ public class NotificationService {
         }
     }
 
-    private Long parseLongFromPayload(Object value, String keyName, String username) {
+    private UUID parseUUIDFromPayload(Object value, String keyName, String username) {
         if (value == null) {
             log.warn("Payload key '{}' is null for user {}", keyName, username);
             return null;
         }
+        if (value instanceof UUID) {
+            return (UUID) value;
+        }
         try {
-            if (value instanceof Integer) {
-                return ((Integer) value).longValue();
-            }
-            return Long.parseLong(value.toString());
-        } catch (NumberFormatException e) {
+            return UUID.fromString(value.toString());
+        } catch (IllegalArgumentException e) {
             log.warn(
-                    "Could not parse '{}' from notification payload value '{}' (type: {}) for user"
-                            + " {}",
+                    "Could not parse UUID for key '{}' from notification payload value '{}' (type:"
+                            + " {}) for user {}",
                     keyName,
                     value,
                     value.getClass().getSimpleName(),
@@ -161,5 +209,69 @@ public class NotificationService {
         } catch (Exception e) {
             log.error("Error sending notification to topic {}: {}", destination, e.getMessage(), e);
         }
+    }
+
+    @Transactional
+    public Notification createNotification(
+            User recipient,
+            String message,
+            UUID eventPublicId,
+            UUID relatedEntityPublicId,
+            String relatedEntityType) {
+        Notification notification = new Notification();
+        notification.setRecipient(recipient);
+        notification.setMessage(message);
+        notification.setEventPublicId(eventPublicId);
+        notification.setRelatedEntityPublicId(eventPublicId);
+        notification.setRelatedEntityType(relatedEntityType);
+        // notification.setIsRead(false);
+        // // isRead defaults to false, createdAt defaults to now, publicId is generated on
+        // prePersist
+
+        Notification savedNotification = notificationRepository.save(notification);
+        log.info(
+                "Persisted notification for user '{}' (RecipientId: {}, Message: {}, EventPublicId:"
+                        + " {}, RelatedEntityPublicId: {}, RelatedEntityType: {})",
+                recipient.getEmail(),
+                recipient.getPublicId(), // Assuming User entity has getPublicId()
+                message,
+                eventPublicId,
+                relatedEntityPublicId,
+                relatedEntityType);
+
+        // Also send a WebSocket notification
+        String userSpecificDestination = "/queue/notifications"; // Destination suffix
+        Map<String, Object> wsPayload = new HashMap<>();
+        wsPayload.put("notificationPublicId", savedNotification.getPublicId());
+        wsPayload.put("recipientPublicId", recipient.getPublicId());
+        wsPayload.put("message", message);
+        wsPayload.put("eventPublicId", eventPublicId);
+        wsPayload.put("relatedEntityPublicId", relatedEntityPublicId);
+        wsPayload.put("relatedEntityType", relatedEntityType);
+        wsPayload.put("createdAt", savedNotification.getCreatedAt().toString());
+        wsPayload.put("isRead", savedNotification.isRead());
+
+        try {
+            String jsonPayload = objectMapper.writeValueAsString(wsPayload);
+            // Send to the user-specific queue, e.g., /user/{username}/queue/notifications
+            messagingTemplate.convertAndSendToUser(
+                    recipient.getEmail(), userSpecificDestination, jsonPayload);
+            log.info(
+                    "Sent WebSocket notification to user '{}' at destination '{}'",
+                    recipient.getEmail(),
+                    "/user/" + recipient.getEmail() + userSpecificDestination);
+        } catch (JsonProcessingException e) {
+            log.error(
+                    "Error converting WebSocket payload to JSON for user {}: {}",
+                    recipient.getEmail(),
+                    e.getMessage());
+        } catch (Exception e) {
+            log.error(
+                    "Error sending WebSocket notification for user {}: {}",
+                    recipient.getEmail(),
+                    e.getMessage(),
+                    e);
+        }
+        return savedNotification;
     }
 }

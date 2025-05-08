@@ -1,15 +1,18 @@
+/* (C)2025 */
 package com.univers.univers_backend.Repository;
 
+import com.univers.univers_backend.Entity.User;
 import com.univers.univers_backend.Enum.Role;
+import java.util.Optional;
+import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 
-import com.univers.univers_backend.Entity.User;
+public interface UserRepository extends JpaRepository<User, Long> {
+    Optional<User> findByPublicId(UUID publicId);
 
-import java.util.Optional;
-
-
-public interface UserRepository extends JpaRepository<User, Long>{
     Optional<User> findByEmail(String email);
+
     Boolean existsByEmail(String email);
+
     Boolean existsByRoles(Role role);
 }

@@ -1,7 +1,6 @@
 /* (C)2025 */
 package com.univers.univers_backend.Service;
 
-import com.univers.univers_backend.DTO.UserDTO;
 import com.univers.univers_backend.DTO.VenueApprovalDTO;
 import com.univers.univers_backend.DTO.VenueReservationDTO;
 import com.univers.univers_backend.Entity.Department;
@@ -12,6 +11,7 @@ import com.univers.univers_backend.Entity.VenueApproval;
 import com.univers.univers_backend.Entity.VenueReservation;
 import com.univers.univers_backend.Enum.Role;
 import com.univers.univers_backend.Enum.Status;
+import com.univers.univers_backend.Mapper.*;
 import com.univers.univers_backend.Repository.DepartmentRepository;
 import com.univers.univers_backend.Repository.EventRepository;
 import com.univers.univers_backend.Repository.UserRepository;
@@ -24,15 +24,22 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class VenueReservationService {
+
+    private static final Logger logger = LoggerFactory.getLogger(VenueReservationService.class);
 
     private final VenueReservationRepository venueReservationRepository;
     private final VenueApprovalRepository venueApprovalRepository;
@@ -42,6 +49,10 @@ public class VenueReservationService {
     private final DepartmentRepository departmentRepository;
     private final FileStorageService fileStorageService;
     private final NotificationService notificationService;
+
+    private final VenueReservationMapper venueReservationMapper;
+    private final VenueApprovalMapper venueApprovalMapper;
+    private final UserMapper userMapper;
 
     private static final Set<Role> VENUE_APPROVER_ROLES =
             Set.of(
@@ -74,7 +85,10 @@ public class VenueReservationService {
             UserRepository userRepository,
             DepartmentRepository departmentRepository,
             FileStorageService fileStorageService,
-            NotificationService notificationService /* ... other dependencies */) {
+            NotificationService notificationService,
+            @Lazy VenueReservationMapper venueReservationMapper,
+            @Lazy VenueApprovalMapper venueApprovalMapper,
+            @Lazy UserMapper userMapper) {
         this.venueReservationRepository = venueReservationRepository;
         this.venueApprovalRepository = venueApprovalRepository;
         this.eventRepository = eventRepository;
@@ -83,41 +97,56 @@ public class VenueReservationService {
         this.departmentRepository = departmentRepository;
         this.fileStorageService = fileStorageService;
         this.notificationService = notificationService;
+        this.venueReservationMapper = venueReservationMapper;
+        this.venueApprovalMapper = venueApprovalMapper;
+        this.userMapper = userMapper;
     }
 
     @Transactional
     public VenueReservationDTO createVenueReservation(VenueReservationDTO reservationDTO) {
         User requestingUser = getCurrentUser();
 
+        if (reservationDTO.event() == null || reservationDTO.event().publicId() == null) {
+            throw new IllegalArgumentException(
+                    "Event with publicId is required in reservation DTO.");
+        }
         Event event =
                 eventRepository
-                        .findById(reservationDTO.eventId())
+                        .findByPublicId(reservationDTO.event().publicId())
                         .orElseThrow(
                                 () ->
                                         new NoSuchElementException(
-                                                "Associated Event not found with ID: "
-                                                        + reservationDTO.eventId()));
+                                                "Associated Event not found with Public ID: "
+                                                        + reservationDTO.event().publicId()));
 
+        if (reservationDTO.venue() == null || reservationDTO.venue().publicId() == null) {
+            throw new IllegalArgumentException(
+                    "Venue with publicId is required in reservation DTO.");
+        }
         Venue venue =
                 venueRepository
-                        .findById(reservationDTO.venueId())
+                        .findByPublicId(reservationDTO.venue().publicId())
                         .orElseThrow(
                                 () ->
                                         new NoSuchElementException(
-                                                "Venue not found with ID: "
-                                                        + reservationDTO.venueId()));
+                                                "Venue not found with Public ID: "
+                                                        + reservationDTO.venue().publicId()));
 
-        Long deptId =
-                reservationDTO.departmentId() != null
-                        ? reservationDTO.departmentId()
-                        : requestingUser.getDepartment().getId();
-        Department department =
-                departmentRepository
-                        .findById(deptId)
-                        .orElseThrow(
-                                () ->
-                                        new NoSuchElementException(
-                                                "Department not found with ID: " + deptId));
+        Department department = null;
+        if (reservationDTO.department() != null && reservationDTO.department().publicId() != null) {
+            department =
+                    departmentRepository
+                            .findByPublicId(reservationDTO.department().publicId())
+                            .orElseThrow(
+                                    () ->
+                                            new NoSuchElementException(
+                                                    "Department not found with Public ID: "
+                                                            + reservationDTO
+                                                                    .department()
+                                                                    .publicId()));
+        } else if (requestingUser.getDepartment() != null) {
+            department = requestingUser.getDepartment();
+        }
 
         LocalDateTime startTime =
                 reservationDTO.startTime() != null
@@ -141,50 +170,53 @@ public class VenueReservationService {
         newReservation.setVenue(venue);
         newReservation.setStartTime(startTime);
         newReservation.setEndTime(endTime);
+        newReservation.setStatus(Status.PENDING);
 
         VenueReservation savedReservation = venueReservationRepository.save(newReservation);
 
         notifyVenueOwner(savedReservation);
 
-        return mapToDTO(savedReservation);
+        return venueReservationMapper.toDto(savedReservation);
     }
 
     public List<VenueReservationDTO> getAllReservations() {
         return venueReservationRepository.findAll().stream()
-                .map(this::mapToDTO)
+                .map(venueReservationMapper::toDto)
                 .collect(Collectors.toList());
     }
 
-    public VenueReservationDTO getReservationById(Long reservationId) {
+    public VenueReservationDTO getReservationByPublicId(UUID publicId) {
         VenueReservation reservation =
                 venueReservationRepository
-                        .findById(reservationId)
+                        .findByPublicId(publicId)
                         .orElseThrow(
                                 () ->
                                         new NoSuchElementException(
-                                                "Venue Reservation not found with ID: "
-                                                        + reservationId));
-        return mapToDTO(reservation);
+                                                "Venue Reservation not found with Public ID: "
+                                                        + publicId));
+        return venueReservationMapper.toDto(reservation);
     }
 
     public List<VenueReservationDTO> getOwnVenueReservations() {
         User currentUser = getCurrentUser();
         List<VenueReservation> reservations =
                 venueReservationRepository.findByRequestingUser(currentUser);
-        return reservations.stream().map(this::mapToDTO).collect(Collectors.toList());
+        return reservations.stream()
+                .map(venueReservationMapper::toDto)
+                .collect(Collectors.toList());
     }
 
     @Transactional
-    public String approveReservation(Long reservationId, String remarks) {
+    public String approveReservation(UUID reservationPublicId, String remarks) {
         User currentUser = getCurrentUser();
         VenueReservation reservation =
                 venueReservationRepository
-                        .findById(reservationId)
+                        .findByPublicId(reservationPublicId)
                         .orElseThrow(
                                 () ->
                                         new NoSuchElementException(
-                                                "Venue Reservation not found with ID: "
-                                                        + reservationId));
+                                                "Venue Reservation not found with Public ID: "
+                                                        + reservationPublicId));
 
         if (reservation.getStatus() != Status.PENDING) {
             return "Error: Reservation is not in PENDING state (Current: "
@@ -202,7 +234,7 @@ public class VenueReservationService {
             if (venueOwner == null) {
                 return "Error: Venue Owner not assigned to the venue.";
             }
-            if (!currentUser.getId().equals(venueOwner.getId())) {
+            if (!currentUser.getPublicId().equals(venueOwner.getPublicId())) {
                 return "Error: You are not the designated Venue Owner for this venue.";
             }
         }
@@ -235,27 +267,24 @@ public class VenueReservationService {
     }
 
     @Transactional
-    public String rejectReservation(Long reservationId, String remarks) {
+    public String rejectReservation(UUID reservationPublicId, String remarks) {
         User currentUser = getCurrentUser();
         VenueReservation reservation =
                 venueReservationRepository
-                        .findById(reservationId)
+                        .findByPublicId(reservationPublicId)
                         .orElseThrow(
                                 () ->
                                         new NoSuchElementException(
-                                                "Venue Reservation not found with ID: "
-                                                        + reservationId));
+                                                "Venue Reservation not found with Public ID: "
+                                                        + reservationPublicId));
 
         if (reservation.getStatus() != Status.PENDING
                 && reservation.getStatus() != Status.APPROVED) {
-            if (reservation.getStatus() != Status.PENDING) {
-                return "Error: Reservation is not in PENDING state (Current: "
-                        + reservation.getStatus()
-                        + "). Cannot reject.";
-            }
+            return "Error: Reservation cannot be rejected as it is currently "
+                    + reservation.getStatus();
         }
 
-        Role currentUserRole = currentUser.getRoles(); // Assuming single role
+        Role currentUserRole = currentUser.getRoles();
         if (!VENUE_APPROVER_ROLES.contains(currentUserRole)) {
             return "Error: You do not have the required role to reject this venue reservation.";
         }
@@ -263,24 +292,36 @@ public class VenueReservationService {
         if (currentUserRole == Role.VENUE_OWNER) {
             User venueOwner = reservation.getVenue().getVenueOwner();
             if (venueOwner == null) {
-            } else if (!currentUser.getId().equals(venueOwner.getId())) {
+                return "Error: Venue Owner not assigned to the venue.";
+            }
+            if (!currentUser.getPublicId().equals(venueOwner.getPublicId())) {
                 return "Error: You are not the designated Venue Owner for this venue.";
             }
         }
 
-        VenueApproval rejectionRecord = new VenueApproval();
-        rejectionRecord.setVenueReservation(reservation);
-        rejectionRecord.setSignedBy(currentUser);
-        rejectionRecord.setStatus(Status.REJECTED);
-        rejectionRecord.setRemarks(remarks);
-        venueApprovalRepository.save(rejectionRecord);
+        if (venueApprovalRepository.existsByVenueReservationAndSignedByAndStatus(
+                reservation, currentUser, Status.REJECTED)) {
+            return "Warning: You have already rejected this reservation.";
+        }
+
+        VenueApproval rejection = new VenueApproval();
+        rejection.setVenueReservation(reservation);
+        rejection.setSignedBy(currentUser);
+        rejection.setStatus(Status.REJECTED);
+        rejection.setRemarks(remarks);
+
+        venueApprovalRepository.save(rejection);
 
         reservation.setStatus(Status.REJECTED);
         venueReservationRepository.save(reservation);
 
-        notifyRequester(reservation, "rejected", currentUser, "VENUE_RESERVATION_REJECTED");
+        notifyRequester(
+                reservation,
+                "rejected by " + currentUserRole.name(),
+                currentUser,
+                "VENUE_RESERVATION_REJECTED");
 
-        return "Venue reservation rejected successfully by "
+        return "Venue reservation rejected by "
                 + currentUserRole.name()
                 + ": "
                 + currentUser.getFullName();
@@ -291,130 +332,123 @@ public class VenueReservationService {
             return;
         }
 
-        List<VenueApproval> approvals =
-                venueApprovalRepository.findAllByVenueReservationAndStatus(
-                        reservation, Status.APPROVED);
-
-        Set<Role> approvingRoles =
-                approvals.stream().map(a -> a.getSignedBy().getRoles()).collect(Collectors.toSet());
-
-        boolean allRequiredApproved = approvingRoles.containsAll(REQUIRED_APPROVAL_ROLES);
-
-        if (allRequiredApproved) {
+        long requiredApprovalsCount = REQUIRED_APPROVAL_ROLES.size();
+        long currentApprovalsCount =
+                venueApprovalRepository
+                        .findAllByVenueReservationAndStatus(reservation, Status.APPROVED)
+                        .stream()
+                        .map(approval -> approval.getSignedBy().getRoles())
+                        .distinct()
+                        .count();
+        if (currentApprovalsCount >= requiredApprovalsCount) {
             reservation.setStatus(Status.APPROVED);
             venueReservationRepository.save(reservation);
             notifyRequester(
                     reservation, "fully approved", null, "VENUE_RESERVATION_FULLY_APPROVED");
         }
-        // Add logic for other statuses if needed (e.g., PARTIALLY_APPROVED)
     }
 
     @Transactional
-    public String cancelReservation(Long reservationId) {
+    public String cancelReservation(UUID reservationPublicId) {
         User currentUser = getCurrentUser();
         VenueReservation reservation =
                 venueReservationRepository
-                        .findById(reservationId)
+                        .findByPublicId(reservationPublicId)
                         .orElseThrow(
                                 () ->
                                         new NoSuchElementException(
-                                                "Venue Reservation not found with ID: "
-                                                        + reservationId));
+                                                "Venue Reservation not found with Public ID: "
+                                                        + reservationPublicId));
 
-        // Authorization: Allow requester or SUPER_ADMIN to cancel
-        boolean isRequester = reservation.getRequestingUser().getId().equals(currentUser.getId());
-        boolean isSuperAdmin = currentUser.getRoles() == Role.SUPER_ADMIN;
+        boolean isAdmin = currentUser.getRoles() == Role.SUPER_ADMIN;
+        boolean isRequester =
+                reservation.getRequestingUser().getPublicId().equals(currentUser.getPublicId());
 
-        if (!isRequester && !isSuperAdmin) {
+        if (!isAdmin && !isRequester) {
             throw new SecurityException("You are not authorized to cancel this reservation.");
         }
-
         if (reservation.getStatus() == Status.CANCELED) {
-            return "Warning: Reservation is already canceled.";
+            return "Reservation is already canceled.";
         }
-        // Potentially restrict canceling already APPROVED reservations without specific
-        // permission
+        if (reservation.getStatus() == Status.COMPLETED
+                || reservation.getStatus() == Status.ONGOING) {
+            throw new IllegalStateException(
+                    "Cannot cancel a reservation that is ongoing or already completed.");
+        }
 
         reservation.setStatus(Status.CANCELED);
         venueReservationRepository.save(reservation);
-
         notifyVenueOwnerOfCancellation(reservation, currentUser);
-        notifyRequester(reservation, "canceled", currentUser, "VENUE_RESERVATION_CANCELED");
-
         return "Venue reservation canceled successfully.";
     }
 
     @Transactional
-    public void deleteReservation(Long reservationId) {
+    public void deleteReservation(UUID reservationPublicId) {
         User currentUser = getCurrentUser();
         VenueReservation reservation =
                 venueReservationRepository
-                        .findById(reservationId)
+                        .findByPublicId(reservationPublicId)
                         .orElseThrow(
                                 () ->
                                         new NoSuchElementException(
-                                                "Venue Reservation not found with ID: "
-                                                        + reservationId));
+                                                "Venue Reservation not found with Public ID: "
+                                                        + reservationPublicId));
 
-        // Authorization: Allow requester or SUPER_ADMIN to delete (maybe only if
-        // CANCELED/REJECTED?)
-        boolean isRequester = reservation.getRequestingUser().getId().equals(currentUser.getId());
-        boolean isSuperAdmin = currentUser.getRoles() == Role.SUPER_ADMIN;
-
-        // Example: Only allow deletion if CANCELED or REJECTED, by requester or admin
-        if (!isSuperAdmin
-                && (!isRequester
-                        || (reservation.getStatus() != Status.CANCELED
-                                && reservation.getStatus() != Status.REJECTED))) {
-            throw new SecurityException(
-                    "You are not authorized to delete this reservation or it's not in a deletable"
-                            + " state.");
-        }
-
+        venueApprovalRepository.deleteAll(reservation.getApprovals());
         venueReservationRepository.delete(reservation);
     }
 
-    // --- Helper Methods ---
+    @Transactional
+    public void deleteReservationsByEventPublicId(UUID eventPublicId) {
+        // Find all venue reservations linked to this eventPublicId
+        List<VenueReservation> reservations =
+                venueReservationRepository.findByEvent_PublicId(eventPublicId);
+        if (!reservations.isEmpty()) {
+            // If reservations are found, delete them
+            venueReservationRepository.deleteAll(reservations);
+            logger.info(
+                    "Deleted {} venue reservations for event public ID: {}",
+                    reservations.size(),
+                    eventPublicId);
+        } else {
+            logger.info(
+                    "No venue reservations found for event public ID: {} to delete.",
+                    eventPublicId);
+        }
+    }
 
     private User getCurrentUser() {
-        String username =
-                ((UserDetails)
-                                SecurityContextHolder.getContext()
-                                        .getAuthentication()
-                                        .getPrincipal())
-                        .getUsername();
+        Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        String username;
+        if (principal instanceof UserDetails) {
+            username = ((UserDetails) principal).getUsername();
+        } else {
+            username = principal.toString();
+        }
         return userRepository
                 .findByEmail(username)
-                .orElseThrow(() -> new RuntimeException("Authenticated user not found"));
+                .orElseThrow(() -> new UsernameNotFoundException("User not found: " + username));
     }
 
     private void notifyVenueOwner(VenueReservation reservation) {
         User venueOwner = reservation.getVenue().getVenueOwner();
         if (venueOwner != null && venueOwner.getEmail() != null) {
-            String message =
-                    String.format(
-                            "New venue reservation request for '%s' (Event: %s) requires your"
-                                    + " approval.",
-                            reservation.getVenue().getName(),
-                            reservation.getEvent().getEventName());
-
-            // Create payload with entity info
             Map<String, Object> payload = new HashMap<>();
             payload.put("type", "VENUE_RESERVATION_REQUEST");
-            payload.put("message", message);
-            payload.put("venueReservationId", reservation.getId());
-            payload.put("relatedEntityType", "VENUE_RESERVATION");
-            payload.put("eventId", reservation.getEvent().getId());
-            payload.put("requesterName", reservation.getRequestingUser().getFullName());
+            payload.put(
+                    "message",
+                    "New venue reservation request for your venue: "
+                            + reservation.getVenue().getName());
+            payload.put("reservationId", reservation.getPublicId());
+            payload.put("eventId", reservation.getEvent().getPublicId());
             payload.put("eventName", reservation.getEvent().getEventName());
-            payload.put("venueName", reservation.getVenue().getName());
-
-            notificationService.notifyUser(venueOwner.getEmail(), "/queue/notifications", payload);
-            System.out.println(
-                    "DEBUG: Notify Venue Owner: "
-                            + venueOwner.getEmail()
-                            + " - Payload: "
-                            + payload);
+            payload.put("requesterName", reservation.getRequestingUser().getFullName());
+            notificationService.createNotification(
+                    venueOwner,
+                    payload.get("message").toString(),
+                    reservation.getEvent().getPublicId(),
+                    reservation.getPublicId(),
+                    "VENUE_RESERVATION_REQUEST");
         }
     }
 
@@ -423,142 +457,66 @@ public class VenueReservationService {
         User requester = reservation.getRequestingUser();
         if (requester != null && requester.getEmail() != null) {
             String actorName = (actor != null) ? actor.getFullName() : "System";
-            String message =
-                    String.format(
-                            "Your venue reservation for '%s' (Event: %s) has been %s%s.",
-                            reservation.getVenue().getName(),
-                            reservation.getEvent().getEventName(),
-                            action,
-                            (actor != null ? " by " + actorName : ""));
-
             Map<String, Object> payload = new HashMap<>();
             payload.put("type", notificationType);
-            payload.put("message", message);
-            payload.put("venueReservationId", reservation.getId());
-            payload.put("relatedEntityType", "VENUE_RESERVATION");
-            payload.put("eventId", reservation.getEvent().getId());
-            payload.put("status", reservation.getStatus().name());
-            if (actor != null) {
-                payload.put("actorName", actorName);
-            }
-
-            notificationService.notifyUser(requester.getEmail(), "/queue/notifications", payload);
-            System.out.println(
-                    "DEBUG: Notify Requester: " + requester.getEmail() + " - Payload: " + payload);
+            payload.put(
+                    "message",
+                    "Your venue reservation for '"
+                            + reservation.getEvent().getEventName()
+                            + "' has been "
+                            + action
+                            + " by "
+                            + actorName
+                            + ".");
+            payload.put("reservationId", reservation.getPublicId());
+            payload.put("eventId", reservation.getEvent().getPublicId());
+            notificationService.createNotification(
+                    requester,
+                    payload.get("message").toString(),
+                    reservation.getEvent().getPublicId(),
+                    reservation.getPublicId(),
+                    notificationType);
         }
     }
 
     private void notifyVenueOwnerOfCancellation(VenueReservation reservation, User canceller) {
         User venueOwner = reservation.getVenue().getVenueOwner();
-        if (venueOwner != null
-                && venueOwner.getEmail() != null
-                && !venueOwner.getId().equals(canceller.getId())) {
-            String message =
-                    String.format(
-                            "Venue reservation for '%s' (Event: %s) was canceled by %s.",
-                            reservation.getVenue().getName(),
-                            reservation.getEvent().getEventName(),
-                            canceller.getFullName());
-
+        if (venueOwner != null && venueOwner.getEmail() != null) {
+            String cancellerName = (canceller != null) ? canceller.getFullName() : "System";
             Map<String, Object> payload = new HashMap<>();
             payload.put("type", "VENUE_RESERVATION_CANCELED_INFO");
-            payload.put("message", message);
-            payload.put("venueReservationId", reservation.getId());
-            payload.put("relatedEntityType", "VENUE_RESERVATION");
-            payload.put("eventId", reservation.getEvent().getId());
-            payload.put("cancellerName", canceller.getFullName());
-
-            notificationService.notifyUser(venueOwner.getEmail(), "/queue/notifications", payload);
-            System.out.println(
-                    "DEBUG: Notify Owner of Cancellation: "
-                            + venueOwner.getEmail()
-                            + " - Payload: "
-                            + payload);
+            payload.put(
+                    "message",
+                    "Venue reservation for event '"
+                            + reservation.getEvent().getEventName()
+                            + "' at your venue '"
+                            + reservation.getVenue().getName()
+                            + "' has been canceled by "
+                            + cancellerName
+                            + ".");
+            payload.put("reservationId", reservation.getPublicId());
+            payload.put("eventId", reservation.getEvent().getPublicId());
+            notificationService.createNotification(
+                    venueOwner,
+                    payload.get("message").toString(),
+                    reservation.getEvent().getPublicId(),
+                    reservation.getPublicId(),
+                    "VENUE_RESERVATION_CANCELED_INFO");
         }
     }
 
-    public UserDTO mapUserToDTO(User user) {
-        if (user == null) return null;
-        String profileImageUrl = null;
-        if (user.getProfileImagePath() != null && !user.getProfileImagePath().isBlank()) {
-            try {
-                profileImageUrl =
-                        fileStorageService.getFileUrl(user.getProfileImagePath(), usersBucketName);
-            } catch (Exception e) {
-                System.err.println(
-                        "Error generating image URL for user "
-                                + user.getId()
-                                + ": "
-                                + e.getMessage());
-            }
-        }
-        return new UserDTO(
-                user.getId(),
-                user.getEmail(),
-                user.getFirstname() != null ? user.getFirstname() : null,
-                user.getLastname() != null ? user.getLastname() : null,
-                user.getId_number() != null ? user.getId_number() : null,
-                user.getPhone_number() != null ? user.getPhone_number() : null,
-                user.getTelephoneNumber() != null ? user.getTelephoneNumber() : null,
-                user.getRoles() != null ? user.getRoles().name() : null,
-                user.getDepartment() != null ? user.getDepartment().getId() : null,
-                user.getEmailVerified(),
-                user.isActive(),
-                profileImageUrl,
-                user.getCreatedAt(),
-                user.getUpdatedAt());
-    }
-
-    public VenueReservationDTO mapToDTO(VenueReservation reservation) {
-        UserDTO requesterDto = mapUserToDTO(reservation.getRequestingUser());
-        List<VenueApprovalDTO> approvalDTOs =
-                reservation.getApprovals() != null
-                        ? reservation.getApprovals().stream()
-                                .map(this::mapApprovalToDTO)
-                                .collect(Collectors.toList())
-                        : List.of();
-
-        return new VenueReservationDTO(
-                reservation.getId(),
-                reservation.getEvent().getId(),
-                reservation.getEvent().getEventName(),
-                requesterDto,
-                reservation.getDepartment().getId(),
-                reservation.getDepartment().getName(),
-                reservation.getVenue().getId(),
-                reservation.getVenue().getName(),
-                reservation.getStartTime(),
-                reservation.getEndTime(),
-                reservation.getStatus().name(),
-                approvalDTOs,
-                reservation.getCreatedAt(),
-                reservation.getUpdatedAt());
-    }
-
-    private VenueApprovalDTO mapApprovalToDTO(VenueApproval approval) {
-        return new VenueApprovalDTO(
-                approval.getId(),
-                approval.getVenueReservation().getId(),
-                approval.getSignedBy().getId(),
-                approval.getSignedBy().getFullName(),
-                approval.getSignedBy().getRoles().name(),
-                approval.getRemarks(),
-                approval.getStatus().name(),
-                approval.getDateSigned());
-    }
-
-    public List<VenueApprovalDTO> getAllApprovalsForReservation(Long reservationId) {
+    public List<VenueApprovalDTO> getAllApprovalsForReservation(UUID reservationPublicId) {
         VenueReservation reservation =
                 venueReservationRepository
-                        .findById(reservationId)
+                        .findByPublicId(reservationPublicId)
                         .orElseThrow(
                                 () ->
                                         new NoSuchElementException(
-                                                "Venue Reservation not found with ID: "
-                                                        + reservationId));
-        return venueApprovalRepository.findAllByVenueReservation(reservation).stream()
-                .map(this::mapApprovalToDTO)
-                .collect(Collectors.toList());
+                                                "Venue Reservation not found with Public ID: "
+                                                        + reservationPublicId));
+        List<VenueApproval> approvals =
+                venueApprovalRepository.findAllByVenueReservation(reservation);
+        return approvals.stream().map(venueApprovalMapper::toDto).collect(Collectors.toList());
     }
 
     public List<VenueReservationDTO> getPendingReservationsForVenueOwner() {
@@ -569,16 +527,47 @@ public class VenueReservationService {
         List<VenueReservation> reservations =
                 venueReservationRepository.findPendingReservationsForVenueOwner(
                         currentUser.getId());
-        return reservations.stream().map(this::mapToDTO).collect(Collectors.toList());
+        return reservations.stream()
+                .map(venueReservationMapper::toDto)
+                .collect(Collectors.toList());
     }
 
     public List<VenueReservationDTO> getAllReservationsForVenueOwner() {
         User currentUser = getCurrentUser();
         if (!currentUser.getRoles().toString().contains(Role.VENUE_OWNER.toString())) {
-            return List.of(); // Or throw exception
+            return List.of();
         }
         List<VenueReservation> reservations =
                 venueReservationRepository.findAllReservationsForVenueOwner(currentUser.getId());
-        return reservations.stream().map(this::mapToDTO).collect(Collectors.toList());
+        return reservations.stream()
+                .map(venueReservationMapper::toDto)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public void cancelReservationsForEvent(UUID eventPublicId) {
+        List<VenueReservation> reservations =
+                venueReservationRepository.findAllByEvent_PublicId(eventPublicId);
+        User systemUser = null;
+        try {
+            systemUser = userRepository.findByEmail("admin@univers.com").orElse(null);
+        } catch (Exception e) {
+            System.err.println(
+                    "Admin user for system actions not found, proceeding without actor for"
+                            + " cancellation notification.");
+        }
+
+        for (VenueReservation reservation : reservations) {
+            if (reservation.getStatus() != Status.CANCELED) {
+                reservation.setStatus(Status.CANCELED);
+                venueReservationRepository.save(reservation);
+                notifyVenueOwnerOfCancellation(reservation, systemUser);
+                notifyRequester(
+                        reservation,
+                        "canceled due to event cancellation",
+                        systemUser,
+                        "VENUE_RESERVATION_CANCELED_BY_EVENT");
+            }
+        }
     }
 }

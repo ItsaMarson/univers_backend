@@ -6,11 +6,15 @@ import com.univers.univers_backend.Entity.User;
 import com.univers.univers_backend.Enum.Status;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface EventRepository extends JpaRepository<Event, Long> {
+
+    Optional<Event> findByPublicId(UUID publicId);
 
     List<Event> findByStartTimeLessThanEqualAndEndTimeGreaterThanEqual(
             LocalDateTime endTime, LocalDateTime startTime);

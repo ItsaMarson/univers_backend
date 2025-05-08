@@ -12,6 +12,7 @@ import com.univers.univers_backend.Service.VenueService;
 import jakarta.validation.Valid;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -61,7 +62,7 @@ public class AdminController {
 
     @PatchMapping(value = "/users/{userId}")
     public ResponseEntity<String> editUserAsAdmin(
-            @PathVariable Long userId,
+            @PathVariable UUID userId,
             @RequestPart("userDTO") EditUserDTO EditUserDTO,
             @RequestPart(value = "image", required = false) MultipartFile imageFile) {
 
@@ -75,7 +76,7 @@ public class AdminController {
     }
 
     @DeleteMapping("/users/{userId}")
-    public ResponseEntity<String> deactivateUser(@PathVariable Long userId) {
+    public ResponseEntity<String> deactivateUser(@PathVariable UUID userId) {
         String responseMessage = userService.deactivateUser(userId);
         if ("User not found".equals(responseMessage)) {
             return ResponseEntity.badRequest().body(responseMessage);
@@ -84,7 +85,7 @@ public class AdminController {
     }
 
     @PostMapping("/users/{userId}")
-    public ResponseEntity<String> activateUser(@PathVariable Long userId) {
+    public ResponseEntity<String> activateUser(@PathVariable UUID userId) {
         String responseMessage = userService.activateUser(userId);
         if ("User not found".equals(responseMessage)) {
             return ResponseEntity.badRequest().body(responseMessage);
@@ -93,9 +94,9 @@ public class AdminController {
     }
 
     @GetMapping("/department/{id}")
-    public ResponseEntity<DepartmentDTO> getDepartmentById(@PathVariable Long id) {
+    public ResponseEntity<DepartmentDTO> getDepartmentById(@PathVariable UUID id) {
         try {
-            DepartmentDTO departmentDTO = departmentService.getDepartmentDtoById(id);
+            DepartmentDTO departmentDTO = departmentService.getDepartmentDtoByPublicId(id);
             return ResponseEntity.ok(departmentDTO);
         } catch (RuntimeException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
@@ -116,7 +117,7 @@ public class AdminController {
 
     @PatchMapping("/department/{id}")
     public ResponseEntity<String> updateDepartment(
-            @PathVariable Long id, @RequestBody DepartmentDTO departmentDTO) {
+            @PathVariable UUID id, @RequestBody DepartmentDTO departmentDTO) {
         String response = departmentService.updateDepartment(id, departmentDTO);
         if (response.contains("does not exist")) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
@@ -128,7 +129,7 @@ public class AdminController {
     }
 
     @DeleteMapping("/department/{id}")
-    public ResponseEntity<String> deleteDepartment(@PathVariable Long id) {
+    public ResponseEntity<String> deleteDepartment(@PathVariable UUID id) {
         String response = departmentService.deleteDepartment(id);
         if (response.contains("not found")) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
@@ -138,7 +139,7 @@ public class AdminController {
 
     @PostMapping("/department/{departmentId}/assignHead/{userId}")
     public ResponseEntity<String> assignDepartmentHead(
-            @PathVariable Long departmentId, @PathVariable Long userId) {
+            @PathVariable UUID departmentId, @PathVariable UUID userId) {
         try {
             String response = departmentService.assignDepartmentHead(departmentId, userId);
             return ResponseEntity.ok(response);
@@ -165,7 +166,7 @@ public class AdminController {
 
     @PatchMapping("/venues/{venueId}")
     public ResponseEntity<?> updateVenue(
-            @PathVariable Long venueId,
+            @PathVariable UUID venueId,
             @RequestPart("venue") VenueDTO venueDTO,
             @RequestPart(value = "image", required = false) MultipartFile imageFile) {
         try {
@@ -182,7 +183,7 @@ public class AdminController {
     }
 
     @DeleteMapping("/venues/{venueId}")
-    public ResponseEntity<?> deleteVenue(@PathVariable Long venueId) {
+    public ResponseEntity<?> deleteVenue(@PathVariable UUID venueId) {
         try {
             venueService.deleteVenue(venueId);
             return ResponseEntity.ok("Venue with ID " + venueId + " deleted successfully.");

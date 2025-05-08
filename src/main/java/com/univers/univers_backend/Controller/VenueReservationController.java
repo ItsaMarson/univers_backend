@@ -7,6 +7,7 @@ import com.univers.univers_backend.Service.VenueReservationService;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -70,12 +71,11 @@ public class VenueReservationController {
     }
 
     @GetMapping("/{reservationId}")
-    @PreAuthorize("isAuthenticated()") // Check ownership/role in service layer if needed
-    public ResponseEntity<?> getReservationById(@PathVariable Long reservationId) {
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<?> getReservationById(@PathVariable UUID reservationId) {
         try {
             VenueReservationDTO reservation =
-                    venueReservationService.getReservationById(reservationId);
-            // Add authorization check here if needed (e.g., is user the requester or admin?)
+                    venueReservationService.getReservationByPublicId(reservationId);
             return ResponseEntity.ok(reservation);
         } catch (NoSuchElementException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
@@ -93,7 +93,7 @@ public class VenueReservationController {
     @PatchMapping("/{reservationId}/approve")
     @PreAuthorize("hasAnyAuthority('VENUE_OWNER', 'OPC', 'MSDO', 'VP_ADMIN', 'VPAA', 'FAO', 'SSD')")
     public ResponseEntity<String> approveReservation(
-            @PathVariable Long reservationId, @RequestBody Map<String, String> payload) {
+            @PathVariable UUID reservationId, @RequestBody Map<String, String> payload) {
         String remarks = payload.getOrDefault("remarks", "");
         try {
             String responseMessage =
@@ -117,7 +117,7 @@ public class VenueReservationController {
     @PatchMapping("/{reservationId}/reject")
     @PreAuthorize("hasAnyAuthority('VENUE_OWNER', 'OPC', 'MSDO', 'VP_ADMIN', 'VPAA', 'FAO', 'SSD')")
     public ResponseEntity<String> rejectReservation(
-            @PathVariable Long reservationId, @RequestBody Map<String, String> payload) {
+            @PathVariable UUID reservationId, @RequestBody Map<String, String> payload) {
         String remarks = payload.get("remarks");
         if (remarks == null || remarks.isBlank()) {
             return ResponseEntity.badRequest().body("Rejection remarks are required.");
@@ -143,7 +143,7 @@ public class VenueReservationController {
 
     @PatchMapping("/{reservationId}/cancel")
     @PreAuthorize("isAuthenticated()") // Authorization checked in service
-    public ResponseEntity<String> cancelReservation(@PathVariable Long reservationId) {
+    public ResponseEntity<String> cancelReservation(@PathVariable UUID reservationId) {
         try {
             String responseMessage = venueReservationService.cancelReservation(reservationId);
             if (responseMessage.startsWith("Error:") || responseMessage.startsWith("Warning:")) {
@@ -164,7 +164,7 @@ public class VenueReservationController {
 
     @DeleteMapping("/{reservationId}")
     @PreAuthorize("isAuthenticated()") // Authorization checked in service
-    public ResponseEntity<?> deleteReservation(@PathVariable Long reservationId) {
+    public ResponseEntity<?> deleteReservation(@PathVariable UUID reservationId) {
         try {
             venueReservationService.deleteReservation(reservationId);
             return ResponseEntity.ok(
@@ -183,7 +183,7 @@ public class VenueReservationController {
 
     @GetMapping("/{reservationId}/approvals")
     @PreAuthorize("isAuthenticated()") // Or specific roles
-    public ResponseEntity<?> getApprovalsForReservation(@PathVariable Long reservationId) {
+    public ResponseEntity<?> getApprovalsForReservation(@PathVariable UUID reservationId) {
         try {
             List<VenueApprovalDTO> approvals =
                     venueReservationService.getAllApprovalsForReservation(reservationId);

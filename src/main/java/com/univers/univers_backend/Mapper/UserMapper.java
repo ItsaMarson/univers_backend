@@ -1,10 +1,12 @@
 /* (C)2025 */
 package com.univers.univers_backend.Mapper;
 
+import com.univers.univers_backend.DTO.DepartmentDTO;
 import com.univers.univers_backend.DTO.UserDTO;
 import com.univers.univers_backend.Entity.User;
 import com.univers.univers_backend.Service.FileStorageService;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -12,12 +14,15 @@ public class UserMapper {
 
     private final FileStorageService fileStorageService;
     private final String usersBucketName;
+    private final DepartmentMapper departmentMapper;
 
     public UserMapper(
             FileStorageService fileStorageService,
-            @Value("${minio.bucket.users}") String usersBucketName) {
+            @Value("${minio.bucket.users}") String usersBucketName,
+            @Lazy DepartmentMapper departmentMapper) {
         this.fileStorageService = fileStorageService;
         this.usersBucketName = usersBucketName;
+        this.departmentMapper = departmentMapper;
     }
 
     public UserDTO toDto(User user) {
@@ -32,13 +37,19 @@ public class UserMapper {
             } catch (Exception e) {
                 System.err.println(
                         "Error generating image URL for user "
-                                + user.getId()
+                                + user.getPublicId()
                                 + ": "
                                 + e.getMessage());
             }
         }
+
+        DepartmentDTO departmentDto = null;
+        if (user.getDepartment() != null) {
+            departmentDto = departmentMapper.toDto(user.getDepartment());
+        }
+
         return new UserDTO(
-                user.getId(),
+                user.getPublicId(),
                 user.getEmail(),
                 user.getFirstname(),
                 user.getLastname(),
@@ -46,7 +57,7 @@ public class UserMapper {
                 user.getPhone_number(),
                 user.getTelephoneNumber(),
                 user.getRoles() != null ? user.getRoles().name() : null,
-                user.getDepartment() != null ? user.getDepartment().getId() : null,
+                departmentDto,
                 user.getEmailVerified(),
                 user.isActive(),
                 profileImageUrl,

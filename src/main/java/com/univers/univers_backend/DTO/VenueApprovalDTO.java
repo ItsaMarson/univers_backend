@@ -2,12 +2,12 @@
 package com.univers.univers_backend.DTO;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 public record VenueApprovalDTO(
-        Long id,
-        Long venueReservationId,
-        Long userId,
-        String signedBy,
+        UUID publicId,
+        UUID venueReservationPublicId,
+        UserDTO signedByUser,
         String userRole,
         String remarks,
         String status,

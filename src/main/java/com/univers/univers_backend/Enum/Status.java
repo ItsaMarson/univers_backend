@@ -6,6 +6,8 @@ public enum Status {
     PENDING,
     CANCELED,
     REJECTED,
+    ONGOING,
+    COMPLETED,
     ENDED,
     DEFECT,
     MAINTENANCE,

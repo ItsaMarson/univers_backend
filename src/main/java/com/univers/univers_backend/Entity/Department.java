@@ -3,6 +3,7 @@ package com.univers.univers_backend.Entity;
 
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Entity
 @Table(name = "department")
@@ -12,6 +13,9 @@ public class Department {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "department_id")
     private Long id;
+
+    @Column(unique = true, nullable = false, updatable = false)
+    private UUID publicId;
 
     private String name;
 
@@ -27,6 +31,9 @@ public class Department {
     @PrePersist
     protected void OnCreate() {
         this.createdAt = LocalDateTime.now();
+        if (this.publicId == null) {
+            this.publicId = UUID.randomUUID();
+        }
     }
 
     @PreUpdate
@@ -89,5 +96,9 @@ public class Department {
 
     public LocalDateTime getUpdatedAt() {
         return updatedAt;
+    }
+
+    public UUID getPublicId() {
+        return publicId;
     }
 }

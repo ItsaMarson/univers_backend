@@ -1,10 +1,10 @@
+/* (C)2025 */
 package com.univers.univers_backend.Entity;
-
 
 import com.univers.univers_backend.Enum.Status;
 import jakarta.persistence.*;
-
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Entity
 @Table(name = "equipment")
@@ -13,6 +13,9 @@ public class Equipment {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @Column(unique = true, nullable = false, updatable = false)
+    private UUID publicId;
 
     private String name;
 
@@ -27,6 +30,7 @@ public class Equipment {
     private String brand;
 
     private String imagePath;
+
     @Enumerated(EnumType.STRING)
     private Status status;
 
@@ -36,18 +40,31 @@ public class Equipment {
     private LocalDateTime updatedAt;
 
     @PrePersist
-    protected void onCreate(){
+    protected void onCreate() {
         this.createdAt = LocalDateTime.now();
+        if (this.publicId == null) {
+            this.publicId = UUID.randomUUID();
+        }
     }
+
     @PreUpdate
-    protected void onUpdated(){
+    protected void onUpdated() {
         this.updatedAt = LocalDateTime.now();
     }
 
-    public Equipment() {
-    }
+    public Equipment() {}
 
-    public Equipment(Long id, String name, Boolean availability, User equipmentOwner, Integer quantity, String brand, String imagePath, Status status, LocalDateTime createdAt, LocalDateTime updatedAt) {
+    public Equipment(
+            Long id,
+            String name,
+            Boolean availability,
+            User equipmentOwner,
+            Integer quantity,
+            String brand,
+            String imagePath,
+            Status status,
+            LocalDateTime createdAt,
+            LocalDateTime updatedAt) {
         this.id = id;
         this.name = name;
         this.availability = availability;
@@ -138,5 +155,9 @@ public class Equipment {
 
     public void setUpdatedAt(LocalDateTime updatedAt) {
         this.updatedAt = updatedAt;
+    }
+
+    public UUID getPublicId() {
+        return publicId;
     }
 }

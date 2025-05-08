@@ -9,8 +9,10 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Entity
 @Table(name = "notifications")
@@ -20,7 +22,11 @@ public class Notification {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private Long eventId;
+    @Column(unique = true, nullable = false, updatable = false)
+    private UUID publicId;
+
+    @Column(name = "event_public_id")
+    private UUID eventPublicId;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "recipient_user_id", nullable = false)
@@ -38,11 +44,24 @@ public class Notification {
     @Column(nullable = false)
     private boolean deleted = false;
 
-    private Long relatedEntityId;
+    @Column(name = "related_entity_public_id")
+    private UUID relatedEntityPublicId;
+
+    @Column(name = "related_entity_type")
     private String relatedEntityType;
 
     public Notification() {
         this.createdAt = LocalDateTime.now();
+    }
+
+    @PrePersist
+    protected void onCreate() {
+        if (this.createdAt == null) {
+            this.createdAt = LocalDateTime.now();
+        }
+        if (this.publicId == null) {
+            this.publicId = UUID.randomUUID();
+        }
     }
 
     public Long getId() {
@@ -51,6 +70,22 @@ public class Notification {
 
     public void setId(Long id) {
         this.id = id;
+    }
+
+    public UUID getPublicId() {
+        return publicId;
+    }
+
+    public void setPublicId(UUID publicId) {
+        this.publicId = publicId;
+    }
+
+    public UUID getEventPublicId() {
+        return eventPublicId;
+    }
+
+    public void setEventPublicId(UUID eventPublicId) {
+        this.eventPublicId = eventPublicId;
     }
 
     public User getRecipient() {
@@ -93,20 +128,12 @@ public class Notification {
         this.deleted = deleted;
     }
 
-    public Long getEventId() {
-        return eventId;
+    public UUID getRelatedEntityPublicId() {
+        return relatedEntityPublicId;
     }
 
-    public void setEventId(Long eventId) {
-        this.eventId = eventId;
-    }
-
-    public Long getRelatedEntityId() {
-        return relatedEntityId;
-    }
-
-    public void setRelatedEntityId(Long relatedEntityId) {
-        this.relatedEntityId = relatedEntityId;
+    public void setRelatedEntityPublicId(UUID relatedEntityPublicId) {
+        this.relatedEntityPublicId = relatedEntityPublicId;
     }
 
     public String getRelatedEntityType() {

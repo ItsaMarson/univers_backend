@@ -5,6 +5,7 @@ import com.univers.univers_backend.DTO.NotificationDTO;
 import com.univers.univers_backend.Service.UserNotificationService;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
@@ -41,26 +42,32 @@ public class NotificationController {
     }
 
     @PatchMapping("/read")
-    public ResponseEntity<Void> markAsRead(@RequestBody List<Long> notificationIds) {
-        if (notificationIds == null || notificationIds.isEmpty()) {
+    public ResponseEntity<Void> markAsRead(@RequestBody List<UUID> notificationPublicIds) {
+        if (notificationPublicIds == null || notificationPublicIds.isEmpty()) {
             return ResponseEntity.badRequest().build();
         }
-        userNotificationService.markNotificationsAsRead(notificationIds);
+        userNotificationService.markNotificationsAsRead(notificationPublicIds);
         return ResponseEntity.ok().build();
     }
 
     @PatchMapping("/read-all")
     public ResponseEntity<Void> markAllAsRead() {
-        userNotificationService.markAllNotificationsAsRead();
+        userNotificationService.markAllNotificationsAsReadForCurrentUser();
         return ResponseEntity.ok().build();
     }
 
     @DeleteMapping
-    public ResponseEntity<Void> deleteNotifications(@RequestBody List<Long> notificationIds) {
-        if (notificationIds == null || notificationIds.isEmpty()) {
+    public ResponseEntity<Void> deleteNotifications(@RequestBody List<UUID> notificationPublicIds) {
+        if (notificationPublicIds == null || notificationPublicIds.isEmpty()) {
             return ResponseEntity.badRequest().build();
         }
-        userNotificationService.deleteNotifications(notificationIds);
+        userNotificationService.deleteNotifications(notificationPublicIds);
         return ResponseEntity.noContent().build(); // Or ResponseEntity.ok()
+    }
+
+    @DeleteMapping("/all")
+    public ResponseEntity<Void> deleteAllNotifications() {
+        userNotificationService.deleteAllNotificationsForCurrentUser();
+        return ResponseEntity.noContent().build();
     }
 }

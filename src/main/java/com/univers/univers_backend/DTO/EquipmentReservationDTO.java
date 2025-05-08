@@ -3,16 +3,14 @@ package com.univers.univers_backend.DTO;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 
 public record EquipmentReservationDTO(
-        Long id,
-        Long eventId,
-        String eventName,
+        UUID publicId,
+        EventDTO event,
         UserDTO requestingUser,
-        Long departmentId,
-        String departmentName,
-        Long equipmentId,
-        String equipmentName,
+        DepartmentDTO department,
+        EquipmentDTO equipment,
         Integer quantity,
         LocalDateTime startTime,
         LocalDateTime endTime,

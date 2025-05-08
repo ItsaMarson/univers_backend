@@ -7,6 +7,7 @@ import com.univers.univers_backend.Service.EquipmentReservationService;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -71,11 +72,10 @@ public class EquipmentReservationController {
 
     @GetMapping("/{reservationId}")
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<?> getReservationById(@PathVariable Long reservationId) {
+    public ResponseEntity<?> getReservationById(@PathVariable UUID reservationId) {
         try {
             EquipmentReservationDTO reservation =
-                    equipmentReservationService.getReservationById(reservationId);
-            // Add authorization check if needed
+                    equipmentReservationService.getReservationByPublicId(reservationId);
             return ResponseEntity.ok(reservation);
         } catch (NoSuchElementException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
@@ -92,10 +92,10 @@ public class EquipmentReservationController {
 
     @GetMapping("/event/{eventId}")
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<?> getReservationsByEventId(@PathVariable Long eventId) {
+    public ResponseEntity<?> getReservationsByEventId(@PathVariable UUID eventId) {
         try {
             List<EquipmentReservationDTO> reservations =
-                    equipmentReservationService.getReservationsByEventId(eventId);
+                    equipmentReservationService.getReservationsByEventPublicId(eventId);
             return ResponseEntity.ok(reservations);
         } catch (Exception e) {
             System.err.println(
@@ -109,9 +109,9 @@ public class EquipmentReservationController {
     }
 
     @PatchMapping("/{reservationId}/approve")
-    @PreAuthorize("hasAuthority('EQUIPMENT_OWNER')") // Or other roles defined in service
+    @PreAuthorize("hasAuthority('EQUIPMENT_OWNER')")
     public ResponseEntity<String> approveReservation(
-            @PathVariable Long reservationId, @RequestBody Map<String, String> payload) {
+            @PathVariable UUID reservationId, @RequestBody Map<String, String> payload) {
         String remarks = payload.getOrDefault("remarks", "");
         try {
             String responseMessage =
@@ -135,9 +135,9 @@ public class EquipmentReservationController {
     }
 
     @PatchMapping("/{reservationId}/reject")
-    @PreAuthorize("hasAuthority('EQUIPMENT_OWNER')") // Or other roles defined in service
+    @PreAuthorize("hasAuthority('EQUIPMENT_OWNER')")
     public ResponseEntity<String> rejectReservation(
-            @PathVariable Long reservationId, @RequestBody Map<String, String> payload) {
+            @PathVariable UUID reservationId, @RequestBody Map<String, String> payload) {
         String remarks = payload.get("remarks");
         if (remarks == null || remarks.isBlank()) {
             return ResponseEntity.badRequest().body("Rejection remarks are required.");
@@ -166,7 +166,7 @@ public class EquipmentReservationController {
 
     @PatchMapping("/{reservationId}/cancel")
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<String> cancelReservation(@PathVariable Long reservationId) {
+    public ResponseEntity<String> cancelReservation(@PathVariable UUID reservationId) {
         try {
             String responseMessage = equipmentReservationService.cancelReservation(reservationId);
             if (responseMessage.startsWith("Error:") || responseMessage.startsWith("Warning:")) {
@@ -190,7 +190,7 @@ public class EquipmentReservationController {
 
     @DeleteMapping("/{reservationId}")
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<?> deleteReservation(@PathVariable Long reservationId) {
+    public ResponseEntity<?> deleteReservation(@PathVariable UUID reservationId) {
         try {
             equipmentReservationService.deleteReservation(reservationId);
             return ResponseEntity.ok("Equipment reservation deleted successfully.");
@@ -210,7 +210,7 @@ public class EquipmentReservationController {
 
     @GetMapping("/{reservationId}/approvals")
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<?> getApprovalsForReservation(@PathVariable Long reservationId) {
+    public ResponseEntity<?> getApprovalsForReservation(@PathVariable UUID reservationId) {
         try {
             List<EquipmentApprovalDTO> approvals =
                     equipmentReservationService.getAllApprovalsForReservation(reservationId);

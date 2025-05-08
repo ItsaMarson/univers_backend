@@ -15,6 +15,7 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Entity
 @Table(name = "equipment_approval_status")
@@ -23,6 +24,9 @@ public class EquipmentApproval {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @Column(unique = true, nullable = false, updatable = false)
+    private UUID publicId;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "equipment_reservation_id", nullable = false)
@@ -44,6 +48,9 @@ public class EquipmentApproval {
     @PrePersist
     protected void onCreate() {
         this.dateSigned = LocalDateTime.now();
+        if (this.publicId == null) {
+            this.publicId = UUID.randomUUID();
+        }
     }
 
     // Getters and Setters
@@ -93,5 +100,9 @@ public class EquipmentApproval {
 
     public void setDateSigned(LocalDateTime dateSigned) {
         this.dateSigned = dateSigned;
+    }
+
+    public UUID getPublicId() {
+        return publicId;
     }
 }

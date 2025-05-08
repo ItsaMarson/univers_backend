@@ -2,9 +2,10 @@
 package com.univers.univers_backend.DTO;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 public record UserDTO(
-        Long id,
+        UUID publicId,
         String email,
         String firstName,
         String lastName,
@@ -12,7 +13,7 @@ public record UserDTO(
         String phoneNumber,
         String telephoneNumber,
         String role,
-        Long departmentId,
+        DepartmentDTO department,
         Boolean emailVerified,
         Boolean active,
         String profileImagePath,

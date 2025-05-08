@@ -2,12 +2,12 @@
 package com.univers.univers_backend.DTO;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 public record EquipmentApprovalDTO(
-        Long id,
-        Long equipmentReservationId,
-        Long userId,
-        String signedBy,
+        UUID publicId,
+        UUID equipmentReservationPublicId,
+        UserDTO signedByUser,
         String userRole,
         String remarks,
         String status,

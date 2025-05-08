@@ -4,6 +4,7 @@ package com.univers.univers_backend.Entity;
 import com.univers.univers_backend.Enum.Role;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Entity
 @Table(name = "user")
@@ -13,6 +14,9 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "uid")
     private Long id;
+
+    @Column(unique = true, nullable = false, updatable = false)
+    private UUID publicId;
 
     private String email;
     private String password;
@@ -49,6 +53,9 @@ public class User {
     @PrePersist
     protected void onCreate() {
         this.createdAt = LocalDateTime.now();
+        if (this.publicId == null) {
+            this.publicId = UUID.randomUUID();
+        }
     }
 
     @PreUpdate
@@ -209,5 +216,9 @@ public class User {
 
     public String getFullName() {
         return getFirstname() + " " + getLastname();
+    }
+
+    public UUID getPublicId() {
+        return publicId;
     }
 }

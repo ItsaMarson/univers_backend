@@ -3,12 +3,12 @@ package com.univers.univers_backend.DTO;
 
 import jakarta.validation.constraints.NotBlank;
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 public record DepartmentDTO(
-        Long id,
+        UUID publicId,
         @NotBlank String name,
         String description,
-        Long deptHeadId,
         UserDTO deptHead,
         LocalDateTime createdAt,
         LocalDateTime updatedAt) {}

@@ -5,6 +5,7 @@ import com.univers.univers_backend.Enum.Status;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 
 @Entity
 @Table(name = "event")
@@ -13,6 +14,9 @@ public class Event {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @Column(unique = true, nullable = false, updatable = false)
+    private UUID publicId;
 
     private String eventName;
     private String eventType;
@@ -43,6 +47,9 @@ public class Event {
     @PrePersist
     protected void OnCreate() {
         this.createdAt = LocalDateTime.now();
+        if (this.publicId == null) {
+            this.publicId = UUID.randomUUID();
+        }
     }
 
     @PreUpdate
@@ -177,5 +184,9 @@ public class Event {
 
     public LocalDateTime getUpdatedAt() {
         return updatedAt;
+    }
+
+    public UUID getPublicId() {
+        return publicId;
     }
 }

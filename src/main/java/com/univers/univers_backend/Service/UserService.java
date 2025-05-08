@@ -13,6 +13,8 @@ import com.univers.univers_backend.Entity.Event;
 import com.univers.univers_backend.Entity.User;
 import com.univers.univers_backend.Entity.Venue;
 import com.univers.univers_backend.Enum.Role;
+import com.univers.univers_backend.Mapper.UserMapper;
+import com.univers.univers_backend.Mapper.VenueMapper;
 import com.univers.univers_backend.Repository.DepartmentRepository;
 import com.univers.univers_backend.Repository.EventRepository;
 import com.univers.univers_backend.Repository.UserRepository;
@@ -23,8 +25,8 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Random;
+import java.util.UUID;
 import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -35,7 +37,6 @@ import org.springframework.security.authentication.InternalAuthenticationService
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -56,10 +57,13 @@ public class UserService {
     private final EmailService emailService;
     private final VenueRepository venueRepository;
 
-    private final EventRepository eventRepository; // Inject EventRepository
-    private final EventService eventService; // Inject EventService (for mapping)
+    private final EventRepository eventRepository;
+    private final EventService eventService;
 
     private final FileStorageService fileStorageService;
+
+    private final UserMapper userMapper;
+    private final VenueMapper venueMapper;
 
     @Value("${minio.bucket.users}")
     private String usersBucketName;
@@ -80,7 +84,9 @@ public class UserService {
             VenueRepository venueRepository,
             FileStorageService fileStorageService,
             EventRepository eventRepository,
-            EventService eventService) {
+            EventService eventService,
+            UserMapper userMapper,
+            VenueMapper venueMapper) {
         this.authenticationManager = authenticationManager;
         this.jwtUtil = jwtUtil;
         this.userRepository = userRepository;
@@ -91,6 +97,8 @@ public class UserService {
         this.fileStorageService = fileStorageService;
         this.eventRepository = eventRepository;
         this.eventService = eventService;
+        this.userMapper = userMapper;
+        this.venueMapper = venueMapper;
     }
 
     public ResponseEntity<Map<String, Object>> login(
@@ -133,22 +141,9 @@ public class UserService {
             refreshCookie.setMaxAge(604800000);
             response.addCookie(refreshCookie);
 
-            Map<String, Object> responseBody =
-                    Map.of(
-                            // "accessToken", accessToken,
-                            // "refreshToken", refreshToken,
-                            "user",
-                            Map.of(
-                                    "id",
-                                    user.getId(),
-                                    "email",
-                                    user.getEmail(),
-                                    "first_name",
-                                    user.getFirstname() != null ? user.getFirstname() : "",
-                                    "last_name",
-                                    user.getLastname() != null ? user.getLastname() : "",
-                                    "roles",
-                                    user.getRoles()));
+            UserDTO userDto = userMapper.toDto(user);
+
+            Map<String, Object> responseBody = Map.of("user", userDto);
 
             return ResponseEntity.ok(responseBody);
         } catch (BadCredentialsException e) {
@@ -164,12 +159,15 @@ public class UserService {
             }
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("error", "An internal server error occurred during login."));
+                    .body(
+                            Map.of(
+                                    "error",
+                                    "An internal server error occurred during login: "
+                                            + e.getMessage()));
         }
     }
 
     public String register(RegisterDTO request) {
-
         if (userRepository.existsByEmail(request.email())) {
             return "Email already in use";
         }
@@ -184,13 +182,12 @@ public class UserService {
         user.setId_number(request.idNumber());
         user.setPhone_number(request.phoneNumber());
         user.setTelephoneNumber(request.telephoneNumber());
-        user.setTelephoneNumber(request.telephoneNumber());
-        if (request.departmentId() != null) {
-            Department department =
-                    departmentRepository.findById(request.departmentId()).orElse(null);
 
+        if (request.departmentPublicId() != null) {
+            Department department =
+                    departmentRepository.findByPublicId(request.departmentPublicId()).orElse(null);
             if (department == null) {
-                return "Invalid department";
+                return "Invalid department public ID";
             }
             user.setDepartment(department);
         }
@@ -202,7 +199,6 @@ public class UserService {
         userRepository.save(user);
 
         String subject = "Thanks for Signing Up. Please Verify Your Email Address [UniVERS] ";
-        // Send verification email
         emailService.sendVerificationEmail(
                 user.getEmail(),
                 verificationCode,
@@ -230,30 +226,32 @@ public class UserService {
 
     public List<UserDTO> getAllUsers() {
         List<User> users = userRepository.findAll();
-        return users.stream()
-                .map(this::mapUserToDTO) // Use the helper method
-                .toList();
+        return users.stream().map(userMapper::toDto).toList();
     }
 
     public String forgotPassword(String email) {
-
         User user =
                 userRepository
                         .findByEmail(email)
-                        .orElseThrow(() -> new RuntimeException("User not found"));
-
+                        .orElseThrow(
+                                () ->
+                                        new UsernameNotFoundException(
+                                                "User not found with email: " + email));
         String resetCode = String.format("%06d", new Random().nextInt(1000000));
         user.setVerificationCode(resetCode);
-        user.setVerificationCodeExpiration(
-                LocalDateTime.now().plusMinutes(15)); // Expire in 15 mins
+        user.setVerificationCodeExpiration(LocalDateTime.now().plusMinutes(15));
         userRepository.save(user);
 
-        Long templateId = resetPassTemplateId;
-        String subject = "Reset Password [UniVERS]";
-        emailService.sendVerificationEmail(
-                user.getEmail(), resetCode, user.getFirstname(), templateId, subject);
+        String subject = "Password Reset Code [UniVERS]";
+        try {
+            emailService.sendVerificationEmail(
+                    user.getEmail(), resetCode, user.getFirstname(), resetPassTemplateId, subject);
+        } catch (Exception e) {
+            System.err.println(
+                    "Error sending password reset email for user " + email + ": " + e.getMessage());
+        }
 
-        return "Password reset code sent successfully.";
+        return "Password reset code sent to your email.";
     }
 
     public String resetPassword(String email, String newPassword) {
@@ -284,23 +282,23 @@ public class UserService {
         user.setId_number(request.idNumber());
         user.setPhone_number(request.phoneNumber());
         user.setTelephoneNumber(request.telephoneNumber());
-        if (request.departmentId() != null) {
-            Department department =
-                    departmentRepository.findById(request.departmentId()).orElse(null);
 
+        if (request.departmentPublicId() != null) {
+            Department department =
+                    departmentRepository.findByPublicId(request.departmentPublicId()).orElse(null);
             if (department == null) {
-                return "Department not found. Invalid department Id";
+                return "Invalid department public ID";
             }
             user.setDepartment(department);
         }
-        user.setEmailVerified(false);
+
+        user.setEmailVerified(request.emailVerified() != null ? request.emailVerified() : false);
         user.setVerificationCode(verificationCode);
         user.setVerificationCodeExpiration(LocalDateTime.now().plusMinutes(10));
         user.setActive(true);
         userRepository.save(user);
 
         String subject = "Thanks for Signing Up. Please Verify Your Email Address [UniVERS] ";
-        // Send verification email
         emailService.sendVerificationEmail(
                 user.getEmail(),
                 verificationCode,
@@ -308,181 +306,170 @@ public class UserService {
                 registerTemplateId,
                 subject);
 
-        return "User registered successfully. Please check your email for the verification code.";
-    }
-
-    public String updateUserProfile(Long userId, UserDTO updatedUser, MultipartFile imageFile) {
-
-        Optional<User> existingUser = userRepository.findById(userId);
-        if (existingUser.isEmpty()) {
-            return "User does not exist";
-        }
-
-        User user = existingUser.get();
-        user.setFirstname(
-                updatedUser.firstName() != null ? updatedUser.firstName() : user.getFirstname());
-        user.setLastname(
-                updatedUser.lastName() != null ? updatedUser.lastName() : user.getLastname());
-        user.setPhone_number(
-                updatedUser.phoneNumber() != null
-                        ? updatedUser.phoneNumber()
-                        : user.getPhone_number());
-        user.setTelephoneNumber(
-                updatedUser.telephoneNumber() != null
-                        ? updatedUser.telephoneNumber()
-                        : user.getTelephoneNumber());
-        user.setId_number(
-                updatedUser.idNumber() != null ? updatedUser.idNumber() : user.getId_number());
-        if (updatedUser.departmentId() != null) {
-            Department myDept =
-                    departmentRepository.findById(updatedUser.departmentId()).orElse(null);
-
-            if (myDept == null) {
-                return "Invalid department Id";
-            }
-            user.setDepartment(myDept);
-        }
-
-        if (imageFile != null && !imageFile.isEmpty()) {
-            if (user.getProfileImagePath() != null && !user.getProfileImagePath().isBlank()) {
-                fileStorageService.deleteFile(user.getProfileImagePath(), usersBucketName);
-            }
-            String newObjectName =
-                    fileStorageService.uploadFile(
-                            imageFile, usersBucketName, "user-profile-images/");
-            user.setProfileImagePath(newObjectName);
-        }
-        userRepository.save(user);
-        return "User Profile updated successfully.";
+        return "User created successfully with email: " + user.getEmail();
     }
 
     @Transactional
-    public String editUserAsAdmin(Long userId, EditUserDTO updatedUser, MultipartFile imageFile) {
+    public String updateUserProfile(
+            UUID publicId, EditUserDTO updatedUserDto, MultipartFile imageFile) {
+        User user =
+                userRepository
+                        .findByPublicId(publicId)
+                        .orElseThrow(
+                                () ->
+                                        new RuntimeException(
+                                                "User not found with public ID: " + publicId));
 
-        Optional<User> existingUser = userRepository.findById(userId);
-        if (existingUser.isEmpty()) {
-            return "User does not exist";
-        }
+        if (updatedUserDto.firstName() != null) user.setFirstname(updatedUserDto.firstName());
+        if (updatedUserDto.lastName() != null) user.setLastname(updatedUserDto.lastName());
+        if (updatedUserDto.idNumber() != null) user.setId_number(updatedUserDto.idNumber());
+        if (updatedUserDto.phoneNumber() != null)
+            user.setPhone_number(updatedUserDto.phoneNumber());
+        if (updatedUserDto.telephoneNumber() != null)
+            user.setTelephoneNumber(updatedUserDto.telephoneNumber());
 
-        User user = existingUser.get();
-
-        if (updatedUser.email() != null && !updatedUser.email().equals(user.getEmail())) {
-            if (userRepository.existsByEmail(updatedUser.email())) {
-                return "Email already in use by another user";
-            }
-            user.setEmail(updatedUser.email());
-            // Email change requires re-verification
-            user.setEmailVerified(false);
-            user.setVerificationCode(null);
-            user.setVerificationCodeExpiration(null);
-        }
-
-        if (updatedUser.password() != null && !updatedUser.password().isEmpty()) {
-            user.setPassword(passwordEncoder.encode(updatedUser.password()));
-        }
-
-        user.setFirstname(
-                updatedUser.firstName() != null ? updatedUser.firstName() : user.getFirstname());
-        user.setLastname(
-                updatedUser.lastName() != null ? updatedUser.lastName() : user.getLastname());
-
-        if (updatedUser.role() != null) {
-            try {
-                user.setRoles(Role.valueOf(updatedUser.role()));
-            } catch (IllegalArgumentException e) {
-                return "Invalid role specified";
-            }
-        }
-
-        user.setPhone_number(
-                updatedUser.phoneNumber() != null
-                        ? updatedUser.phoneNumber()
-                        : user.getPhone_number());
-        user.setTelephoneNumber(
-                updatedUser.telephoneNumber() != null
-                        ? updatedUser.telephoneNumber()
-                        : user.getTelephoneNumber());
-        user.setId_number(
-                updatedUser.idNumber() != null ? updatedUser.idNumber() : user.getId_number());
-
-        if (updatedUser.departmentId() != null) {
-            if (user.getDepartment() == null
-                    || !updatedUser.departmentId().equals(user.getDepartment().getId())) {
-                Department myDept =
-                        departmentRepository.findById(updatedUser.departmentId()).orElse(null);
-
-                if (myDept == null) {
-                    return "Invalid department Id";
-                }
-                user.setDepartment(myDept);
-            }
+        if (updatedUserDto.departmentPublicId() != null) {
+            Department department =
+                    departmentRepository
+                            .findByPublicId(updatedUserDto.departmentPublicId())
+                            .orElseThrow(
+                                    () ->
+                                            new RuntimeException(
+                                                    "Department not found with public ID: "
+                                                            + updatedUserDto.departmentPublicId()));
+            user.setDepartment(department);
         } else {
             user.setDepartment(null);
         }
 
-        if (updatedUser.emailVerified() != null) {
-            user.setEmailVerified(updatedUser.emailVerified());
-        }
-
-        if (updatedUser.active() != null) {
-            user.setActive(updatedUser.active());
-        }
-
         if (imageFile != null && !imageFile.isEmpty()) {
-            try {
-                if (user.getProfileImagePath() != null && !user.getProfileImagePath().isBlank()) {
+            if (user.getProfileImagePath() != null && !user.getProfileImagePath().isBlank()) {
+                try {
                     fileStorageService.deleteFile(user.getProfileImagePath(), usersBucketName);
+                } catch (Exception e) {
+                    System.err.println("Error deleting old profile image: " + e.getMessage());
                 }
-                String newObjectName =
+            }
+            try {
+                String imagePath =
                         fileStorageService.uploadFile(
                                 imageFile, usersBucketName, "user-profile-images/");
-                user.setProfileImagePath(newObjectName);
+                user.setProfileImagePath(imagePath);
             } catch (Exception e) {
-                System.err.println(
-                        "Failed to update profile image for user "
-                                + userId
-                                + ": "
-                                + e.getMessage());
-                return "Failed to update profile image due to a storage error.";
+                System.err.println("Error saving new profile image: " + e.getMessage());
+                throw new RuntimeException("Error updating profile image.", e);
             }
         }
-
         userRepository.save(user);
-        return "User details updated successfully.";
+        return "User profile updated successfully.";
     }
 
-    public String deactivateUser(Long userId) {
-        Optional<User> existingUser = userRepository.findById(userId);
+    @Transactional
+    public String editUserAsAdmin(UUID publicId, EditUserDTO editUserDTO, MultipartFile imageFile) {
+        User user =
+                userRepository
+                        .findByPublicId(publicId)
+                        .orElseThrow(
+                                () ->
+                                        new RuntimeException(
+                                                "User not found with public ID: " + publicId));
 
-        if (existingUser.isEmpty()) {
-            return "User not found";
+        if (editUserDTO.email() != null && !editUserDTO.email().equals(user.getEmail())) {
+            if (userRepository.existsByEmail(editUserDTO.email())) {
+                throw new RuntimeException("Error: Email already in use by another account.");
+            }
+            user.setEmail(editUserDTO.email());
         }
-        User user = existingUser.get();
+
+        if (editUserDTO.firstName() != null) user.setFirstname(editUserDTO.firstName());
+        if (editUserDTO.lastName() != null) user.setLastname(editUserDTO.lastName());
+        if (editUserDTO.idNumber() != null) user.setId_number(editUserDTO.idNumber());
+        if (editUserDTO.phoneNumber() != null) user.setPhone_number(editUserDTO.phoneNumber());
+        if (editUserDTO.telephoneNumber() != null)
+            user.setTelephoneNumber(editUserDTO.telephoneNumber());
+
+        if (editUserDTO.departmentPublicId() != null) {
+            Department department =
+                    departmentRepository
+                            .findByPublicId(editUserDTO.departmentPublicId())
+                            .orElseThrow(
+                                    () ->
+                                            new RuntimeException(
+                                                    "Department not found with Public ID: "
+                                                            + editUserDTO.departmentPublicId()));
+            user.setDepartment(department);
+        } else {
+            user.setDepartment(null);
+        }
+
+        if (editUserDTO.role() != null) {
+            try {
+                user.setRoles(Role.valueOf(editUserDTO.role().toUpperCase()));
+            } catch (IllegalArgumentException e) {
+                throw new RuntimeException("Error: Invalid role specified.", e);
+            }
+        }
+        if (editUserDTO.active() != null) user.setActive(editUserDTO.active());
+        if (editUserDTO.emailVerified() != null) user.setEmailVerified(editUserDTO.emailVerified());
+
+        if (imageFile != null && !imageFile.isEmpty()) {
+            if (user.getProfileImagePath() != null && !user.getProfileImagePath().isBlank()) {
+                try {
+                    fileStorageService.deleteFile(user.getProfileImagePath(), usersBucketName);
+                } catch (Exception e) {
+                    System.err.println("Error deleting old profile image: " + e.getMessage());
+                }
+            }
+            try {
+                String imagePath =
+                        fileStorageService.uploadFile(
+                                imageFile, usersBucketName, "user-profile-images/");
+                user.setProfileImagePath(imagePath);
+            } catch (Exception e) {
+                System.err.println("Error saving new profile image: " + e.getMessage());
+                throw new RuntimeException("Error: Could not update profile image.", e);
+            }
+        }
+        userRepository.save(user);
+        return "User details updated successfully by admin.";
+    }
+
+    public String deactivateUser(UUID publicId) {
+        User user =
+                userRepository
+                        .findByPublicId(publicId)
+                        .orElseThrow(
+                                () ->
+                                        new RuntimeException(
+                                                "User not found with Public ID: " + publicId));
         user.setActive(false);
         userRepository.save(user);
-        return "User deactivated successfully";
+        return "User deactivated successfully.";
     }
 
-    public String activateUser(Long userId) {
-        Optional<User> existingUser = userRepository.findById(userId);
-
-        if (existingUser.isEmpty()) {
-            return "User not found";
-        }
-        User user = existingUser.get();
+    public String activateUser(UUID publicId) {
+        User user =
+                userRepository
+                        .findByPublicId(publicId)
+                        .orElseThrow(
+                                () ->
+                                        new RuntimeException(
+                                                "User not found with Public ID: " + publicId));
         user.setActive(true);
         userRepository.save(user);
-        return "User activated successfully";
+        return "User activated successfully.";
     }
 
     public UserDTO getCurrentUser(String token) {
-        String email = jwtUtil.extractUsername(token);
+        String username = jwtUtil.extractUsername(token);
         User user =
                 userRepository
-                        .findByEmail(email)
-                        .orElseThrow(() -> new RuntimeException("User not found"));
-
-        return mapUserToDTO(user);
+                        .findByEmail(username)
+                        .orElseThrow(
+                                () ->
+                                        new UsernameNotFoundException(
+                                                "User not found with email: " + username));
+        return userMapper.toDto(user);
     }
 
     public String verifyResetCode(String email, String verificationCode) {
@@ -530,77 +517,38 @@ public class UserService {
         return "Password reset successfully";
     }
 
-    public VenueDTO getManagedVenue(Long userId) {
-        Optional<User> user = userRepository.findById(userId);
+    public VenueDTO getManagedVenue(UUID userPublicId) {
+        User user =
+                userRepository
+                        .findByPublicId(userPublicId)
+                        .orElseThrow(
+                                () ->
+                                        new RuntimeException(
+                                                "User not found with Public ID: " + userPublicId));
 
-        if (user.isEmpty()) {
-            throw new RuntimeException("User not found with ID " + userId);
-        }
-        User venueOwner = user.get();
-        Optional<Venue> venueOptional = venueRepository.findByVenueOwner(venueOwner);
+        Venue venue =
+                venueRepository
+                        .findByVenueOwner(user)
+                        .orElseThrow(
+                                () ->
+                                        new RuntimeException(
+                                                "No venue managed by user: " + user.getEmail()));
 
-        if (venueOptional.isEmpty()) {
-            throw new RuntimeException("No venue managed by this user");
-        }
-
-        Venue venue = venueOptional.get();
-
-        return new VenueDTO(
-                venue.getId(),
-                venue.getName(),
-                venue.getLocation(),
-                null,
-                null,
-                venue.getCreatedAt(),
-                venue.getUpdatedAt());
+        return venueMapper.toDto(venue);
     }
 
     public List<EventDTO> getOwnEvents() {
-        String currentEmail =
-                ((UserDetails)
-                                SecurityContextHolder.getContext()
-                                        .getAuthentication()
-                                        .getPrincipal())
-                        .getUsername();
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String currentUsername = authentication.getName();
         User currentUser =
                 userRepository
-                        .findByEmail(currentEmail)
-                        .orElseThrow(() -> new RuntimeException("User not found"));
+                        .findByEmail(currentUsername)
+                        .orElseThrow(
+                                () ->
+                                        new UsernameNotFoundException(
+                                                "User not found: " + currentUsername));
 
         List<Event> events = eventRepository.findByOrganizer(currentUser);
-
         return events.stream().map(eventService::mapToDTO).collect(Collectors.toList());
-    }
-
-    private UserDTO mapUserToDTO(User user) {
-        if (user == null) return null;
-        String profileImageUrl = null;
-        if (user.getProfileImagePath() != null && !user.getProfileImagePath().isBlank()) {
-            try {
-                profileImageUrl =
-                        fileStorageService.getFileUrl(user.getProfileImagePath(), usersBucketName);
-            } catch (Exception e) {
-                System.err.println(
-                        "Error generating image URL for user "
-                                + user.getId()
-                                + ": "
-                                + e.getMessage());
-            }
-        }
-        return new UserDTO(
-                user.getId(),
-                user.getEmail(),
-                user.getFirstname() != null ? user.getFirstname() : null,
-                user.getLastname() != null ? user.getLastname() : null,
-                user.getId_number() != null ? user.getId_number() : null,
-                user.getPhone_number() != null ? user.getPhone_number() : null,
-                user.getTelephoneNumber() != null ? user.getTelephoneNumber() : null,
-                user.getRoles() != null ? user.getRoles().name() : null,
-                user.getDepartment() != null ? user.getDepartment().getId() : null,
-                user.getEmailVerified(),
-                user.isActive(),
-                profileImageUrl,
-                user.getCreatedAt(),
-                user.getUpdatedAt());
     }
 }

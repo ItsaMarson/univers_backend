@@ -19,6 +19,7 @@ import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 
 @Entity
 @Table(name = "equipment_reservation")
@@ -27,6 +28,9 @@ public class EquipmentReservation {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @Column(unique = true, nullable = false, updatable = false)
+    private UUID publicId;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "event_id", nullable = false)
@@ -69,6 +73,9 @@ public class EquipmentReservation {
     protected void onCreate() {
         this.createdAt = LocalDateTime.now();
         this.status = Status.PENDING;
+        if (this.publicId == null) {
+            this.publicId = UUID.randomUUID();
+        }
     }
 
     @PreUpdate
@@ -163,5 +170,9 @@ public class EquipmentReservation {
 
     public LocalDateTime getUpdatedAt() {
         return updatedAt;
+    }
+
+    public UUID getPublicId() {
+        return publicId;
     }
 }

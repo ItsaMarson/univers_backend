@@ -1,8 +1,11 @@
 /* (C)2025 */
 package com.univers.univers_backend.Service;
 
+import com.univers.univers_backend.DTO.DepartmentDTO;
 import com.univers.univers_backend.DTO.EquipmentApprovalDTO;
+import com.univers.univers_backend.DTO.EquipmentDTO;
 import com.univers.univers_backend.DTO.EquipmentReservationDTO;
+import com.univers.univers_backend.DTO.EventDTO;
 import com.univers.univers_backend.DTO.UserDTO;
 import com.univers.univers_backend.Entity.Department;
 import com.univers.univers_backend.Entity.Equipment;
@@ -12,6 +15,10 @@ import com.univers.univers_backend.Entity.Event;
 import com.univers.univers_backend.Entity.User;
 import com.univers.univers_backend.Enum.Role;
 import com.univers.univers_backend.Enum.Status;
+import com.univers.univers_backend.Mapper.DepartmentMapper;
+import com.univers.univers_backend.Mapper.EquipmentMapper;
+import com.univers.univers_backend.Mapper.EventMapper;
+import com.univers.univers_backend.Mapper.UserMapper;
 import com.univers.univers_backend.Repository.DepartmentRepository;
 import com.univers.univers_backend.Repository.EquipmentApprovalRepository;
 import com.univers.univers_backend.Repository.EquipmentRepository;
@@ -19,13 +26,15 @@ import com.univers.univers_backend.Repository.EquipmentReservationRepository;
 import com.univers.univers_backend.Repository.EventRepository;
 import com.univers.univers_backend.Repository.UserRepository;
 import java.time.LocalDateTime;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
@@ -42,7 +51,12 @@ public class EquipmentReservationService {
     private final DepartmentRepository departmentRepository;
     private final NotificationService notificationService;
     private final FileStorageService fileStorageService;
-
+    // Mappers
+    private final EventMapper eventMapper;
+    private final DepartmentMapper departmentMapper;
+    private final EquipmentMapper equipmentMapper;
+    private final UserMapper userMapper;
+    private static final Logger logger = LoggerFactory.getLogger(EquipmentReservationService.class);
     // Define roles that can approve/reject equipment reservations
     // Assuming EQUIPMENT_OWNER is the primary role
     private static final Set<Role> EQUIPMENT_APPROVER_ROLES = Set.of(Role.EQUIPMENT_OWNER /*
@@ -64,7 +78,11 @@ public class EquipmentReservationService {
             UserRepository userRepository,
             DepartmentRepository departmentRepository,
             FileStorageService fileStorageService,
-            NotificationService notificationService) {
+            NotificationService notificationService,
+            @Lazy EventMapper eventMapper,
+            @Lazy DepartmentMapper departmentMapper,
+            @Lazy EquipmentMapper equipmentMapper,
+            @Lazy UserMapper userMapper) {
         this.equipmentReservationRepository = equipmentReservationRepository;
         this.equipmentApprovalRepository = equipmentApprovalRepository;
         this.eventRepository = eventRepository;
@@ -73,6 +91,10 @@ public class EquipmentReservationService {
         this.departmentRepository = departmentRepository;
         this.fileStorageService = fileStorageService;
         this.notificationService = notificationService;
+        this.eventMapper = eventMapper;
+        this.departmentMapper = departmentMapper;
+        this.equipmentMapper = equipmentMapper;
+        this.userMapper = userMapper;
     }
 
     @Transactional
@@ -80,51 +102,56 @@ public class EquipmentReservationService {
             EquipmentReservationDTO reservationDTO) {
         User requestingUser = getCurrentUser();
 
+        if (reservationDTO.event() == null || reservationDTO.event().publicId() == null) {
+            throw new IllegalArgumentException(
+                    "Event with publicId is required in reservation DTO.");
+        }
         Event event =
                 eventRepository
-                        .findById(reservationDTO.eventId())
+                        .findByPublicId(reservationDTO.event().publicId())
                         .orElseThrow(
                                 () ->
                                         new NoSuchElementException(
-                                                "Associated Event not found with ID: "
-                                                        + reservationDTO.eventId()));
+                                                "Associated Event not found with Public ID: "
+                                                        + reservationDTO.event().publicId()));
 
+        if (reservationDTO.equipment() == null || reservationDTO.equipment().publicId() == null) {
+            throw new IllegalArgumentException(
+                    "Equipment with publicId is required in reservation DTO.");
+        }
         Equipment equipment =
                 equipmentRepository
-                        .findById(reservationDTO.equipmentId())
+                        .findByPublicId(reservationDTO.equipment().publicId())
                         .orElseThrow(
                                 () ->
                                         new NoSuchElementException(
-                                                "Equipment not found with ID: "
-                                                        + reservationDTO.equipmentId()));
+                                                "Equipment not found with Public ID: "
+                                                        + reservationDTO.equipment().publicId()));
 
-        Long departmentIdToFind;
-        if (reservationDTO.departmentId() != null) {
-            departmentIdToFind = reservationDTO.departmentId();
+        Department department;
+        if (reservationDTO.department() != null && reservationDTO.department().publicId() != null) {
+            department =
+                    departmentRepository
+                            .findByPublicId(reservationDTO.department().publicId())
+                            .orElseThrow(
+                                    () ->
+                                            new NoSuchElementException(
+                                                    "Department not found with Public ID: "
+                                                            + reservationDTO
+                                                                    .department()
+                                                                    .publicId()));
         } else {
-            // Check if the requesting user has a department assigned
             Department userDepartment = requestingUser.getDepartment();
             if (userDepartment == null) {
-                // Handle the case where the user has no department and none was provided in the
-                // DTO
                 throw new IllegalArgumentException(
                         "Requesting user '"
                                 + requestingUser.getEmail()
-                                + "' does not have an assigned department, and no department ID was"
+                                + "' does not have an assigned department, and no department was"
                                 + " provided in the reservation request.");
             }
-            departmentIdToFind = userDepartment.getId();
+            department = userDepartment;
         }
 
-        // Fetch the department using the determined ID
-        Department department =
-                departmentRepository
-                        .findById(departmentIdToFind)
-                        .orElseThrow(
-                                () ->
-                                        new NoSuchElementException(
-                                                "Department not found with ID: "
-                                                        + departmentIdToFind));
         LocalDateTime startTime =
                 reservationDTO.startTime() != null
                         ? reservationDTO.startTime()
@@ -183,15 +210,15 @@ public class EquipmentReservationService {
                 .collect(Collectors.toList());
     }
 
-    public EquipmentReservationDTO getReservationById(Long reservationId) {
+    public EquipmentReservationDTO getReservationByPublicId(UUID reservationPublicId) {
         EquipmentReservation reservation =
                 equipmentReservationRepository
-                        .findById(reservationId)
+                        .findByPublicId(reservationPublicId)
                         .orElseThrow(
                                 () ->
                                         new NoSuchElementException(
-                                                "Equipment Reservation not found with ID: "
-                                                        + reservationId));
+                                                "Equipment Reservation not found with Public ID: "
+                                                        + reservationPublicId));
         return mapToDTO(reservation);
     }
 
@@ -202,23 +229,23 @@ public class EquipmentReservationService {
         return reservations.stream().map(this::mapToDTO).collect(Collectors.toList());
     }
 
-    public List<EquipmentReservationDTO> getReservationsByEventId(Long eventId) {
+    public List<EquipmentReservationDTO> getReservationsByEventPublicId(UUID eventPublicId) {
         List<EquipmentReservation> reservations =
-                equipmentReservationRepository.findByEvent_Id(eventId);
+                equipmentReservationRepository.findByEvent_PublicId(eventPublicId);
         return reservations.stream().map(this::mapToDTO).collect(Collectors.toList());
     }
 
     @Transactional
-    public String approveReservation(Long reservationId, String remarks) {
+    public String approveReservation(UUID reservationPublicId, String remarks) {
         User currentUser = getCurrentUser();
         EquipmentReservation reservation =
                 equipmentReservationRepository
-                        .findById(reservationId)
+                        .findByPublicId(reservationPublicId)
                         .orElseThrow(
                                 () ->
                                         new NoSuchElementException(
-                                                "Equipment Reservation not found: "
-                                                        + reservationId));
+                                                "Equipment Reservation not found with Public ID: "
+                                                        + reservationPublicId));
 
         if (reservation.getStatus() != Status.PENDING) {
             return "Error: Reservation is not PENDING.";
@@ -265,16 +292,16 @@ public class EquipmentReservationService {
     }
 
     @Transactional
-    public String rejectReservation(Long reservationId, String remarks) {
+    public String rejectReservation(UUID reservationPublicId, String remarks) {
         User currentUser = getCurrentUser();
         EquipmentReservation reservation =
                 equipmentReservationRepository
-                        .findById(reservationId)
+                        .findByPublicId(reservationPublicId)
                         .orElseThrow(
                                 () ->
                                         new NoSuchElementException(
-                                                "Equipment Reservation not found: "
-                                                        + reservationId));
+                                                "Equipment Reservation not found with Public ID: "
+                                                        + reservationPublicId));
 
         if (reservation.getStatus() != Status.PENDING) {
             return "Error: Reservation is not PENDING.";
@@ -334,18 +361,19 @@ public class EquipmentReservationService {
     }
 
     @Transactional
-    public String cancelReservation(Long reservationId) {
+    public String cancelReservation(UUID reservationPublicId) {
         User currentUser = getCurrentUser();
         EquipmentReservation reservation =
                 equipmentReservationRepository
-                        .findById(reservationId)
+                        .findByPublicId(reservationPublicId)
                         .orElseThrow(
                                 () ->
                                         new NoSuchElementException(
-                                                "Equipment Reservation not found: "
-                                                        + reservationId));
+                                                "Equipment Reservation not found with Public ID: "
+                                                        + reservationPublicId));
 
-        boolean isRequester = reservation.getRequestingUser().getId().equals(currentUser.getId());
+        boolean isRequester =
+                reservation.getRequestingUser().getPublicId().equals(currentUser.getPublicId());
         boolean isSuperAdmin = currentUser.getRoles() == Role.SUPER_ADMIN;
 
         if (!isRequester && !isSuperAdmin) {
@@ -365,18 +393,29 @@ public class EquipmentReservationService {
     }
 
     @Transactional
-    public void deleteReservation(Long reservationId) {
+    public void cancelReservationsForEvent(UUID eventPublicId, String reason) {
+        List<EquipmentReservation> reservations =
+                equipmentReservationRepository.findByEvent_PublicId(eventPublicId);
+        for (EquipmentReservation reservation : reservations) {
+            reservation.setStatus(Status.CANCELED);
+            equipmentReservationRepository.save(reservation);
+        }
+    }
+
+    @Transactional
+    public void deleteReservation(UUID reservationPublicId) {
         User currentUser = getCurrentUser();
         EquipmentReservation reservation =
                 equipmentReservationRepository
-                        .findById(reservationId)
+                        .findByPublicId(reservationPublicId)
                         .orElseThrow(
                                 () ->
                                         new NoSuchElementException(
-                                                "Equipment Reservation not found: "
-                                                        + reservationId));
+                                                "Equipment Reservation not found with Public ID: "
+                                                        + reservationPublicId));
 
-        boolean isRequester = reservation.getRequestingUser().getId().equals(currentUser.getId());
+        boolean isRequester =
+                reservation.getRequestingUser().getPublicId().equals(currentUser.getPublicId());
         boolean isSuperAdmin = currentUser.getRoles() == Role.SUPER_ADMIN;
 
         if (!isSuperAdmin
@@ -387,6 +426,26 @@ public class EquipmentReservationService {
         }
 
         equipmentReservationRepository.delete(reservation);
+        logger.info("Deleted equipment reservation with public ID: {}", reservationPublicId);
+    }
+
+    @Transactional
+    public void deleteReservationsByEventPublicId(UUID eventPublicId) {
+        // Find all equipment reservations linked to this eventPublicId
+        List<EquipmentReservation> reservations =
+                equipmentReservationRepository.findByEvent_PublicId(eventPublicId);
+        if (!reservations.isEmpty()) {
+            // If reservations are found, delete them
+            equipmentReservationRepository.deleteAll(reservations);
+            logger.info(
+                    "Deleted {} equipment reservations for event public ID: {}",
+                    reservations.size(),
+                    eventPublicId);
+        } else {
+            logger.info(
+                    "No equipment reservations found for event public ID: {} to delete.",
+                    eventPublicId);
+        }
     }
 
     private User getCurrentUser() {
@@ -412,23 +471,18 @@ public class EquipmentReservationService {
                             reservation.getQuantity(),
                             reservation.getEvent().getEventName());
 
-            Map<String, Object> payload = new HashMap<>();
-            payload.put("type", "EQUIPMENT_RESERVATION_REQUEST");
-            payload.put("message", message);
-            payload.put("equipmentReservationId", reservation.getId());
-            payload.put("relatedEntityType", "EQUIPMENT_RESERVATION");
-            payload.put("eventId", reservation.getEvent().getId());
-            payload.put("requesterName", reservation.getRequestingUser().getFullName());
-            payload.put("eventName", reservation.getEvent().getEventName());
-            payload.put("equipmentName", reservation.getEquipment().getName());
+            notificationService.createNotification(
+                    equipmentOwner,
+                    message,
+                    reservation.getEvent().getPublicId(),
+                    reservation.getPublicId(),
+                    "EQUIPMENT_RESERVATION_REQUEST");
 
-            notificationService.notifyUser(
-                    equipmentOwner.getEmail(), "/queue/notifications", payload);
             System.out.println(
                     "DEBUG: Notify Equipment Owner: "
                             + equipmentOwner.getEmail()
-                            + " - Payload: "
-                            + payload);
+                            + " - Message: "
+                            + message);
         }
     }
 
@@ -447,20 +501,15 @@ public class EquipmentReservationService {
                             action,
                             (actor != null ? " by " + actorName : ""));
 
-            Map<String, Object> payload = new HashMap<>();
-            payload.put("type", notificationType);
-            payload.put("message", message);
-            payload.put("equipmentReservationId", reservation.getId());
-            payload.put("relatedEntityType", "EQUIPMENT_RESERVATION");
-            payload.put("eventId", reservation.getEvent().getId());
-            payload.put("status", reservation.getStatus().name());
-            if (actor != null) {
-                payload.put("actorName", actorName);
-            }
+            notificationService.createNotification(
+                    requester,
+                    message,
+                    reservation.getEvent().getPublicId(),
+                    reservation.getPublicId(),
+                    notificationType);
 
-            notificationService.notifyUser(requester.getEmail(), "/queue/notifications", payload);
             System.out.println(
-                    "DEBUG: Notify Requester: " + requester.getEmail() + " - Payload: " + payload);
+                    "DEBUG: Notify Requester: " + requester.getEmail() + " - Message: " + message);
         }
     }
 
@@ -469,7 +518,9 @@ public class EquipmentReservationService {
         User equipmentOwner = reservation.getEquipment().getEquipmentOwner();
         if (equipmentOwner != null
                 && equipmentOwner.getEmail() != null
-                && !equipmentOwner.getId().equals(canceller.getId())) {
+                && (canceller == null
+                        || !equipmentOwner.getPublicId().equals(canceller.getPublicId()))) {
+            String cancellerName = (canceller != null) ? canceller.getFullName() : "System";
             String message =
                     String.format(
                             "Equipment reservation for '%s' (Qty: %d, Event: %s) was canceled by"
@@ -477,23 +528,20 @@ public class EquipmentReservationService {
                             reservation.getEquipment().getName(),
                             reservation.getQuantity(),
                             reservation.getEvent().getEventName(),
-                            canceller.getFullName());
+                            cancellerName);
 
-            Map<String, Object> payload = new HashMap<>();
-            payload.put("type", "EQUIPMENT_RESERVATION_CANCELED_INFO");
-            payload.put("message", message);
-            payload.put("equipmentReservationId", reservation.getId());
-            payload.put("relatedEntityType", "EQUIPMENT_RESERVATION");
-            payload.put("eventId", reservation.getEvent().getId());
-            payload.put("cancellerName", canceller.getFullName());
+            notificationService.createNotification(
+                    equipmentOwner,
+                    message,
+                    reservation.getEvent().getPublicId(),
+                    reservation.getPublicId(),
+                    "EQUIPMENT_RESERVATION_CANCELED_INFO");
 
-            notificationService.notifyUser(
-                    equipmentOwner.getEmail(), "/queue/notifications", payload);
             System.out.println(
                     "DEBUG: Notify Owner of Cancellation: "
                             + equipmentOwner.getEmail()
-                            + " - Payload: "
-                            + payload);
+                            + " - Message: "
+                            + message);
         }
     }
 
@@ -506,15 +554,25 @@ public class EquipmentReservationService {
                                 .collect(Collectors.toList())
                         : List.of();
 
+        EventDTO eventDto = null;
+        if (reservation.getEvent() != null && eventMapper != null) {
+            eventDto = eventMapper.toDto(reservation.getEvent());
+        }
+        DepartmentDTO departmentDto = null;
+        if (reservation.getDepartment() != null && departmentMapper != null) {
+            departmentDto = departmentMapper.toDto(reservation.getDepartment());
+        }
+        EquipmentDTO equipmentDto = null;
+        if (reservation.getEquipment() != null && equipmentMapper != null) {
+            equipmentDto = equipmentMapper.toDto(reservation.getEquipment());
+        }
+
         return new EquipmentReservationDTO(
-                reservation.getId(),
-                reservation.getEvent().getId(),
-                reservation.getEvent().getEventName(),
+                reservation.getPublicId(),
+                eventDto,
                 requesterDto,
-                reservation.getDepartment().getId(),
-                reservation.getDepartment().getName(),
-                reservation.getEquipment().getId(),
-                reservation.getEquipment().getName(),
+                departmentDto,
+                equipmentDto,
                 reservation.getQuantity(),
                 reservation.getStartTime(),
                 reservation.getEndTime(),
@@ -525,18 +583,24 @@ public class EquipmentReservationService {
     }
 
     private EquipmentApprovalDTO mapApprovalToDTO(EquipmentApproval approval) {
+        User signedByEntity = approval.getSignedBy();
+        UserDTO signedByUserDto = mapUserToDTO(signedByEntity);
+
+        String userRole = null;
+        if (signedByEntity != null && signedByEntity.getRoles() != null) {
+            userRole = signedByEntity.getRoles().name();
+        }
+
         return new EquipmentApprovalDTO(
-                approval.getId(),
-                approval.getEquipmentReservation().getId(),
-                approval.getSignedBy().getId(),
-                approval.getSignedBy().getFullName(),
-                approval.getSignedBy().getRoles().name(),
+                approval.getPublicId(),
+                approval.getEquipmentReservation().getPublicId(),
+                signedByUserDto,
+                userRole,
                 approval.getRemarks(),
                 approval.getStatus().name(),
                 approval.getDateSigned());
     }
 
-    // Reuse UserDTO mapping logic (adapt if needed)
     private UserDTO mapUserToDTO(User user) {
         if (user == null) return null;
         String profileImageUrl = null;
@@ -545,12 +609,22 @@ public class EquipmentReservationService {
                 profileImageUrl =
                         fileStorageService.getFileUrl(user.getProfileImagePath(), usersBucketName);
             } catch (Exception e) {
-                /* Handle error */
+                System.err.println(
+                        "Error generating image URL for user "
+                                + user.getPublicId()
+                                + ": "
+                                + e.getMessage());
             }
         }
-        // Adapt fields based on your UserDTO structure
+
+        Department userDepartmentEntity = user.getDepartment();
+        DepartmentDTO departmentDto = null;
+        if (userDepartmentEntity != null && departmentMapper != null) {
+            departmentDto = departmentMapper.toDto(userDepartmentEntity);
+        }
+
         return new UserDTO(
-                user.getId(),
+                user.getPublicId(),
                 user.getEmail(),
                 user.getFirstname(),
                 user.getLastname(),
@@ -558,7 +632,7 @@ public class EquipmentReservationService {
                 user.getPhone_number(),
                 user.getTelephoneNumber(),
                 user.getRoles() != null ? user.getRoles().name() : null,
-                user.getDepartment() != null ? user.getDepartment().getId() : null,
+                departmentDto,
                 user.getEmailVerified(),
                 user.isActive(),
                 profileImageUrl,
@@ -567,15 +641,15 @@ public class EquipmentReservationService {
     }
 
     // --- Getters for specific lists ---
-    public List<EquipmentApprovalDTO> getAllApprovalsForReservation(Long reservationId) {
+    public List<EquipmentApprovalDTO> getAllApprovalsForReservation(UUID reservationPublicId) {
         EquipmentReservation reservation =
                 equipmentReservationRepository
-                        .findById(reservationId)
+                        .findByPublicId(reservationPublicId)
                         .orElseThrow(
                                 () ->
                                         new NoSuchElementException(
-                                                "Equipment Reservation not found: "
-                                                        + reservationId));
+                                                "Equipment Reservation not found with Public ID: "
+                                                        + reservationPublicId));
         return equipmentApprovalRepository.findAllByEquipmentReservation(reservation).stream()
                 .map(this::mapApprovalToDTO)
                 .collect(Collectors.toList());

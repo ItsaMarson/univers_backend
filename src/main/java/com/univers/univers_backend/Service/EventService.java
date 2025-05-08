@@ -1,30 +1,36 @@
 /* (C)2025 */
 package com.univers.univers_backend.Service;
 
+import com.univers.univers_backend.DTO.CreateEventRequestDTO;
+import com.univers.univers_backend.DTO.DepartmentDTO;
 import com.univers.univers_backend.DTO.EventDTO;
+import com.univers.univers_backend.DTO.UpdateEventRequestDTO;
 import com.univers.univers_backend.DTO.UserDTO;
+import com.univers.univers_backend.DTO.VenueDTO;
 import com.univers.univers_backend.DTO.VenueReservationDTO;
 import com.univers.univers_backend.Entity.Department;
 import com.univers.univers_backend.Entity.Event;
+import com.univers.univers_backend.Entity.EventApproval;
 import com.univers.univers_backend.Entity.User;
 import com.univers.univers_backend.Entity.Venue;
 import com.univers.univers_backend.Enum.Role;
 import com.univers.univers_backend.Enum.Status;
+import com.univers.univers_backend.Mapper.*;
+import com.univers.univers_backend.Repository.EventApprovalRepository;
 import com.univers.univers_backend.Repository.EventRepository;
 import com.univers.univers_backend.Repository.UserRepository;
 import com.univers.univers_backend.Repository.VenueRepository;
-import java.time.LocalDateTime;
-import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.UUID;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -39,16 +45,22 @@ public class EventService {
     private final NotificationService notificationService;
     private final VenueReservationService venueReservationService;
     private final DepartmentService departmentService;
+    private final EventApprovalRepository eventApprovalRepository;
+    private final EquipmentReservationService equipmentReservationService;
+
+    // Mappers
+    private final EventMapper eventMapper;
+    private final UserMapper userMapper;
+    private final VenueMapper venueMapper;
+    private final DepartmentMapper departmentMapper;
+
     private static final Logger logger = LoggerFactory.getLogger(EventService.class);
 
-    @Value("${minio.bucket.letters}")
+    @Value("${minio.bucket.approved-letters}")
     private String lettersBucketName;
 
     @Value("${minio.bucket.events}")
     private String eventsBucketName;
-
-    @Value("${minio.bucket.users}")
-    private String usersBucketName;
 
     public EventService(
             EventRepository eventRepository,
@@ -57,7 +69,13 @@ public class EventService {
             FileStorageService fileStorageService,
             VenueReservationService venueReservationService,
             DepartmentService departmentService,
-            NotificationService notificationService) {
+            NotificationService notificationService,
+            EventApprovalRepository eventApprovalRepository,
+            EquipmentReservationService equipmentReservationService,
+            @Lazy EventMapper eventMapper,
+            @Lazy UserMapper userMapper,
+            @Lazy VenueMapper venueMapper,
+            @Lazy DepartmentMapper departmentMapper) {
         this.eventRepository = eventRepository;
         this.userRepository = userRepository;
         this.venueRepository = venueRepository;
@@ -65,97 +83,59 @@ public class EventService {
         this.venueReservationService = venueReservationService;
         this.departmentService = departmentService;
         this.notificationService = notificationService;
+        this.eventApprovalRepository = eventApprovalRepository;
+        this.equipmentReservationService = equipmentReservationService;
+        this.eventMapper = eventMapper;
+        this.userMapper = userMapper;
+        this.venueMapper = venueMapper;
+        this.departmentMapper = departmentMapper;
     }
 
     @Transactional
     public EventDTO createEvent(
-            EventDTO eventDTO, MultipartFile approvedLetterFile, MultipartFile eventImageFile) {
+            CreateEventRequestDTO requestDTO,
+            MultipartFile approvedLetterFile,
+            MultipartFile eventImageFile) {
 
-        Long organizerId = eventDTO.organizer().id();
-        User organizer =
-                userRepository
-                        .findById(organizerId)
-                        .orElseThrow(
-                                () ->
-                                        new IllegalArgumentException(
-                                                "Organizer not found with ID: " + organizerId));
+        User organizer = getCurrentUser();
 
         Venue venue =
                 venueRepository
-                        .findById(eventDTO.eventVenueId())
+                        .findByPublicId(requestDTO.venuePublicId())
                         .orElseThrow(
                                 () ->
                                         new IllegalArgumentException(
-                                                "Invalid venue ID: " + eventDTO.eventVenueId()));
+                                                "Invalid venue Public ID: "
+                                                        + requestDTO.venuePublicId()));
 
-        Long eventDepartmentId = eventDTO.departmentId();
         Department eventDepartment = null;
-        if (eventDepartmentId != null) {
-            eventDepartment = departmentService.getDepartmentById(eventDepartmentId);
+        if (requestDTO.departmentPublicId() != null) {
+            eventDepartment =
+                    departmentService.getDepartmentByPublicId(requestDTO.departmentPublicId());
             if (eventDepartment == null) {
-                throw new IllegalArgumentException("Invalid department ID: " + eventDepartmentId);
+                throw new IllegalArgumentException(
+                        "Invalid department Public ID: " + requestDTO.departmentPublicId());
             }
         } else {
-            // Fallback to organizer's department if no specific departmentId is provided for the
-            // event
-            // Or throw an error if departmentId is strictly required for an event
-            // For now, let's assume it's optional and can fallback or be null
-            // If it's mandatory, uncomment the error or ensure eventDTO.departmentId() is always
-            // present
-            // throw new IllegalArgumentException("Department ID is required for the event.");
-            System.err.println(
-                    "Warning: No specific departmentId provided for event, attempting to use"
-                            + " organizer's department for reservation.");
+            logger.warn(
+                    "No specific department Public ID provided for event, attempting to use"
+                            + " organizer's department.");
+            eventDepartment = organizer.getDepartment();
         }
 
         List<Event> conflictingEvents =
                 eventRepository.findConflictingEvents(
-                        venue.getId(), eventDTO.startTime(), eventDTO.endTime());
+                        venue.getId(), requestDTO.startTime(), requestDTO.endTime());
         if (!conflictingEvents.isEmpty()) {
             throw new IllegalArgumentException(
                     "There is a scheduling conflict with another event at this venue and time.");
         }
-        try {
-            Long departmentIdForTempCheck =
-                    eventDepartmentId != null
-                            ? eventDepartmentId
-                            : (organizer.getDepartment() != null
-                                    ? organizer.getDepartment().getId()
-                                    : null);
-
-            VenueReservationDTO tempReservationCheckDto =
-                    new VenueReservationDTO(
-                            null, // id
-                            null, // eventId (not created yet)
-                            null, // eventName
-                            null, // requestingUser
-                            departmentIdForTempCheck,
-                            null, // departmentName
-                            venue.getId(), // venueId
-                            null, // venueName
-                            eventDTO.startTime(), // startTime
-                            eventDTO.endTime(), // endTime
-                            null, // status
-                            null, // approvals
-                            null, // createdAt
-                            null // updatedAt
-                            );
-            // Call a hypothetical conflict check method (or adapt createVenueReservation to allow
-            // checks)
-            // This part might require adjustment in VenueReservationService or its repository
-            // For now, we rely on the check within the actual createVenueReservation call later.
-            // If VenueReservationService.createVenueReservation throws due to conflict, the
-            // @Transactional will rollback the event.
-
-        } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException("Venue conflict detected: " + e.getMessage());
-        }
 
         Event event = new Event();
-        event.setEventName(eventDTO.eventName());
-        event.setEventType(eventDTO.eventType());
-        event.setStartTime(eventDTO.startTime());
-        event.setEndTime(eventDTO.endTime());
+        event.setEventName(requestDTO.eventName());
+        event.setEventType(requestDTO.eventType());
+        event.setStartTime(requestDTO.startTime());
+        event.setEndTime(requestDTO.endTime());
         event.setDepartment(eventDepartment);
         event.setOrganizer(organizer);
         event.setEventVenue(venue);
@@ -177,545 +157,436 @@ public class EventService {
         Event savedEvent = eventRepository.save(event);
 
         try {
-            // Use the event's specified departmentId for the reservation if available,
-            // otherwise fallback to the organizer's department.
-            Long departmentIdForReservation = eventDepartmentId;
-            String departmentNameForReservation = null;
+            Department chosenDeptForReservation =
+                    eventDepartment != null ? eventDepartment : organizer.getDepartment();
 
-            if (departmentIdForReservation != null && eventDepartment != null) {
-                departmentNameForReservation = eventDepartment.getName();
+            if (chosenDeptForReservation == null) {
+                logger.warn(
+                        "Cannot determine department for venue reservation for event {}. Skipping"
+                                + " auto-reservation.",
+                        savedEvent.getPublicId());
             } else {
-                // Fallback to organizer's department if event specific one is not set
-                Department organizerDept = organizer.getDepartment();
-                if (organizerDept != null) {
-                    departmentIdForReservation = organizerDept.getId();
-                    departmentNameForReservation = organizerDept.getName();
-                }
+                UserDTO organizerDto = userMapper.toDto(organizer);
+                VenueDTO venueDto = venueMapper.toDto(venue);
+                DepartmentDTO departmentDto = departmentMapper.toDto(chosenDeptForReservation);
+                EventDTO eventDtoForReservation =
+                        new EventDTO(
+                                savedEvent.getPublicId(),
+                                null,
+                                null,
+                                null,
+                                null,
+                                null,
+                                null,
+                                null,
+                                null,
+                                null,
+                                null,
+                                null,
+                                null);
+
+                VenueReservationDTO reservationRequestDTO =
+                        new VenueReservationDTO(
+                                null,
+                                eventDtoForReservation,
+                                organizerDto,
+                                departmentDto,
+                                venueDto,
+                                savedEvent.getStartTime(),
+                                savedEvent.getEndTime(),
+                                null,
+                                java.util.Collections.emptyList(),
+                                null,
+                                null);
+
+                logger.info(
+                        "Attempting to automatically create venue reservation for event: {}",
+                        savedEvent.getPublicId());
+                venueReservationService.createVenueReservation(reservationRequestDTO);
+                logger.info(
+                        "Successfully initiated automatic venue reservation for event: {}",
+                        savedEvent.getPublicId());
             }
-
-            if (departmentIdForReservation == null) {
-                System.err.println(
-                        "Warning: Organizer "
-                                + organizer.getId()
-                                + " has no department assigned, and no specific department provided"
-                                + " for event. Cannot set department for venue reservation.");
-                // Depending on your business logic, you might want to throw an error here
-                // if a department is mandatory for a venue reservation.
-            }
-
-            VenueReservationDTO reservationRequestDTO =
-                    new VenueReservationDTO(
-                            null, // id - will be generated
-                            savedEvent.getId(), // Link to the newly created event
-                            savedEvent.getEventName(), // Use event name
-                            mapUserToDTO(organizer), // Pass organizer DTO (or null if not needed by
-                            // create)
-                            departmentIdForReservation, // Use the determined department ID
-                            departmentNameForReservation, // Use the determined department name
-                            venue.getId(), // Venue ID
-                            venue.getName(), // Venue Name
-                            savedEvent.getStartTime(), // Use event start time
-                            savedEvent.getEndTime(), // Use event end time
-                            Status.PENDING.name(), // Initial status for reservation
-                            null, // approvals - initially empty
-                            null, // createdAt - will be generated
-                            null // updatedAt - will be generated
-                            );
-
-            VenueReservationDTO createdReservation =
-                    venueReservationService.createVenueReservation(reservationRequestDTO);
-
-            System.out.println(
-                    "Successfully created venue reservation ID: "
-                            + createdReservation.id()
-                            + " for event ID: "
-                            + savedEvent.getId());
-
-        } catch (IllegalArgumentException | NoSuchElementException e) {
-            System.err.println(
-                    "Error automatically creating venue reservation for event "
-                            + savedEvent.getId()
-                            + ": "
-                            + e.getMessage());
-            throw new RuntimeException(
-                    "Failed to create associated venue reservation: " + e.getMessage(), e);
         } catch (Exception e) {
-            System.err.println(
-                    "Unexpected error automatically creating venue reservation for event "
-                            + savedEvent.getId()
-                            + ": "
-                            + e.getMessage());
-            throw new RuntimeException(
-                    "Unexpected error creating associated venue reservation: " + e.getMessage(), e);
+            logger.error(
+                    "Error during automatic venue reservation for new event (Public ID: {}): {}."
+                            + " Event was created, but reservation failed.",
+                    savedEvent.getPublicId(),
+                    e.getMessage(),
+                    e);
         }
-
-        try {
-            Venue eventVenue = savedEvent.getEventVenue();
-            if (eventVenue != null && eventVenue.getVenueOwner() != null) {
-                User venueOwner = eventVenue.getVenueOwner();
-                if (venueOwner.getEmail() != null) {
-                    Map<String, Object> payload = new HashMap<>();
-                    payload.put("type", "VENUE_RESERVATION_REQUEST");
-                    payload.put(
-                            "message",
-                            "New event '"
-                                    + savedEvent.getEventName()
-                                    + "' has been created and requires venue reservation"
-                                    + " approval.");
-                    payload.put("eventId", savedEvent.getId());
-                    payload.put("relatedEntityType", "EVENT");
-                    // Optionally add venueReservationId if available and relevant here
-                    // payload.put("venueReservationId", createdReservation.id());
-                    payload.put("eventName", savedEvent.getEventName());
-                    payload.put("requester", savedEvent.getOrganizer().getFullName());
-                    payload.put("venueName", eventVenue.getName());
-
-                    notificationService.notifyUser(
-                            venueOwner.getEmail(), "/queue/notifications", payload);
-                }
-            }
-
-            User eventOrganizer = savedEvent.getOrganizer();
-            if (eventOrganizer != null
-                    && eventOrganizer.getDepartment() != null
-                    && eventOrganizer.getDepartment().getDeptHead() != null) {
-                User deptHead = eventOrganizer.getDepartment().getDeptHead();
-                if (deptHead.getEmail() != null
-                        && !deptHead.getId().equals(eventOrganizer.getId())) {
-                    Map<String, Object> payload = new HashMap<>();
-                    payload.put("type", "EVENT_APPROVAL_REQUEST");
-                    payload.put(
-                            "message",
-                            "New event '"
-                                    + savedEvent.getEventName()
-                                    + "' by "
-                                    + eventOrganizer.getFullName()
-                                    + " has been created and requires your approval (Venue"
-                                    + " reservation pending).");
-                    payload.put("eventId", savedEvent.getId());
-                    payload.put("relatedEntityType", "EVENT");
-                    payload.put("eventName", savedEvent.getEventName());
-                    payload.put("requester", eventOrganizer.getFullName());
-                    payload.put("departmentName", eventOrganizer.getDepartment().getName());
-
-                    notificationService.notifyUser(
-                            deptHead.getEmail(), "/queue/notifications", payload);
-                }
-            }
-
-        } catch (Exception e) {
-            System.err.println(
-                    "Error sending notification for new event "
-                            + savedEvent.getId()
-                            + ": "
-                            + e.getMessage());
-        }
-
-        return mapToDTO(savedEvent);
+        return eventMapper.toDto(savedEvent);
     }
 
     public List<EventDTO> getAllEvents() {
         List<Event> events = eventRepository.findAll();
-        return events.stream().map(this::mapToDTO).collect(Collectors.toList());
+        return events.stream().map(eventMapper::toDto).collect(Collectors.toList());
     }
 
-    public EventDTO getEventById(Long eventId) {
+    public EventDTO getEventByPublicId(UUID publicId) {
         Event event =
                 eventRepository
-                        .findById(eventId)
+                        .findByPublicId(publicId)
                         .orElseThrow(
                                 () ->
                                         new NoSuchElementException(
-                                                "Event not found with ID: " + eventId));
-        return mapToDTO(event);
+                                                "Event not found with public ID: " + publicId));
+        return eventMapper.toDto(event);
     }
 
     public List<EventDTO> getApprovedEvents() {
-        List<Event> approvedEvents = eventRepository.findByStatus(Status.APPROVED);
-        return approvedEvents.stream().map(this::mapToDTO).collect(Collectors.toList());
+        List<Event> events = eventRepository.findByStatus(Status.APPROVED);
+        return events.stream().map(eventMapper::toDto).collect(Collectors.toList());
     }
 
     @Transactional
     public EventDTO updateEvent(
-            Long eventId,
-            EventDTO updatedEventDTO,
+            UUID publicId,
+            UpdateEventRequestDTO requestDTO,
             MultipartFile approvedLetterFile,
             MultipartFile eventImageFile) {
 
         Event event =
                 eventRepository
-                        .findById(eventId)
+                        .findByPublicId(publicId)
                         .orElseThrow(
                                 () ->
                                         new NoSuchElementException(
-                                                "Event not found with ID: " + eventId));
+                                                "Event not found with public ID: " + publicId));
 
-        String currentUsername =
-                ((UserDetails)
-                                SecurityContextHolder.getContext()
-                                        .getAuthentication()
-                                        .getPrincipal())
-                        .getUsername();
-        User currentUser =
-                userRepository
-                        .findByEmail(currentUsername)
-                        .orElseThrow(
-                                () ->
-                                        new RuntimeException(
-                                                "Authenticated user not found in"
-                                                        + " database")); // Should
-        // not
-        // happen
-
-        boolean isOrganizer =
-                event.getOrganizer() != null
-                        && event.getOrganizer().getId().equals(currentUser.getId());
-        boolean isSuperAdmin = currentUser.getRoles() == Role.SUPER_ADMIN;
-
-        if (!isOrganizer && !isSuperAdmin) {
-            throw new IllegalArgumentException("You are not authorized to update this event.");
+        User currentUser = getCurrentUser();
+        boolean isAdmin = currentUser.getRoles() == Role.SUPER_ADMIN;
+        boolean isOrganizer = event.getOrganizer().getPublicId().equals(currentUser.getPublicId());
+        if (!isAdmin && !isOrganizer) {
+            throw new SecurityException("User not authorized to update this event.");
         }
 
-        Department newDepartment = event.getDepartment();
-        if (updatedEventDTO.departmentId() != null) {
-            if (event.getDepartment() == null
-                    || !updatedEventDTO.departmentId().equals(event.getDepartment().getId())) {
-                // Corrected part:
-                Department fetchedDepartment =
-                        departmentService.getDepartmentById(updatedEventDTO.departmentId());
-                if (fetchedDepartment == null) {
-                    throw new IllegalArgumentException(
-                            "Department not found with ID: " + updatedEventDTO.departmentId());
-                }
-                newDepartment = fetchedDepartment;
-            }
-        } else {
-            logger.warn(
-                    "departmentId in updatedEventDTO is null for event {}. Department will not be"
-                            + " changed unless it was already null.",
-                    eventId);
+        if (!isAdmin && event.getStatus() != Status.PENDING) {
+            throw new IllegalStateException(
+                    "Event cannot be updated because it is not in PENDING status. Current status: "
+                            + event.getStatus());
         }
 
-        Venue newVenue = event.getEventVenue();
-        if (updatedEventDTO.eventVenueId() != null
-                && (event.getEventVenue() == null
-                        || !updatedEventDTO.eventVenueId().equals(event.getEventVenue().getId()))) {
-            newVenue =
-                    venueRepository
-                            .findById(updatedEventDTO.eventVenueId())
+        if (requestDTO.eventName() != null && !requestDTO.eventName().isBlank()) {
+            event.setEventName(requestDTO.eventName());
+        }
+        if (requestDTO.eventType() != null && !requestDTO.eventType().isBlank()) {
+            event.setEventType(requestDTO.eventType());
+        }
+        if (requestDTO.startTime() != null) {
+            event.setStartTime(requestDTO.startTime());
+        }
+        if (requestDTO.endTime() != null) {
+            event.setEndTime(requestDTO.endTime());
+        }
+
+        if (requestDTO.organizerPublicId() != null
+                && !event.getOrganizer().getPublicId().equals(requestDTO.organizerPublicId())) {
+            User newOrganizer =
+                    userRepository
+                            .findByPublicId(requestDTO.organizerPublicId())
                             .orElseThrow(
                                     () ->
                                             new IllegalArgumentException(
-                                                    "Venue not found with ID: "
-                                                            + updatedEventDTO.eventVenueId()));
+                                                    "New organizer not found with Public ID: "
+                                                            + requestDTO.organizerPublicId()));
+            event.setOrganizer(newOrganizer);
         }
-
-        LocalDateTime newStartTime =
-                updatedEventDTO.startTime() != null
-                        ? updatedEventDTO.startTime()
-                        : event.getStartTime();
-        LocalDateTime newEndTime =
-                updatedEventDTO.endTime() != null ? updatedEventDTO.endTime() : event.getEndTime();
-
-        if (newVenue != event.getEventVenue()
-                || newStartTime != event.getStartTime()
-                || newEndTime != event.getEndTime()) {
-            List<Event> conflictingEvents =
-                    eventRepository.findConflictingEvents(
-                            newVenue.getId(), newStartTime, newEndTime);
-
-            boolean hasConflict =
-                    conflictingEvents.stream()
-                            .anyMatch(
-                                    e ->
-                                            !e.getId().equals(eventId)
-                                                    && e.getStatus() != Status.CANCELED);
-
-            if (hasConflict) {
-                throw new IllegalArgumentException(
-                        "There is a scheduling conflict with another event at this venue and"
-                                + " time.");
+        if (requestDTO.venuePublicId() != null
+                && (event.getEventVenue() == null
+                        || !event.getEventVenue()
+                                .getPublicId()
+                                .equals(requestDTO.venuePublicId()))) {
+            Venue newVenue =
+                    venueRepository
+                            .findByPublicId(requestDTO.venuePublicId())
+                            .orElseThrow(
+                                    () ->
+                                            new IllegalArgumentException(
+                                                    "Venue not found with Public ID: "
+                                                            + requestDTO.venuePublicId()));
+            event.setEventVenue(newVenue);
+        }
+        if (requestDTO.departmentPublicId() != null) {
+            if (event.getDepartment() == null
+                    || !requestDTO
+                            .departmentPublicId()
+                            .equals(event.getDepartment().getPublicId())) {
+                Department newDepartment =
+                        departmentService.getDepartmentByPublicId(requestDTO.departmentPublicId());
+                if (newDepartment == null) {
+                    throw new IllegalArgumentException(
+                            "Department not found with Public ID: "
+                                    + requestDTO.departmentPublicId());
+                }
+                event.setDepartment(newDepartment);
             }
         }
 
-        event.setEventName(
-                updatedEventDTO.eventName() != null
-                        ? updatedEventDTO.eventName()
-                        : event.getEventName());
-        event.setEventType(
-                updatedEventDTO.eventType() != null
-                        ? updatedEventDTO.eventType()
-                        : event.getEventType());
-        event.setDepartment(newDepartment);
-        event.setStartTime(newStartTime);
-        event.setEndTime(newEndTime);
-        event.setEventVenue(newVenue);
-
-        // Only allow SUPER_ADMIN to change status directly via update? Or handle via
-        // separate approval flow?
-        // For now, allowing status update if provided in DTO (consider restricting this
-        // based on role if needed)
-        // if (updatedEventDTO.status() != null) {
-        // try {
-        // Status newStatus =
-        // Status.valueOf(updatedEventDTO.status().toUpperCase());
-        // // Add logic here if status transitions need validation (e.g., cannot go
-        // from
-        // // CANCELED back to PENDING)
-        // event.setStatus(newStatus);
-        // } catch (IllegalArgumentException e) {
-        // System.err.println(
-        // "Invalid status provided during update: " +
-        // updatedEventDTO.status());
-        // // Optionally throw an exception or ignore invalid status
-        // }
-        // }
-        // Note: Organizer should generally not be changed via update. If needed, create
-        // a separate 'reassign' method.
-
-        // --- File Updates ---
         if (approvedLetterFile != null && !approvedLetterFile.isEmpty()) {
-            if (event.getApprovedLetterPath() != null && !event.getApprovedLetterPath().isBlank()) {
-                fileStorageService.deleteFile(event.getApprovedLetterPath(), lettersBucketName);
-            }
-            String newLetterObjectName =
+            deleteFileSafely(
+                    event.getApprovedLetterPath(),
+                    lettersBucketName,
+                    publicId,
+                    "old approved letter");
+            String letterObjectName =
                     fileStorageService.uploadFile(
                             approvedLetterFile, lettersBucketName, "approved-letters/");
-            event.setApprovedLetterPath(newLetterObjectName);
+            event.setApprovedLetterPath(letterObjectName);
         }
-
         if (eventImageFile != null && !eventImageFile.isEmpty()) {
-            if (event.getImagePath() != null && !event.getImagePath().isBlank()) {
-                fileStorageService.deleteFile(event.getImagePath(), eventsBucketName);
-            }
-            String newImageObjectName =
+            deleteFileSafely(event.getImagePath(), eventsBucketName, publicId, "old image");
+            String imageObjectName =
                     fileStorageService.uploadFile(
                             eventImageFile, eventsBucketName, "event-images/");
-            event.setImagePath(newImageObjectName);
+            event.setImagePath(imageObjectName);
         }
 
-        Event savedEvent = eventRepository.save(event);
-        return mapToDTO(savedEvent);
+        if (requestDTO.status() != null) {
+            event.setStatus(requestDTO.status());
+        }
+
+        Event updatedDbEvent = eventRepository.save(event);
+        return eventMapper.toDto(updatedDbEvent);
     }
 
     @Transactional
-    public void deleteEvent(Long eventId) {
+    public void deleteEvent(UUID publicId) {
+        User currentUser = getCurrentUser();
         Event event =
                 eventRepository
-                        .findById(eventId)
+                        .findByPublicId(publicId)
                         .orElseThrow(
                                 () ->
                                         new NoSuchElementException(
-                                                "Event not found with ID: " + eventId));
+                                                "Event not found with public ID: " + publicId));
 
-        if (event.getApprovedLetterPath() != null && !event.getApprovedLetterPath().isBlank()) {
-            fileStorageService.deleteFile(event.getApprovedLetterPath(), lettersBucketName);
+        if (currentUser.getRoles() == Role.SUPER_ADMIN) {
+            logger.info("SUPER_ADMIN deleting event {}. Performing thorough deletion.", publicId);
+
+            List<EventApproval> approvals = eventApprovalRepository.findAllByEvent(event);
+            if (!approvals.isEmpty()) {
+                eventApprovalRepository.deleteAll(approvals);
+                logger.info(
+                        "Deleted {} approval records for event {}.", approvals.size(), publicId);
+            }
+
+            // Delete associated venue reservations
+            try {
+                venueReservationService.deleteReservationsByEventPublicId(publicId);
+                logger.info("Attempted to delete venue reservations for event {}.", publicId);
+            } catch (Exception e) {
+                logger.error(
+                        "Error deleting venue reservations for event {}: {}",
+                        publicId,
+                        e.getMessage(),
+                        e);
+                // Decide if this error should halt the process or just be logged.
+                throw new RuntimeException(
+                        "Error deleting venue reservations for event "
+                                + publicId
+                                + ": "
+                                + e.getMessage(),
+                        e);
+            }
+
+            // Delete associated equipment reservations
+            try {
+                equipmentReservationService.deleteReservationsByEventPublicId(publicId);
+                logger.info("Attempted to delete equipment reservations for event {}.", publicId);
+            } catch (Exception e) {
+                logger.error(
+                        "Error deleting equipment reservations for event {}: {}",
+                        publicId,
+                        e.getMessage(),
+                        e);
+                // Decide if this error should halt the process or just be logged.
+                throw new RuntimeException(
+                        "Error deleting equipment reservations for event "
+                                + publicId
+                                + ": "
+                                + e.getMessage(),
+                        e);
+            }
+
+            deleteEventFiles(event);
+            eventRepository.delete(event);
+            logger.info("Event {} deleted successfully by SUPER_ADMIN.", publicId);
+
+        } else {
+            boolean isOrganizer =
+                    event.getOrganizer().getPublicId().equals(currentUser.getPublicId());
+            boolean isPending = event.getStatus() == Status.PENDING;
+            boolean hasNoApprovals = eventApprovalRepository.findAllByEvent(event).isEmpty();
+
+            if (isOrganizer && isPending && hasNoApprovals) {
+                logger.info(
+                        "Organizer {} deleting PENDING event {} with no approvals.",
+                        currentUser.getPublicId(),
+                        publicId);
+                deleteEventFiles(event);
+                eventRepository.delete(event);
+                logger.info(
+                        "Event {} deleted successfully by organizer {}.",
+                        publicId,
+                        currentUser.getPublicId());
+            } else {
+                String reason = "User not authorized to delete this event.";
+                if (!isOrganizer) reason = "User is not the organizer.";
+                else if (!isPending) reason = "Event is not in PENDING state.";
+                else if (!hasNoApprovals) reason = "Event has existing approvals.";
+                logger.warn("Failed attempt to delete event {}: {}", publicId, reason);
+                throw new SecurityException(reason);
+            }
         }
+    }
 
-        if (event.getImagePath() != null && !event.getImagePath().isBlank()) {
-            fileStorageService.deleteFile(event.getImagePath(), eventsBucketName);
+    // Helper method to delete event files
+    private void deleteEventFiles(Event event) {
+        deleteFileSafely(
+                event.getApprovedLetterPath(),
+                lettersBucketName,
+                event.getPublicId(),
+                "approved letter");
+        deleteFileSafely(
+                event.getImagePath(), eventsBucketName, event.getPublicId(), "event image");
+    }
+
+    // Helper method to safely delete a single file
+    private void deleteFileSafely(
+            String filePath, String bucketName, UUID eventPublicId, String fileType) {
+        if (filePath != null && !filePath.isBlank()) {
+            try {
+                fileStorageService.deleteFile(filePath, bucketName);
+                logger.info(
+                        "Successfully deleted {} for event {}: {}",
+                        fileType,
+                        eventPublicId,
+                        filePath);
+            } catch (Exception e) {
+                logger.error(
+                        "Error deleting {} for event {} (Path: {}): {}",
+                        fileType,
+                        eventPublicId,
+                        filePath,
+                        e.getMessage());
+            }
         }
-
-        // Consider related entities (like EventApproval) - should they be deleted?
-        // If EventApproval has CascadeType.ALL or REMOVE on the 'event' relationship,
-        // they might be deleted automatically. Otherwise, delete them manually if
-        // required.
-        // eventApprovalRepository.deleteAllByEvent(event); // Example if manual
-        // deletion needed
-
-        eventRepository.delete(event);
     }
 
     @Transactional
-    public String cancelEvent(Long eventId) {
+    public String cancelEvent(UUID publicId, String cancellationReason) {
+        User currentUser = getCurrentUser();
         Event event =
                 eventRepository
-                        .findById(eventId)
+                        .findByPublicId(publicId)
                         .orElseThrow(
                                 () ->
                                         new NoSuchElementException(
-                                                "Event not found with ID: " + eventId));
+                                                "Event not found with public ID: " + publicId));
 
-        if (event.getStatus() == Status.CANCELED) {
-            return "Event is already canceled.";
+        boolean isAdmin = currentUser.getRoles() == Role.SUPER_ADMIN;
+        boolean isOrganizer = event.getOrganizer().getPublicId().equals(currentUser.getPublicId());
+
+        if (!isAdmin && !isOrganizer) {
+            throw new SecurityException("User not authorized to cancel this event.");
+        }
+
+        if (event.getStatus() == Status.CANCELED) return "Event is already canceled.";
+        if (event.getStatus() == Status.COMPLETED || event.getStatus() == Status.ONGOING) {
+            throw new IllegalStateException(
+                    "Cannot cancel an event that is ongoing or already completed.");
         }
 
         event.setStatus(Status.CANCELED);
-        eventRepository.save(event);
+        Event canceledEvent = eventRepository.save(event);
 
-        User canceller = getCurrentUser();
-        User organizer = event.getOrganizer();
+        String reasonOrDefault =
+                cancellationReason != null ? cancellationReason : "Event canceled by user.";
 
-        if (organizer != null
-                && organizer.getEmail() != null
-                && !organizer.getId().equals(canceller.getId())) {
-            Map<String, Object> payload = new HashMap<>();
-            payload.put("type", "EVENT_CANCELED");
-            payload.put(
-                    "message",
-                    "Your event '"
-                            + event.getEventName()
-                            + "' has been canceled by "
-                            + canceller.getFullName()
-                            + ".");
-            payload.put("eventId", event.getId());
-            payload.put("relatedEntityType", "EVENT");
-            payload.put("eventName", event.getEventName());
-            payload.put("cancellerName", canceller.getFullName());
-            notificationService.notifyUser(organizer.getEmail(), "/queue/notifications", payload);
+        try {
+            venueReservationService.cancelReservationsForEvent(canceledEvent.getPublicId());
+            logger.info(
+                    "Initiated cancellation for venue reservations associated with event {}.",
+                    canceledEvent.getPublicId());
+        } catch (Exception e) {
+            logger.error(
+                    "Error during cancellation of venue reservations for event {}: {}",
+                    canceledEvent.getPublicId(),
+                    e.getMessage(),
+                    e);
+            // Decide if this should throw an exception or just log
+            throw new RuntimeException(
+                    "Error during cancellation of venue reservations for event "
+                            + canceledEvent.getPublicId()
+                            + ": "
+                            + e.getMessage(),
+                    e);
         }
 
-        Venue venue = event.getEventVenue();
-        if (venue != null
-                && venue.getVenueOwner() != null
-                && venue.getVenueOwner().getEmail() != null
-                && !venue.getVenueOwner().getId().equals(canceller.getId())) {
-            Map<String, Object> payload = new HashMap<>();
-            payload.put("type", "EVENT_CANCELED_INFO"); // Different type for info
-            payload.put(
-                    "message",
-                    "Event '"
-                            + event.getEventName()
-                            + "' scheduled at your venue '"
-                            + venue.getName()
-                            + "' has been canceled by "
-                            + canceller.getFullName()
-                            + ".");
-            payload.put("eventId", event.getId());
-            payload.put("relatedEntityType", "EVENT");
-            payload.put("eventName", event.getEventName());
-            payload.put("venueName", venue.getName());
-            payload.put("cancellerName", canceller.getFullName());
-            notificationService.notifyUser(
-                    venue.getVenueOwner().getEmail(), "/queue/notifications", payload);
+        try {
+            equipmentReservationService.cancelReservationsForEvent(
+                    canceledEvent.getPublicId(), reasonOrDefault);
+            logger.info(
+                    "Initiated cancellation for equipment reservations associated with event {}.",
+                    canceledEvent.getPublicId());
+        } catch (Exception e) {
+            logger.error(
+                    "Error during cancellation of equipment reservations for event {}: {}",
+                    canceledEvent.getPublicId(),
+                    e.getMessage(),
+                    e);
+            throw new RuntimeException(
+                    "Error during cancellation of equipment reservations for event "
+                            + canceledEvent.getPublicId()
+                            + ": "
+                            + e.getMessage(),
+                    e);
         }
 
-        if (organizer != null
-                && organizer.getDepartment() != null
-                && organizer.getDepartment().getDeptHead() != null) {
-            User deptHead = organizer.getDepartment().getDeptHead();
-            if (deptHead != null
-                    && deptHead.getEmail() != null
-                    && !deptHead.getId().equals(canceller.getId())) {
-                Map<String, Object> payload = new HashMap<>();
-                payload.put("type", "EVENT_CANCELED_INFO");
-                payload.put(
-                        "message",
-                        "Event '"
-                                + event.getEventName()
-                                + "' organized by "
-                                + organizer.getFullName()
-                                + " from your department has been canceled by "
-                                + canceller.getFullName()
-                                + ".");
-                payload.put("eventId", event.getId());
-                payload.put("relatedEntityType", "EVENT");
-                payload.put("eventName", event.getEventName());
-                payload.put("organizerName", organizer.getFullName());
-                payload.put("cancellerName", canceller.getFullName());
-                notificationService.notifyUser(
-                        deptHead.getEmail(), "/queue/notifications", payload);
-            }
-        }
-        // Add notifications for other relevant roles (equipment owners, etc.) if needed
+        notificationService.createNotification(
+                event.getOrganizer(),
+                "Your event '"
+                        + event.getEventName()
+                        + "' has been canceled. Reason: "
+                        + reasonOrDefault,
+                event.getPublicId(),
+                event.getPublicId(),
+                "EVENT_CANCELED");
 
-        return "Event canceled successfully";
+        return "Event canceled successfully.";
     }
 
     private User getCurrentUser() {
-        String username =
-                ((UserDetails)
-                                SecurityContextHolder.getContext()
-                                        .getAuthentication()
-                                        .getPrincipal())
-                        .getUsername();
+        Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        String username;
+        if (principal instanceof UserDetails) {
+            username = ((UserDetails) principal).getUsername();
+        } else {
+            username = principal.toString();
+        }
         return userRepository
                 .findByEmail(username)
-                .orElseThrow(() -> new RuntimeException("Authenticated user not found"));
+                .orElseThrow(() -> new UsernameNotFoundException("User not found: " + username));
     }
 
     public List<EventDTO> getPendingEventsForVenueOwner() {
-        User currentUser = getCurrentUser();
-        if (!currentUser.getRoles().toString().contains(Role.VENUE_OWNER.toString())) {
-            return Collections.emptyList();
-        }
-        List<Event> events = eventRepository.findPendingEventsForVenueOwner(currentUser);
-        return events.stream().map(this::mapToDTO).collect(Collectors.toList());
+        User venueOwner = getCurrentUser();
+        List<Event> events = eventRepository.findPendingEventsForVenueOwner(venueOwner);
+        return events.stream().map(eventMapper::toDto).collect(Collectors.toList());
     }
 
     public List<EventDTO> getPendingEventsForDeptHead() {
-        User currentUser = getCurrentUser();
-        if (!currentUser.getRoles().toString().contains(Role.DEPT_HEAD.toString())) {
-            return Collections.emptyList();
-        }
-        List<Event> events = eventRepository.findPendingEventsForDeptHead(currentUser);
-        return events.stream().map(this::mapToDTO).collect(Collectors.toList());
+        User deptHead = getCurrentUser();
+        List<Event> events = eventRepository.findPendingEventsForDeptHead(deptHead);
+        return events.stream().map(eventMapper::toDto).collect(Collectors.toList());
     }
 
+    // Added public method to allow UserService to map Event to EventDTO via EventService
     public EventDTO mapToDTO(Event event) {
-        String letterUrl = null;
-        if (event.getApprovedLetterPath() != null && !event.getApprovedLetterPath().isBlank()) {
-            letterUrl =
-                    fileStorageService.getFileUrl(event.getApprovedLetterPath(), lettersBucketName);
+        if (event == null) {
+            return null;
         }
-
-        String imageUrl = null;
-        if (event.getImagePath() != null && !event.getImagePath().isBlank()) {
-            imageUrl = fileStorageService.getFileUrl(event.getImagePath(), eventsBucketName);
-        }
-
-        UserDTO organizerDto = mapUserToDTO(event.getOrganizer());
-
-        Long departmentId = null;
-        if (event.getDepartment() != null) {
-            departmentId = event.getDepartment().getId();
-        }
-
-        return new EventDTO(
-                event.getId(),
-                event.getEventName(),
-                event.getEventType(),
-                organizerDto,
-                event.getEventVenue() != null ? event.getEventVenue().getId() : null,
-                departmentId,
-                event.getStartTime(),
-                event.getEndTime(),
-                event.getStatus() != null ? event.getStatus().toString() : null,
-                letterUrl,
-                imageUrl,
-                event.getCreatedAt(),
-                event.getUpdatedAt());
-    }
-
-    private UserDTO mapUserToDTO(User user) {
-        if (user == null) return null;
-        String profileImageUrl = null;
-        if (user.getProfileImagePath() != null && !user.getProfileImagePath().isBlank()) {
-            try {
-                profileImageUrl =
-                        fileStorageService.getFileUrl(user.getProfileImagePath(), usersBucketName);
-            } catch (Exception e) {
-                System.err.println(
-                        "Error generating image URL for user "
-                                + user.getId()
-                                + ": "
-                                + e.getMessage());
-            }
-        }
-        return new UserDTO(
-                user.getId(),
-                user.getEmail(),
-                user.getFirstname() != null ? user.getFirstname() : null,
-                user.getLastname() != null ? user.getLastname() : null,
-                user.getId_number() != null ? user.getId_number() : null,
-                user.getPhone_number() != null ? user.getPhone_number() : null,
-                user.getTelephoneNumber() != null ? user.getTelephoneNumber() : null,
-                user.getRoles() != null ? user.getRoles().name() : null,
-                user.getDepartment() != null ? user.getDepartment().getId() : null,
-                user.getEmailVerified(),
-                user.isActive(),
-                profileImageUrl,
-                user.getCreatedAt(),
-                user.getUpdatedAt());
+        return this.eventMapper.toDto(event);
     }
 }

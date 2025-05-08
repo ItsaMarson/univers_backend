@@ -1,14 +1,15 @@
 /* (C)2025 */
 package com.univers.univers_backend.Service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+// Removed ObjectMapper import if no longer needed elsewhere
+// import com.fasterxml.jackson.databind.ObjectMapper;
 import com.univers.univers_backend.DTO.NotificationDTO;
 import com.univers.univers_backend.Entity.Notification;
 import com.univers.univers_backend.Entity.User;
 import com.univers.univers_backend.Repository.NotificationRepository;
 import com.univers.univers_backend.Repository.UserRepository;
 import java.util.List;
-import java.util.Map;
+import java.util.UUID; // Keep UUID import
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
@@ -23,15 +24,16 @@ public class UserNotificationService {
     private static final Logger log = LoggerFactory.getLogger(UserNotificationService.class);
     private final NotificationRepository notificationRepository;
     private final UserRepository userRepository;
-    private final ObjectMapper objectMapper;
+
+    // private final ObjectMapper objectMapper; // Removed ObjectMapper field
 
     public UserNotificationService(
-            NotificationRepository notificationRepository,
-            UserRepository userRepository,
-            ObjectMapper objectMapper) {
+            NotificationRepository notificationRepository, UserRepository userRepository
+            // ObjectMapper objectMapper // Removed ObjectMapper parameter
+            ) {
         this.notificationRepository = notificationRepository;
         this.userRepository = userRepository;
-        this.objectMapper = objectMapper;
+        // this.objectMapper = objectMapper; // Removed assignment
     }
 
     private User getCurrentUser() {
@@ -47,31 +49,18 @@ public class UserNotificationService {
     }
 
     private NotificationDTO mapToDTO(Notification notification) {
-        Object messageObject = null;
-        try {
-            // Parse the stored JSON string back into an Object (Map, List, etc.)
-            messageObject = objectMapper.readValue(notification.getMessage(), Object.class);
-        } catch (Exception e) {
-            log.error(
-                    "Failed to parse notification message JSON for notification id {}: {}",
-                    notification.getId(),
-                    e.getMessage());
-            // Fallback: return the raw string or a custom error object if parsing fails
-            messageObject =
-                    Map.of(
-                            "error",
-                            "Failed to parse message content",
-                            "rawMessage",
-                            notification.getMessage());
-        }
+        // Pass the raw message string (which is stored in the DB) directly
+        Object messageObject = notification.getMessage();
+
+        // --- JSON Parsing Logic Removed ---
 
         return new NotificationDTO(
-                notification.getId(),
-                notification.getEventId(),
-                messageObject, // Use the parsed object
+                notification.getPublicId(),
+                notification.getEventPublicId(),
+                messageObject, // Pass the raw message string
                 notification.getCreatedAt(),
                 notification.isRead(),
-                notification.getRelatedEntityId(),
+                notification.getRelatedEntityPublicId(),
                 notification.getRelatedEntityType());
     }
 
@@ -85,28 +74,40 @@ public class UserNotificationService {
 
     public long getUnreadNotificationCountForCurrentUser() {
         User currentUser = getCurrentUser();
+        // Assuming the original method existed and worked:
         return notificationRepository.countByRecipientAndIsReadFalseAndDeletedFalse(currentUser);
     }
 
+    // --- Updated Methods Using UUID ---
+
     @Transactional
-    public void markNotificationsAsRead(List<Long> notificationIds) {
+    public void markNotificationsAsRead(List<UUID> notificationPublicIds) { // Changed to List<UUID>
         User currentUser = getCurrentUser();
-        if (!notificationIds.isEmpty()) {
-            notificationRepository.markAsRead(notificationIds, currentUser);
+        if (!notificationPublicIds.isEmpty()) {
+            notificationRepository.markAsReadByPublicIds(
+                    notificationPublicIds, currentUser); // Use new method
         }
     }
 
     @Transactional
-    public void markAllNotificationsAsRead() {
+    public void markAllNotificationsAsReadForCurrentUser() {
         User currentUser = getCurrentUser();
-        notificationRepository.markAllAsRead(currentUser);
+        notificationRepository.markAllAsRead(currentUser); // This method was already correct
     }
 
     @Transactional
-    public void deleteNotifications(List<Long> notificationIds) {
+    public void deleteNotifications(List<UUID> notificationPublicIds) { // Changed to List<UUID>
         User currentUser = getCurrentUser();
-        if (!notificationIds.isEmpty()) {
-            notificationRepository.markAsDeleted(notificationIds, currentUser);
+        if (!notificationPublicIds.isEmpty()) {
+            notificationRepository.markAsDeletedByPublicIds(
+                    notificationPublicIds, currentUser); // Use new method (soft delete)
         }
+    }
+
+    @Transactional
+    public void deleteAllNotificationsForCurrentUser() {
+        User currentUser = getCurrentUser();
+        notificationRepository.markAllAsDeletedForUser(currentUser); // Use new method (soft delete)
+        log.info("Marked all active notifications as deleted for user {}", currentUser.getEmail());
     }
 }

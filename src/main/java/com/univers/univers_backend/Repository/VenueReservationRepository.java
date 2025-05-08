@@ -7,11 +7,19 @@ import com.univers.univers_backend.Entity.VenueReservation;
 import com.univers.univers_backend.Enum.Status;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface VenueReservationRepository extends JpaRepository<VenueReservation, Long> {
+
+    Optional<VenueReservation> findByPublicId(UUID publicId);
+
+    List<VenueReservation> findByEvent_PublicId(UUID eventPublicId);
+
+    List<VenueReservation> findAllByEvent_PublicId(UUID eventPublicId);
 
     // Find conflicting reservations for a given venue and time range, excluding
     // canceled ones

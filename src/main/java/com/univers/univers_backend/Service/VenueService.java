@@ -1,6 +1,7 @@
 /* (C)2025 */
 package com.univers.univers_backend.Service;
 
+import com.univers.univers_backend.DTO.DepartmentDTO;
 import com.univers.univers_backend.DTO.UserDTO;
 import com.univers.univers_backend.DTO.VenueDTO;
 import com.univers.univers_backend.Entity.User;
@@ -10,6 +11,7 @@ import com.univers.univers_backend.Repository.VenueRepository;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -54,18 +56,16 @@ public class VenueService {
         newVenue.setName(venueDTO.name());
         newVenue.setLocation(venueDTO.location());
 
-        UserDTO ownerDto = null;
-        if (venueDTO.venueOwner() != null && venueDTO.venueOwner().id() != null) {
+        if (venueDTO.venueOwner() != null && venueDTO.venueOwner().publicId() != null) {
             User venueOwner =
                     userRepository
-                            .findById(venueDTO.venueOwner().id())
+                            .findByPublicId(venueDTO.venueOwner().publicId())
                             .orElseThrow(
                                     () ->
                                             new IllegalArgumentException(
-                                                    "User (Venue Owner) not found"));
-
+                                                    "User (Venue Owner) not found with Public ID: "
+                                                            + venueDTO.venueOwner().publicId()));
             newVenue.setVenueOwner(venueOwner);
-            ownerDto = mapUserToDTO(venueOwner);
         }
 
         // Use FileStorageService for upload
@@ -79,12 +79,12 @@ public class VenueService {
         Venue savedVenue = venueRepository.save(newVenue);
 
         // Regenerate ownerDto if it wasn't set initially but owner exists after save
-        if (savedVenue.getVenueOwner() != null && ownerDto == null) {
-            User savedOwner = savedVenue.getVenueOwner();
-            ownerDto = mapUserToDTO(savedOwner);
+        UserDTO finalOwnerDto = null;
+        if (savedVenue.getVenueOwner() != null) {
+            finalOwnerDto = mapUserToDTO(savedVenue.getVenueOwner());
         }
 
-        return mapVenueToDTO(savedVenue, ownerDto); // mapVenueToDTO needs update
+        return mapVenueToDTO(savedVenue, finalOwnerDto);
     }
 
     public List<VenueDTO> getAllVenues() {
@@ -99,27 +99,27 @@ public class VenueService {
                 .collect(Collectors.toList());
     }
 
-    public VenueDTO getVenueById(Long venueId) {
+    public VenueDTO getVenueByPublicId(UUID venueId) {
         Venue venue =
                 venueRepository
-                        .findById(venueId)
+                        .findByPublicId(venueId)
                         .orElseThrow(
                                 () ->
                                         new NoSuchElementException(
-                                                "Venue not found with ID: " + venueId));
+                                                "Venue not found with Public ID: " + venueId));
         return mapVenueToDTO(
                 venue, mapUserToDTO(venue.getVenueOwner())); // mapVenueToDTO needs update
     }
 
     @Transactional
-    public VenueDTO updateVenue(Long venueId, VenueDTO venueDTO, MultipartFile imageFile) {
+    public VenueDTO updateVenue(UUID venueId, VenueDTO venueDTO, MultipartFile imageFile) {
         Venue venue =
                 venueRepository
-                        .findById(venueId)
+                        .findByPublicId(venueId)
                         .orElseThrow(
                                 () ->
                                         new NoSuchElementException(
-                                                "Venue not found with ID: " + venueId));
+                                                "Venue not found with Public ID: " + venueId));
 
         // Check for name conflict only if name is changing
         if (venueDTO.name() != null
@@ -128,7 +128,7 @@ public class VenueService {
             Optional<Venue> existingVenueWithName =
                     venueRepository.findByNameIgnoreCase(venueDTO.name());
             if (existingVenueWithName.isPresent()
-                    && !existingVenueWithName.get().getId().equals(venueId)) {
+                    && !existingVenueWithName.get().getId().equals(venue.getId())) {
                 throw new IllegalArgumentException(
                         "Another venue with the name '" + venueDTO.name() + "' already exists.");
             }
@@ -139,33 +139,32 @@ public class VenueService {
             venue.setLocation(venueDTO.location());
         }
 
-        UserDTO ownerDto = null;
+        // UserDTO ownerDto = null; // Not strictly needed here, will be mapped at the end.
         // Handle owner update
-        if (venueDTO.venueOwner() != null && venueDTO.venueOwner().id() != null) {
+        if (venueDTO.venueOwner() != null
+                && venueDTO.venueOwner().publicId() != null) { // Check publicId from DTO
+            UUID newOwnerPublicId = venueDTO.venueOwner().publicId();
             if (venue.getVenueOwner() == null
-                    || !venue.getVenueOwner().getId().equals(venueDTO.venueOwner().id())) {
+                    || !venue.getVenueOwner().getPublicId().equals(newOwnerPublicId)) {
                 User newVenueOwner =
                         userRepository
-                                .findById(venueDTO.venueOwner().id())
+                                .findByPublicId(newOwnerPublicId) // Use findByPublicId
                                 .orElseThrow(
                                         () ->
                                                 new IllegalArgumentException(
-                                                        "User (Venue Owner) not found with ID: "
-                                                                + venueDTO.venueOwner().id()));
+                                                        "User (Venue Owner) not found with Public"
+                                                                + " ID: "
+                                                                + newOwnerPublicId));
                 venue.setVenueOwner(newVenueOwner);
-                ownerDto = mapUserToDTO(newVenueOwner);
-            } else {
-                // Owner hasn't changed, map existing one
-                ownerDto = mapUserToDTO(venue.getVenueOwner());
             }
+            // If owner publicId matches, no change needed for owner entity.
         } else if (venueDTO.venueOwner() == null && venue.getVenueOwner() != null) {
-            // Owner is being removed
+            // Owner is being removed (explicitly set to null in DTO)
             venue.setVenueOwner(null);
-            ownerDto = null;
-        } else if (venue.getVenueOwner() != null) {
-            // Owner exists and wasn't changed in DTO, map existing one
-            ownerDto = mapUserToDTO(venue.getVenueOwner());
         }
+        // If venueDTO.venueOwner() is present but publicId is null, or if venueDTO.venueOwner() is
+        // not present,
+        // it implies no change to the existing venue owner unless explicitly set to null as above.
 
         // Handle image update
         if (imageFile != null && !imageFile.isEmpty()) {
@@ -181,25 +180,23 @@ public class VenueService {
 
         Venue updatedVenue = venueRepository.save(venue);
 
-        // Ensure ownerDto is correctly set after potential updates
-        if (updatedVenue.getVenueOwner() != null && ownerDto == null) {
-            ownerDto = mapUserToDTO(updatedVenue.getVenueOwner());
-        } else if (updatedVenue.getVenueOwner() == null) {
-            ownerDto = null;
+        UserDTO finalOwnerDto = null;
+        if (updatedVenue.getVenueOwner() != null) {
+            finalOwnerDto = mapUserToDTO(updatedVenue.getVenueOwner());
         }
 
-        return mapVenueToDTO(updatedVenue, ownerDto); // mapVenueToDTO needs update
+        return mapVenueToDTO(updatedVenue, finalOwnerDto);
     }
 
     @Transactional
-    public void deleteVenue(Long venueId) {
+    public void deleteVenue(UUID venueId) {
         Venue venue =
                 venueRepository
-                        .findById(venueId)
+                        .findByPublicId(venueId)
                         .orElseThrow(
                                 () ->
                                         new NoSuchElementException(
-                                                "Venue not found with ID: " + venueId));
+                                                "Venue not found with Public ID: " + venueId));
 
         // Delete image from MinIO if it exists
         if (venue.getImagePath() != null && !venue.getImagePath().isBlank()) {
@@ -207,7 +204,7 @@ public class VenueService {
         }
 
         // Now delete the venue record
-        venueRepository.deleteById(venueId);
+        venueRepository.delete(venue);
     }
 
     // Remove saveImage and deleteImage methods
@@ -227,13 +224,16 @@ public class VenueService {
             } catch (Exception e) {
                 System.err.println(
                         "Error generating image URL for user "
-                                + user.getId()
+                                + user.getPublicId()
                                 + ": "
                                 + e.getMessage());
             }
         }
+
+        DepartmentDTO departmentDto = null;
+
         return new UserDTO(
-                user.getId(),
+                user.getPublicId(),
                 user.getEmail(),
                 user.getFirstname() != null ? user.getFirstname() : null,
                 user.getLastname() != null ? user.getLastname() : null,
@@ -241,7 +241,7 @@ public class VenueService {
                 user.getPhone_number() != null ? user.getPhone_number() : null,
                 user.getTelephoneNumber() != null ? user.getTelephoneNumber() : null,
                 user.getRoles() != null ? user.getRoles().name() : null,
-                user.getDepartment() != null ? user.getDepartment().getId() : null,
+                departmentDto,
                 user.getEmailVerified(),
                 user.isActive(),
                 profileImageUrl,
@@ -253,14 +253,22 @@ public class VenueService {
     private VenueDTO mapVenueToDTO(Venue venue, UserDTO ownerDto) {
         String imageUrl = null;
         if (venue.getImagePath() != null && !venue.getImagePath().isBlank()) {
-            imageUrl = fileStorageService.getFileUrl(venue.getImagePath(), venuesBucketName);
+            try {
+                imageUrl = fileStorageService.getFileUrl(venue.getImagePath(), venuesBucketName);
+            } catch (Exception e) {
+                System.err.println(
+                        "Error generating image URL for venue "
+                                + venue.getPublicId()
+                                + ": "
+                                + e.getMessage());
+            }
         }
         return new VenueDTO(
-                venue.getId(),
+                venue.getPublicId(),
                 venue.getName(),
                 venue.getLocation(),
                 ownerDto,
-                imageUrl, // Use the generated URL
+                imageUrl,
                 venue.getCreatedAt(),
                 venue.getUpdatedAt());
     }

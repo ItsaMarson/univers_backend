@@ -1,11 +1,13 @@
 /* (C)2025 */
 package com.univers.univers_backend.Controller;
 
+import com.univers.univers_backend.DTO.EditUserDTO;
 import com.univers.univers_backend.DTO.EventDTO;
 import com.univers.univers_backend.DTO.UserDTO;
 import com.univers.univers_backend.DTO.VenueDTO;
 import com.univers.univers_backend.Service.UserService;
 import java.util.List;
+import java.util.UUID;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -33,8 +35,8 @@ public class UserController {
 
     @PatchMapping("/{userId}")
     public ResponseEntity<String> updateUserProfile(
-            @PathVariable Long userId,
-            @RequestPart("userDTO") UserDTO userDTO,
+            @PathVariable UUID userId,
+            @RequestPart("userDTO") EditUserDTO userDTO,
             @RequestPart(value = "image", required = false) MultipartFile imageFile) {
 
         String responseMessage = userService.updateUserProfile(userId, userDTO, imageFile);
@@ -46,7 +48,7 @@ public class UserController {
     }
 
     @GetMapping("/{userId}/managed-venue")
-    public ResponseEntity<VenueDTO> getManagedVenue(@PathVariable Long userId) {
+    public ResponseEntity<VenueDTO> getManagedVenue(@PathVariable UUID userId) {
         VenueDTO managedVenue = userService.getManagedVenue(userId);
 
         return ResponseEntity.ok(managedVenue);

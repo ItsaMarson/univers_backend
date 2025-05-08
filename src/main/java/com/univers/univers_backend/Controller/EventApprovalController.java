@@ -6,6 +6,7 @@ import com.univers.univers_backend.Service.EventApprovalService;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -27,7 +28,7 @@ public class EventApprovalController {
 
     @PatchMapping("/{eventId}/approve")
     public ResponseEntity<String> approveEvent(
-            @PathVariable Long eventId, @RequestBody Map<String, String> payload) {
+            @PathVariable UUID eventId, @RequestBody Map<String, String> payload) {
 
         String remarks = payload.get("remarks");
         if (remarks == null) {
@@ -50,7 +51,7 @@ public class EventApprovalController {
 
     @PatchMapping("/{eventId}/reject")
     public ResponseEntity<String> rejectEvent(
-            @PathVariable Long eventId, @RequestBody Map<String, String> payload) {
+            @PathVariable UUID eventId, @RequestBody Map<String, String> payload) {
 
         String remarks = payload.get("remarks");
         if (remarks == null || remarks.trim().isEmpty()) {
@@ -76,7 +77,7 @@ public class EventApprovalController {
     }
 
     @GetMapping("/{eventId}")
-    public ResponseEntity<?> getAllApprovalsOfEvent(@PathVariable Long eventId) {
+    public ResponseEntity<?> getAllApprovalsOfEvent(@PathVariable UUID eventId) {
 
         try {
             List<EventApprovalDTO> approvals = eventApprovalService.getAllApprovalsOfEvent(eventId);

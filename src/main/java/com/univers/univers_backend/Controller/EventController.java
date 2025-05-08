@@ -1,11 +1,14 @@
 /* (C)2025 */
 package com.univers.univers_backend.Controller;
 
+import com.univers.univers_backend.DTO.CreateEventRequestDTO;
 import com.univers.univers_backend.DTO.EventDTO;
+import com.univers.univers_backend.DTO.UpdateEventRequestDTO;
 import com.univers.univers_backend.Service.EventService;
 import java.util.Collections;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -15,6 +18,7 @@ import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
@@ -31,14 +35,14 @@ public class EventController {
 
     @PostMapping
     public ResponseEntity<?> createEvent(
-            @RequestPart("event") EventDTO eventDTO,
+            @RequestPart("event") CreateEventRequestDTO requestDTO,
             @RequestPart(value = "approvedLetter", required = false)
                     MultipartFile approvedLetterFile,
             @RequestPart(value = "eventImage", required = false) MultipartFile eventImageFile) {
 
         try {
             EventDTO createdEvent =
-                    eventService.createEvent(eventDTO, approvedLetterFile, eventImageFile);
+                    eventService.createEvent(requestDTO, approvedLetterFile, eventImageFile);
             return new ResponseEntity<>(createdEvent, HttpStatus.CREATED);
         } catch (IllegalArgumentException | NoSuchElementException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
@@ -62,9 +66,9 @@ public class EventController {
     }
 
     @GetMapping("/{eventId}")
-    public ResponseEntity<?> getEventById(@PathVariable Long eventId) {
+    public ResponseEntity<?> getEventById(@PathVariable UUID eventId) {
         try {
-            EventDTO event = eventService.getEventById(eventId);
+            EventDTO event = eventService.getEventByPublicId(eventId);
             return ResponseEntity.ok(event);
         } catch (NoSuchElementException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
@@ -77,15 +81,15 @@ public class EventController {
 
     @PatchMapping("/{eventId}")
     public ResponseEntity<?> updateEvent(
-            @PathVariable Long eventId,
-            @RequestPart("event") EventDTO updatedEventDTO,
+            @PathVariable UUID eventId,
+            @RequestPart("event") UpdateEventRequestDTO requestDTO,
             @RequestPart(value = "approvedLetter", required = false)
                     MultipartFile approvedLetterFile,
             @RequestPart(value = "eventImage", required = false) MultipartFile eventImageFile) {
         try {
             EventDTO updatedEvent =
                     eventService.updateEvent(
-                            eventId, updatedEventDTO, approvedLetterFile, eventImageFile);
+                            eventId, requestDTO, approvedLetterFile, eventImageFile);
             return ResponseEntity.ok(updatedEvent);
         } catch (NoSuchElementException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
@@ -99,9 +103,11 @@ public class EventController {
     }
 
     @PatchMapping("/{eventId}/cancel")
-    public ResponseEntity<String> cancelEvent(@PathVariable Long eventId) {
+    public ResponseEntity<String> cancelEvent(
+            @PathVariable UUID eventId,
+            @RequestParam(required = false, defaultValue = "No reason provided.") String reason) {
         try {
-            String responseMessage = eventService.cancelEvent(eventId);
+            String responseMessage = eventService.cancelEvent(eventId, reason);
             return ResponseEntity.ok(responseMessage);
         } catch (NoSuchElementException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
@@ -113,10 +119,9 @@ public class EventController {
     }
 
     @DeleteMapping("/{eventId}")
-    public ResponseEntity<?> deleteEvent(
-            @PathVariable Long eventId /* , Add @RequestParam Long userId if needed for auth */) {
+    public ResponseEntity<?> deleteEvent(@PathVariable UUID eventId) {
         try {
-            eventService.deleteEvent(eventId /* , userId */);
+            eventService.deleteEvent(eventId);
             return ResponseEntity.ok("Event with ID " + eventId + " deleted successfully.");
         } catch (NoSuchElementException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());

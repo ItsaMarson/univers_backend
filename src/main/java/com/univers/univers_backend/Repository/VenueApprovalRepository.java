@@ -6,9 +6,13 @@ import com.univers.univers_backend.Entity.VenueApproval;
 import com.univers.univers_backend.Entity.VenueReservation;
 import com.univers.univers_backend.Enum.Status;
 import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface VenueApprovalRepository extends JpaRepository<VenueApproval, Long> {
+
+    Optional<VenueApproval> findByPublicId(UUID publicId);
 
     List<VenueApproval> findAllByVenueReservation(VenueReservation venueReservation);
 

@@ -36,7 +36,7 @@ public class MinioConfig {
     @Value("${minio.bucket.equipments}")
     private String equipmentsBucketName;
 
-    @Value("${minio.bucket.letters}")
+    @Value("${minio.bucket.approved-letters}")
     private String lettersBucketName;
 
     @Bean

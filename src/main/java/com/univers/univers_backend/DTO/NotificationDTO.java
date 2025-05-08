@@ -2,12 +2,13 @@
 package com.univers.univers_backend.DTO;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 public record NotificationDTO(
-        Long id,
-        Long eventId,
+        UUID publicId,
+        UUID eventPublicId,
         Object message,
         LocalDateTime createdAt,
         boolean isRead,
-        Long relatedEntityId,
+        UUID relatedEntityPublicId,
         String relatedEntityType) {}

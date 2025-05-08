@@ -1,6 +1,7 @@
 /* (C)2025 */
 package com.univers.univers_backend.Service;
 
+import com.univers.univers_backend.DTO.DepartmentDTO;
 import com.univers.univers_backend.DTO.EquipmentDTO;
 import com.univers.univers_backend.DTO.UserDTO;
 import com.univers.univers_backend.Entity.Equipment;
@@ -11,6 +12,7 @@ import com.univers.univers_backend.Repository.EquipmentRepository;
 import com.univers.univers_backend.Repository.UserRepository;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.UUID;
 import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -40,14 +42,14 @@ public class EquipmentService {
     }
 
     @Transactional
-    public EquipmentDTO addEquipment(Long userId, EquipmentDTO request, MultipartFile imageFile) {
+    public EquipmentDTO addEquipment(String userId, EquipmentDTO request, MultipartFile imageFile) {
         User requester =
                 userRepository
-                        .findById(userId)
+                        .findByPublicId(UUID.fromString(userId))
                         .orElseThrow(
                                 () ->
                                         new IllegalArgumentException(
-                                                "User not found with ID: " + userId));
+                                                "User not found with Public ID: " + userId));
 
         if (!requester.getRoles().equals(Role.EQUIPMENT_OWNER)
                 && !requester.getRoles().equals(Role.SUPER_ADMIN)) {
@@ -55,25 +57,30 @@ public class EquipmentService {
         }
 
         User owner;
-        Long ownerIdFromRequest =
-                (request.equipmentOwner() != null) ? request.equipmentOwner().id() : null;
+        UUID ownerPublicIdFromRequest =
+                (request.equipmentOwner() != null && request.equipmentOwner().publicId() != null)
+                        ? request.equipmentOwner().publicId()
+                        : null;
 
         if (requester.getRoles().equals(Role.SUPER_ADMIN)) {
-            if (ownerIdFromRequest == null) {
+            if (ownerPublicIdFromRequest == null) {
                 throw new IllegalArgumentException(
-                        "SUPER_ADMIN must specify the equipment owner ID in the request.");
+                        "SUPER_ADMIN must specify the equipment owner's publicId in the request.");
             }
             owner =
                     userRepository
-                            .findById(ownerIdFromRequest)
+                            .findByPublicId(ownerPublicIdFromRequest)
                             .orElseThrow(
                                     () ->
                                             new IllegalArgumentException(
-                                                    "Specified Equipment Owner not found with ID: "
-                                                            + ownerIdFromRequest));
+                                                    "Specified Equipment Owner not found with"
+                                                            + " Public ID: "
+                                                            + ownerPublicIdFromRequest));
             if (!owner.getRoles().equals(Role.EQUIPMENT_OWNER)) {
                 throw new IllegalArgumentException(
-                        "Specified user (ID: " + owner.getId() + ") is not an Equipment Owner.");
+                        "Specified user (Public ID: "
+                                + owner.getPublicId()
+                                + ") is not an Equipment Owner.");
             }
         } else {
             owner = requester;
@@ -99,10 +106,10 @@ public class EquipmentService {
         return mapToDTO(savedEquipment);
     }
 
-    public List<EquipmentDTO> getAllEquipmentsByOwner(Long userId) {
+    public List<EquipmentDTO> getAllEquipmentsByOwner(String userId) {
         User owner =
                 userRepository
-                        .findById(userId)
+                        .findByPublicId(UUID.fromString(userId))
                         .orElseThrow(
                                 () ->
                                         new IllegalArgumentException(
@@ -118,10 +125,10 @@ public class EquipmentService {
         return equipmentList.stream().map(this::mapToDTO).collect(Collectors.toList());
     }
 
-    public EquipmentDTO getEquipmentById(Long equipmentId) {
+    public EquipmentDTO getEquipmentById(String equipmentId) {
         Equipment equipment =
                 equipmentRepository
-                        .findById(equipmentId)
+                        .findByPublicId(UUID.fromString(equipmentId))
                         .orElseThrow(
                                 () ->
                                         new NoSuchElementException(
@@ -131,10 +138,10 @@ public class EquipmentService {
 
     @Transactional
     public EquipmentDTO updateEquipment(
-            Long equipmentId, Long userId, EquipmentDTO request, MultipartFile imageFile) {
+            String equipmentId, String userId, EquipmentDTO request, MultipartFile imageFile) {
         Equipment equipment =
                 equipmentRepository
-                        .findById(equipmentId)
+                        .findByPublicId(UUID.fromString(equipmentId))
                         .orElseThrow(
                                 () ->
                                         new NoSuchElementException(
@@ -142,13 +149,13 @@ public class EquipmentService {
 
         User requester =
                 userRepository
-                        .findById(userId)
+                        .findByPublicId(UUID.fromString(userId))
                         .orElseThrow(
                                 () ->
                                         new IllegalArgumentException(
                                                 "User (requester) not found with ID: " + userId));
 
-        if (!equipment.getEquipmentOwner().getId().equals(userId)
+        if (!equipment.getEquipmentOwner().getPublicId().equals(UUID.fromString(userId))
                 && !requester.getRoles().equals(Role.SUPER_ADMIN)) {
             throw new IllegalArgumentException("User is not authorized to update this equipment.");
         }
@@ -169,24 +176,29 @@ public class EquipmentService {
             equipment.setStatus(request.status());
         }
 
-        Long ownerIdFromRequest =
-                (request.equipmentOwner() != null) ? request.equipmentOwner().id() : null;
+        UUID newOwnerPublicIdFromRequest =
+                (request.equipmentOwner() != null && request.equipmentOwner().publicId() != null)
+                        ? request.equipmentOwner().publicId()
+                        : null;
+
         if (requester.getRoles().equals(Role.SUPER_ADMIN)
-                && ownerIdFromRequest != null
-                && !ownerIdFromRequest.equals(equipment.getEquipmentOwner().getId())) {
+                && newOwnerPublicIdFromRequest != null
+                && (equipment.getEquipmentOwner() == null
+                        || !newOwnerPublicIdFromRequest.equals(
+                                equipment.getEquipmentOwner().getPublicId()))) {
             User newOwner =
                     userRepository
-                            .findById(ownerIdFromRequest)
+                            .findByPublicId(newOwnerPublicIdFromRequest)
                             .orElseThrow(
                                     () ->
                                             new IllegalArgumentException(
                                                     "Specified new Equipment Owner not found with"
-                                                            + " ID: "
-                                                            + ownerIdFromRequest));
+                                                            + " Public ID: "
+                                                            + newOwnerPublicIdFromRequest));
             if (!newOwner.getRoles().equals(Role.EQUIPMENT_OWNER)) {
                 throw new IllegalArgumentException(
-                        "Specified new owner (ID: "
-                                + newOwner.getId()
+                        "Specified new owner (Public ID: "
+                                + newOwner.getPublicId()
                                 + ") is not an Equipment Owner.");
             }
             equipment.setEquipmentOwner(newOwner);
@@ -207,10 +219,10 @@ public class EquipmentService {
     }
 
     @Transactional
-    public void deleteEquipment(Long equipmentId, Long userId) {
+    public void deleteEquipment(String equipmentId, String userId) {
         Equipment equipment =
                 equipmentRepository
-                        .findById(equipmentId)
+                        .findByPublicId(UUID.fromString(equipmentId))
                         .orElseThrow(
                                 () ->
                                         new NoSuchElementException(
@@ -218,13 +230,13 @@ public class EquipmentService {
 
         User requester =
                 userRepository
-                        .findById(userId)
+                        .findByPublicId(UUID.fromString(userId))
                         .orElseThrow(
                                 () ->
                                         new IllegalArgumentException(
                                                 "User (requester) not found with ID: " + userId));
 
-        if (!equipment.getEquipmentOwner().getId().equals(userId)
+        if (!equipment.getEquipmentOwner().getPublicId().equals(UUID.fromString(userId))
                 && !requester.getRoles().equals(Role.SUPER_ADMIN)) {
             throw new IllegalArgumentException("User is not authorized to delete this equipment.");
         }
@@ -233,7 +245,7 @@ public class EquipmentService {
             fileStorageService.deleteFile(equipment.getImagePath(), equipmentsBucketName);
         }
 
-        equipmentRepository.deleteById(equipmentId);
+        equipmentRepository.deleteById((equipment.getId()));
     }
 
     private UserDTO mapUserToDTO(User user) {
@@ -246,13 +258,16 @@ public class EquipmentService {
             } catch (Exception e) {
                 System.err.println(
                         "Error generating image URL for user "
-                                + user.getId()
+                                + user.getPublicId()
                                 + ": "
                                 + e.getMessage());
             }
         }
+
+        DepartmentDTO departmentDto = null;
+
         return new UserDTO(
-                user.getId(),
+                user.getPublicId(),
                 user.getEmail(),
                 user.getFirstname() != null ? user.getFirstname() : null,
                 user.getLastname() != null ? user.getLastname() : null,
@@ -260,7 +275,7 @@ public class EquipmentService {
                 user.getPhone_number() != null ? user.getPhone_number() : null,
                 user.getTelephoneNumber() != null ? user.getTelephoneNumber() : null,
                 user.getRoles() != null ? user.getRoles().name() : null,
-                user.getDepartment() != null ? user.getDepartment().getId() : null,
+                departmentDto,
                 user.getEmailVerified(),
                 user.isActive(),
                 profileImageUrl,
@@ -273,11 +288,20 @@ public class EquipmentService {
         UserDTO ownerDto = mapUserToDTO(equipment.getEquipmentOwner());
         String imageUrl = null;
         if (equipment.getImagePath() != null && !equipment.getImagePath().isBlank()) {
-            imageUrl =
-                    fileStorageService.getFileUrl(equipment.getImagePath(), equipmentsBucketName);
+            try {
+                imageUrl =
+                        fileStorageService.getFileUrl(
+                                equipment.getImagePath(), equipmentsBucketName);
+            } catch (Exception e) {
+                System.err.println(
+                        "Error generating image URL for equipment "
+                                + equipment.getPublicId()
+                                + ": "
+                                + e.getMessage());
+            }
         }
         return new EquipmentDTO(
-                equipment.getId(),
+                equipment.getPublicId(),
                 equipment.getName(),
                 equipment.getAvailability(),
                 equipment.getBrand(),

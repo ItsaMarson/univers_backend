@@ -3,16 +3,14 @@ package com.univers.univers_backend.DTO;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 
 public record VenueReservationDTO(
-        Long id,
-        Long eventId,
-        String eventName,
+        UUID publicId,
+        EventDTO event,
         UserDTO requestingUser,
-        Long departmentId,
-        String departmentName,
-        Long venueId,
-        String venueName,
+        DepartmentDTO department,
+        VenueDTO venue,
         LocalDateTime startTime,
         LocalDateTime endTime,
         String status,

@@ -1,15 +1,15 @@
+/* (C)2025 */
 package com.univers.univers_backend.DTO;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 public record VenueDTO(
-
-        Long id,
+        UUID publicId,
         String name,
         String location,
         // Long venueOwnerId,
-        UserDTO venueOwner, 
+        UserDTO venueOwner,
         String imagePath,
         LocalDateTime createdAt,
-        LocalDateTime updatedAt) {
-}
+        LocalDateTime updatedAt) {}

@@ -1,9 +1,10 @@
+/* (C)2025 */
 package com.univers.univers_backend.Controller;
 
-
+import com.univers.univers_backend.DTO.EquipmentDTO;
+import com.univers.univers_backend.Service.EquipmentService;
 import java.util.List;
 import java.util.NoSuchElementException;
-
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -17,35 +18,34 @@ import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
-import com.univers.univers_backend.DTO.EquipmentDTO;
-import com.univers.univers_backend.Service.EquipmentService;
-
 @RestController
 @RequestMapping("/equipments")
 public class EquipmentController {
 
     private final EquipmentService equipmentService;
 
-    public EquipmentController(EquipmentService equipmentService){
+    public EquipmentController(EquipmentService equipmentService) {
         this.equipmentService = equipmentService;
     }
 
     @PostMapping
-    public ResponseEntity<?> addEquipment(@RequestParam Long userId, 
-                                          @RequestPart("equipment") EquipmentDTO equipmentDTO,
-                                          @RequestPart(value = "image", required = false) MultipartFile imageFile){ 
+    public ResponseEntity<?> addEquipment(
+            @RequestParam String userId,
+            @RequestPart("equipment") EquipmentDTO equipmentDTO,
+            @RequestPart(value = "image", required = false) MultipartFile imageFile) {
 
-        try{
-            EquipmentDTO newEquipment = equipmentService.addEquipment(userId, equipmentDTO, imageFile);
-            return  new ResponseEntity<>(newEquipment, HttpStatus.CREATED);
-        }catch (IllegalArgumentException e){
+        try {
+            EquipmentDTO newEquipment =
+                    equipmentService.addEquipment(userId, equipmentDTO, imageFile);
+            return new ResponseEntity<>(newEquipment, HttpStatus.CREATED);
+        } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
-        } catch (RuntimeException e) { 
-             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
         }
     }
 
-    @GetMapping("/all") 
+    @GetMapping("/all")
     public ResponseEntity<List<EquipmentDTO>> getAllEquipments() {
         List<EquipmentDTO> allEquipments = equipmentService.getAllEquipments();
         if (allEquipments.isEmpty()) {
@@ -54,21 +54,22 @@ public class EquipmentController {
         return ResponseEntity.ok(allEquipments);
     }
 
-    @GetMapping 
-    public ResponseEntity<?> getAllEquipmentsByOwner(@RequestParam Long userId){
-        try{
-            List<EquipmentDTO> allEquipmentsByOwner = equipmentService.getAllEquipmentsByOwner(userId);
-             if (allEquipmentsByOwner.isEmpty()) {
+    @GetMapping
+    public ResponseEntity<?> getAllEquipmentsByOwner(@RequestParam String userId) {
+        try {
+            List<EquipmentDTO> allEquipmentsByOwner =
+                    equipmentService.getAllEquipmentsByOwner(userId);
+            if (allEquipmentsByOwner.isEmpty()) {
                 return ResponseEntity.noContent().build();
             }
             return ResponseEntity.ok(allEquipmentsByOwner);
-        }catch (IllegalArgumentException e){ 
+        } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
 
     @GetMapping("/{equipmentId}")
-    public ResponseEntity<?> getEquipmentById(@PathVariable Long equipmentId) {
+    public ResponseEntity<?> getEquipmentById(@PathVariable String equipmentId) {
         try {
             EquipmentDTO equipment = equipmentService.getEquipmentById(equipmentId);
             return ResponseEntity.ok(equipment);
@@ -78,36 +79,40 @@ public class EquipmentController {
     }
 
     @PatchMapping("/{equipmentId}")
-    public ResponseEntity<?> updateEquipment(@PathVariable Long equipmentId,
-                                             @RequestParam Long userId, 
-                                             @RequestPart("equipment") EquipmentDTO equipmentDTO,
-                                             @RequestPart(value = "image", required = false) MultipartFile imageFile) {
+    public ResponseEntity<?> updateEquipment(
+            @PathVariable String equipmentId,
+            @RequestParam String userId,
+            @RequestPart("equipment") EquipmentDTO equipmentDTO,
+            @RequestPart(value = "image", required = false) MultipartFile imageFile) {
         try {
-            EquipmentDTO updatedEquipment = equipmentService.updateEquipment(equipmentId, userId, equipmentDTO, imageFile);
+            EquipmentDTO updatedEquipment =
+                    equipmentService.updateEquipment(equipmentId, userId, equipmentDTO, imageFile);
             return ResponseEntity.ok(updatedEquipment);
         } catch (NoSuchElementException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
-        } catch (IllegalArgumentException e) { 
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.getMessage()); 
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.getMessage());
         } catch (RuntimeException e) {
-             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
         }
     }
 
     @DeleteMapping("/{equipmentId}")
-    public ResponseEntity<?> deleteEquipment(@PathVariable Long equipmentId,
-                                             @RequestParam Long userId) {
+    public ResponseEntity<?> deleteEquipment(
+            @PathVariable String equipmentId, @RequestParam String userId) {
         try {
             equipmentService.deleteEquipment(equipmentId, userId);
             return ResponseEntity.ok("Equipment with ID " + equipmentId + " deleted successfully.");
         } catch (NoSuchElementException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
-        } catch (IllegalArgumentException e) { 
+        } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.getMessage());
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.CONFLICT).body("Could not delete equipment. It might be associated with other records.");
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body("Could not delete equipment. It might be associated with other records.");
             // Or a more generic internal server error:
-            // return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("An error occurred while deleting the equipment.");
+            // return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("An error
+            // occurred while deleting the equipment.");
         }
     }
 }

@@ -1,8 +1,9 @@
+/* (C)2025 */
 package com.univers.univers_backend.Entity;
 
 import jakarta.persistence.*;
-
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Entity
 @Table(name = "venue")
@@ -11,6 +12,9 @@ public class Venue {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     Long id;
+
+    @Column(unique = true, nullable = false, updatable = false)
+    private UUID publicId;
 
     @Column(nullable = false)
     private String name;
@@ -31,6 +35,9 @@ public class Venue {
     @PrePersist
     protected void onCreate() {
         this.createdAt = LocalDateTime.now();
+        if (this.publicId == null) {
+            this.publicId = UUID.randomUUID();
+        }
     }
 
     @PreUpdate
@@ -38,15 +45,23 @@ public class Venue {
         this.updatedAt = LocalDateTime.now();
     }
 
-    public Venue(){}
-    public Venue(Long id, String name, String location, User venueOwner, String imagePath, LocalDateTime createdAt, LocalDateTime updatedAt) {
-        this.id = id;
-        this.name = name;
-        this.location = location;
-        this.venueOwner = venueOwner;
-        this.imagePath = imagePath;
-        this.createdAt = createdAt;
-        this.updatedAt = updatedAt;
+    public Venue() {}
+
+    public Venue(
+            Long venueId,
+            String venueName,
+            String venueLocation,
+            User owner,
+            String imgPath,
+            LocalDateTime createdTime,
+            LocalDateTime updatedTime) {
+        this.id = venueId;
+        this.name = venueName;
+        this.location = venueLocation;
+        this.venueOwner = owner;
+        this.imagePath = imgPath;
+        this.createdAt = createdTime;
+        this.updatedAt = updatedTime;
     }
 
     public Long getId() {
@@ -91,5 +106,9 @@ public class Venue {
 
     public LocalDateTime getUpdatedAt() {
         return updatedAt;
+    }
+
+    public UUID getPublicId() {
+        return publicId;
     }
 }
