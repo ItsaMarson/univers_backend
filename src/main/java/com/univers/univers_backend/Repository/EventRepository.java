@@ -41,4 +41,15 @@ public interface EventRepository extends JpaRepository<Event, Long> {
     List<Event> findByOrganizer(User organizer);
 
     List<Event> findByStatus(Status status);
+
+    List<Event> findByStatusAndEventVenue_PublicId(Status status, UUID venuePublicId);
+
+    // For ONGOING status: status is APPROVED, current time is after startTime and before endTime
+    List<Event> findByStatusAndStartTimeBeforeAndEndTimeAfter(
+            Status status, LocalDateTime currentTime, LocalDateTime currentTimeCopy);
+
+    // For COMPLETED status: status is ONGOING, current time is after endTime
+    List<Event> findByStatusAndEndTimeBefore(Status status, LocalDateTime currentTime);
+
+    List<Event> findByStatusInAndEventVenue_PublicId(List<Status> statuses, UUID venuePublicId);
 }

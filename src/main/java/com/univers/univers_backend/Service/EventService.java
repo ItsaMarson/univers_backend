@@ -239,6 +239,19 @@ public class EventService {
         return events.stream().map(eventMapper::toDto).collect(Collectors.toList());
     }
 
+    public List<EventDTO> getApprovedEventsByVenue(UUID venuePublicId) {
+        List<Event> events =
+                eventRepository.findByStatusAndEventVenue_PublicId(Status.APPROVED, venuePublicId);
+        return events.stream().map(eventMapper::toDto).collect(Collectors.toList());
+    }
+
+    public List<EventDTO> getOngoingAndApprovedEventsByVenue(UUID venuePublicId) {
+        List<Status> statuses = List.of(Status.APPROVED, Status.ONGOING);
+        List<Event> events =
+                eventRepository.findByStatusInAndEventVenue_PublicId(statuses, venuePublicId);
+        return events.stream().map(eventMapper::toDto).collect(Collectors.toList());
+    }
+
     @Transactional
     public EventDTO updateEvent(
             UUID publicId,

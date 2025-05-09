@@ -65,6 +65,40 @@ public class EventController {
         return ResponseEntity.ok(approvedEvents);
     }
 
+    @GetMapping("/approved/by-venue/{venuePublicId}")
+    public ResponseEntity<List<EventDTO>> getApprovedEventsByVenue(
+            @PathVariable UUID venuePublicId) {
+        try {
+            List<EventDTO> events = eventService.getApprovedEventsByVenue(venuePublicId);
+            return ResponseEntity.ok(events);
+        } catch (Exception e) {
+            System.err.println(
+                    "Error getting approved events by venue "
+                            + venuePublicId
+                            + ": "
+                            + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Collections.emptyList());
+        }
+    }
+
+    @GetMapping("/ongoing-and-approved/by-venue/{venuePublicId}")
+    public ResponseEntity<List<EventDTO>> getOngoingAndApprovedEventsByVenue(
+            @PathVariable UUID venuePublicId) {
+        try {
+            List<EventDTO> events = eventService.getOngoingAndApprovedEventsByVenue(venuePublicId);
+            return ResponseEntity.ok(events);
+        } catch (Exception e) {
+            System.err.println(
+                    "Error getting ongoing and approved events by venue "
+                            + venuePublicId
+                            + ": "
+                            + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Collections.emptyList());
+        }
+    }
+
     @GetMapping("/{eventId}")
     public ResponseEntity<?> getEventById(@PathVariable UUID eventId) {
         try {
