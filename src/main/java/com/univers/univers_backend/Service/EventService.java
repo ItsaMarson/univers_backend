@@ -2,12 +2,8 @@
 package com.univers.univers_backend.Service;
 
 import com.univers.univers_backend.DTO.CreateEventRequestDTO;
-import com.univers.univers_backend.DTO.DepartmentDTO;
 import com.univers.univers_backend.DTO.EventDTO;
 import com.univers.univers_backend.DTO.UpdateEventRequestDTO;
-import com.univers.univers_backend.DTO.UserDTO;
-import com.univers.univers_backend.DTO.VenueDTO;
-import com.univers.univers_backend.DTO.VenueReservationDTO;
 import com.univers.univers_backend.Entity.Department;
 import com.univers.univers_backend.Entity.Event;
 import com.univers.univers_backend.Entity.EventApproval;
@@ -43,7 +39,6 @@ public class EventService {
     private final VenueRepository venueRepository;
     private final FileStorageService fileStorageService;
     private final NotificationService notificationService;
-    private final VenueReservationService venueReservationService;
     private final DepartmentService departmentService;
     private final EventApprovalRepository eventApprovalRepository;
     private final EquipmentReservationService equipmentReservationService;
@@ -67,7 +62,6 @@ public class EventService {
             UserRepository userRepository,
             VenueRepository venueRepository,
             FileStorageService fileStorageService,
-            VenueReservationService venueReservationService,
             DepartmentService departmentService,
             NotificationService notificationService,
             EventApprovalRepository eventApprovalRepository,
@@ -80,7 +74,6 @@ public class EventService {
         this.userRepository = userRepository;
         this.venueRepository = venueRepository;
         this.fileStorageService = fileStorageService;
-        this.venueReservationService = venueReservationService;
         this.departmentService = departmentService;
         this.notificationService = notificationService;
         this.eventApprovalRepository = eventApprovalRepository;
@@ -155,66 +148,6 @@ public class EventService {
         }
 
         Event savedEvent = eventRepository.save(event);
-
-        try {
-            Department chosenDeptForReservation =
-                    eventDepartment != null ? eventDepartment : organizer.getDepartment();
-
-            if (chosenDeptForReservation == null) {
-                logger.warn(
-                        "Cannot determine department for venue reservation for event {}. Skipping"
-                                + " auto-reservation.",
-                        savedEvent.getPublicId());
-            } else {
-                UserDTO organizerDto = userMapper.toDto(organizer);
-                VenueDTO venueDto = venueMapper.toDto(venue);
-                DepartmentDTO departmentDto = departmentMapper.toDto(chosenDeptForReservation);
-                EventDTO eventDtoForReservation =
-                        new EventDTO(
-                                savedEvent.getPublicId(),
-                                null,
-                                null,
-                                null,
-                                null,
-                                null,
-                                null,
-                                null,
-                                null,
-                                null,
-                                null,
-                                null,
-                                null);
-
-                VenueReservationDTO reservationRequestDTO =
-                        new VenueReservationDTO(
-                                null,
-                                eventDtoForReservation,
-                                organizerDto,
-                                departmentDto,
-                                venueDto,
-                                savedEvent.getStartTime(),
-                                savedEvent.getEndTime(),
-                                null,
-                                java.util.Collections.emptyList(),
-                                null,
-                                null);
-
-                logger.info(
-                        "Attempting to automatically create venue reservation for event: {}",
-                        savedEvent.getPublicId());
-                venueReservationService.createVenueReservation(reservationRequestDTO);
-                logger.info(
-                        "Successfully initiated automatic venue reservation for event: {}",
-                        savedEvent.getPublicId());
-            }
-        } catch (Exception e) {
-            logger.error(
-                    "Error during automatic venue reservation for new event (Public ID: {}): {}."
-                            + " Event was created, but reservation failed.",
-                    savedEvent.getPublicId(),
-                    e.getMessage(),
-                    e);
-        }
         return eventMapper.toDto(savedEvent);
     }
 
@@ -384,44 +317,6 @@ public class EventService {
                         "Deleted {} approval records for event {}.", approvals.size(), publicId);
             }
 
-            // Delete associated venue reservations
-            try {
-                venueReservationService.deleteReservationsByEventPublicId(publicId);
-                logger.info("Attempted to delete venue reservations for event {}.", publicId);
-            } catch (Exception e) {
-                logger.error(
-                        "Error deleting venue reservations for event {}: {}",
-                        publicId,
-                        e.getMessage(),
-                        e);
-                // Decide if this error should halt the process or just be logged.
-                throw new RuntimeException(
-                        "Error deleting venue reservations for event "
-                                + publicId
-                                + ": "
-                                + e.getMessage(),
-                        e);
-            }
-
-            // Delete associated equipment reservations
-            try {
-                equipmentReservationService.deleteReservationsByEventPublicId(publicId);
-                logger.info("Attempted to delete equipment reservations for event {}.", publicId);
-            } catch (Exception e) {
-                logger.error(
-                        "Error deleting equipment reservations for event {}: {}",
-                        publicId,
-                        e.getMessage(),
-                        e);
-                // Decide if this error should halt the process or just be logged.
-                throw new RuntimeException(
-                        "Error deleting equipment reservations for event "
-                                + publicId
-                                + ": "
-                                + e.getMessage(),
-                        e);
-            }
-
             deleteEventFiles(event);
             eventRepository.delete(event);
             logger.info("Event {} deleted successfully by SUPER_ADMIN.", publicId);
@@ -518,26 +413,6 @@ public class EventService {
                 cancellationReason != null ? cancellationReason : "Event canceled by user.";
 
         try {
-            venueReservationService.cancelReservationsForEvent(canceledEvent.getPublicId());
-            logger.info(
-                    "Initiated cancellation for venue reservations associated with event {}.",
-                    canceledEvent.getPublicId());
-        } catch (Exception e) {
-            logger.error(
-                    "Error during cancellation of venue reservations for event {}: {}",
-                    canceledEvent.getPublicId(),
-                    e.getMessage(),
-                    e);
-            // Decide if this should throw an exception or just log
-            throw new RuntimeException(
-                    "Error during cancellation of venue reservations for event "
-                            + canceledEvent.getPublicId()
-                            + ": "
-                            + e.getMessage(),
-                    e);
-        }
-
-        try {
             equipmentReservationService.cancelReservationsForEvent(
                     canceledEvent.getPublicId(), reasonOrDefault);
             logger.info(
@@ -566,6 +441,23 @@ public class EventService {
                 event.getPublicId(),
                 event.getPublicId(),
                 "EVENT_CANCELED");
+
+        // Notify venue owner if applicable
+        Venue venue = canceledEvent.getEventVenue();
+        if (venue != null && venue.getVenueOwner() != null) {
+            User venueOwner = venue.getVenueOwner();
+            notificationService.createNotification(
+                    venueOwner,
+                    "The event '"
+                            + canceledEvent.getEventName()
+                            + "' scheduled at your venue '"
+                            + venue.getName()
+                            + "' has been canceled. Reason: "
+                            + reasonOrDefault,
+                    canceledEvent.getPublicId(),
+                    null, // No specific reservation ID anymore
+                    "EVENT_VENUE_CANCELLATION_INFO");
+        }
 
         return "Event canceled successfully.";
     }

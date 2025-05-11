@@ -3,22 +3,23 @@ package com.univers.univers_backend.Controller;
 
 import com.univers.univers_backend.DTO.NotificationDTO;
 import com.univers.univers_backend.Service.UserNotificationService;
+import com.univers.univers_backend.config.ApiResponse;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PatchMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/notifications")
+@Tag(name = "Notifications", description = "APIs for managing user notifications")
 public class NotificationController {
 
     private final UserNotificationService userNotificationService;
@@ -27,47 +28,184 @@ public class NotificationController {
         this.userNotificationService = userNotificationService;
     }
 
+    @Operation(
+            summary = "Get notifications",
+            description = "Retrieves paginated notifications for the current user")
+    @ApiResponses(
+            value = {
+                @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                        responseCode = "200",
+                        description = "Notifications retrieved successfully"),
+                @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                        responseCode = "500",
+                        description = "Internal server error")
+            })
     @GetMapping
-    public ResponseEntity<Page<NotificationDTO>> getMyNotifications(
+    public ResponseEntity<ApiResponse<Page<NotificationDTO>>> getMyNotifications(
             @PageableDefault(size = 10) Pageable pageable) {
-        Page<NotificationDTO> notifications =
-                userNotificationService.getNotificationsForCurrentUser(pageable);
-        return ResponseEntity.ok(notifications);
+        try {
+            Page<NotificationDTO> notifications =
+                    userNotificationService.getNotificationsForCurrentUser(pageable);
+            return ResponseEntity.ok(ApiResponse.success(notifications));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(
+                            ApiResponse.error(
+                                    HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                                    "An unexpected error occurred while retrieving notifications"));
+        }
     }
 
+    @Operation(
+            summary = "Get unread count",
+            description = "Retrieves the count of unread notifications for the current user")
+    @ApiResponses(
+            value = {
+                @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                        responseCode = "200",
+                        description = "Unread count retrieved successfully"),
+                @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                        responseCode = "500",
+                        description = "Internal server error")
+            })
     @GetMapping("/count-unread")
-    public ResponseEntity<Map<String, Long>> getUnreadCount() {
-        long count = userNotificationService.getUnreadNotificationCountForCurrentUser();
-        return ResponseEntity.ok(Map.of("unreadCount", count));
+    public ResponseEntity<ApiResponse<Map<String, Long>>> getUnreadCount() {
+        try {
+            long count = userNotificationService.getUnreadNotificationCountForCurrentUser();
+            return ResponseEntity.ok(ApiResponse.success(Map.of("unreadCount", count)));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(
+                            ApiResponse.error(
+                                    HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                                    "An unexpected error occurred while retrieving unread count"));
+        }
     }
 
+    @Operation(
+            summary = "Mark notifications as read",
+            description = "Marks specified notifications as read")
+    @ApiResponses(
+            value = {
+                @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                        responseCode = "200",
+                        description = "Notifications marked as read successfully"),
+                @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                        responseCode = "400",
+                        description = "Invalid request"),
+                @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                        responseCode = "500",
+                        description = "Internal server error")
+            })
     @PatchMapping("/read")
-    public ResponseEntity<Void> markAsRead(@RequestBody List<UUID> notificationPublicIds) {
-        if (notificationPublicIds == null || notificationPublicIds.isEmpty()) {
-            return ResponseEntity.badRequest().build();
+    public ResponseEntity<ApiResponse<Void>> markAsRead(
+            @RequestBody List<UUID> notificationPublicIds) {
+        try {
+            if (notificationPublicIds == null || notificationPublicIds.isEmpty()) {
+                return ResponseEntity.badRequest()
+                        .body(
+                                ApiResponse.error(
+                                        HttpStatus.BAD_REQUEST.value(),
+                                        "Notification IDs cannot be empty"));
+            }
+            userNotificationService.markNotificationsAsRead(notificationPublicIds);
+            return ResponseEntity.ok(ApiResponse.success(null));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(
+                            ApiResponse.error(
+                                    HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                                    "An unexpected error occurred while marking notifications as"
+                                            + " read"));
         }
-        userNotificationService.markNotificationsAsRead(notificationPublicIds);
-        return ResponseEntity.ok().build();
     }
 
+    @Operation(
+            summary = "Mark all notifications as read",
+            description = "Marks all notifications as read for the current user")
+    @ApiResponses(
+            value = {
+                @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                        responseCode = "200",
+                        description = "All notifications marked as read successfully"),
+                @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                        responseCode = "500",
+                        description = "Internal server error")
+            })
     @PatchMapping("/read-all")
-    public ResponseEntity<Void> markAllAsRead() {
-        userNotificationService.markAllNotificationsAsReadForCurrentUser();
-        return ResponseEntity.ok().build();
-    }
-
-    @DeleteMapping
-    public ResponseEntity<Void> deleteNotifications(@RequestBody List<UUID> notificationPublicIds) {
-        if (notificationPublicIds == null || notificationPublicIds.isEmpty()) {
-            return ResponseEntity.badRequest().build();
+    public ResponseEntity<ApiResponse<Void>> markAllAsRead() {
+        try {
+            userNotificationService.markAllNotificationsAsReadForCurrentUser();
+            return ResponseEntity.ok(ApiResponse.success(null));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(
+                            ApiResponse.error(
+                                    HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                                    "An unexpected error occurred while marking all notifications"
+                                            + " as read"));
         }
-        userNotificationService.deleteNotifications(notificationPublicIds);
-        return ResponseEntity.noContent().build(); // Or ResponseEntity.ok()
     }
 
+    @Operation(summary = "Delete notifications", description = "Deletes specified notifications")
+    @ApiResponses(
+            value = {
+                @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                        responseCode = "200",
+                        description = "Notifications deleted successfully"),
+                @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                        responseCode = "400",
+                        description = "Invalid request"),
+                @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                        responseCode = "500",
+                        description = "Internal server error")
+            })
+    @DeleteMapping
+    public ResponseEntity<ApiResponse<Void>> deleteNotifications(
+            @RequestBody List<UUID> notificationPublicIds) {
+        try {
+            if (notificationPublicIds == null || notificationPublicIds.isEmpty()) {
+                return ResponseEntity.badRequest()
+                        .body(
+                                ApiResponse.error(
+                                        HttpStatus.BAD_REQUEST.value(),
+                                        "Notification IDs cannot be empty"));
+            }
+            userNotificationService.deleteNotifications(notificationPublicIds);
+            return ResponseEntity.ok(ApiResponse.success(null));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(
+                            ApiResponse.error(
+                                    HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                                    "An unexpected error occurred while deleting notifications"));
+        }
+    }
+
+    @Operation(
+            summary = "Delete all notifications",
+            description = "Deletes all notifications for the current user")
+    @ApiResponses(
+            value = {
+                @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                        responseCode = "200",
+                        description = "All notifications deleted successfully"),
+                @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                        responseCode = "500",
+                        description = "Internal server error")
+            })
     @DeleteMapping("/all")
-    public ResponseEntity<Void> deleteAllNotifications() {
-        userNotificationService.deleteAllNotificationsForCurrentUser();
-        return ResponseEntity.noContent().build();
+    public ResponseEntity<ApiResponse<Void>> deleteAllNotifications() {
+        try {
+            userNotificationService.deleteAllNotificationsForCurrentUser();
+            return ResponseEntity.ok(ApiResponse.success(null));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(
+                            ApiResponse.error(
+                                    HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                                    "An unexpected error occurred while deleting all"
+                                            + " notifications"));
+        }
     }
 }

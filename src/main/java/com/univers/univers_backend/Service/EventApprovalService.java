@@ -7,15 +7,12 @@ import com.univers.univers_backend.Entity.Event;
 import com.univers.univers_backend.Entity.EventApproval;
 import com.univers.univers_backend.Entity.User;
 import com.univers.univers_backend.Entity.Venue;
-import com.univers.univers_backend.Entity.VenueReservation;
 import com.univers.univers_backend.Enum.Role;
 import com.univers.univers_backend.Enum.Status;
 import com.univers.univers_backend.Mapper.UserMapper;
 import com.univers.univers_backend.Repository.EventApprovalRepository;
 import com.univers.univers_backend.Repository.EventRepository;
 import com.univers.univers_backend.Repository.UserRepository;
-import com.univers.univers_backend.Repository.VenueApprovalRepository;
-import com.univers.univers_backend.Repository.VenueReservationRepository;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -34,27 +31,18 @@ public class EventApprovalService {
     private final UserRepository userRepository;
     private final NotificationService notificationService;
     private final UserMapper userMapper;
-    private final VenueReservationRepository venueReservationRepository;
-    private final VenueReservationService venueReservationService;
-    private final VenueApprovalRepository venueApprovalRepository;
 
     public EventApprovalService(
             EventApprovalRepository eventApprovalRepository,
             EventRepository eventRepository,
             UserRepository userRepository,
             NotificationService notificationService,
-            UserMapper userMapper,
-            VenueReservationRepository venueReservationRepository,
-            VenueReservationService venueReservationService,
-            VenueApprovalRepository venueApprovalRepository) {
+            UserMapper userMapper) {
         this.eventApprovalRepository = eventApprovalRepository;
         this.eventRepository = eventRepository;
         this.userRepository = userRepository;
         this.notificationService = notificationService;
         this.userMapper = userMapper;
-        this.venueReservationRepository = venueReservationRepository;
-        this.venueReservationService = venueReservationService;
-        this.venueApprovalRepository = venueApprovalRepository;
     }
 
     public String approveEvent(UUID eventId, String remarks) {
@@ -199,89 +187,7 @@ public class EventApprovalService {
                         + approver.getRoles().name()
                         + ": "
                         + approver.getFullName();
-
-        // Attempt to approve associated venue reservation
-        StringBuilder combinedMessage = new StringBuilder(eventApprovalMessage);
-        Venue eventVenue =
-                event.getEventVenue(); // Venue is already confirmed to be non-null and owned by
-        // approver earlier in the method
-
-        if (eventVenue != null) { // Double check, though prior logic should ensure it
-            List<VenueReservation> venueReservations =
-                    venueReservationRepository.findByEvent_PublicId(event.getPublicId());
-            Optional<VenueReservation> targetReservationOpt =
-                    venueReservations.stream()
-                            .filter(
-                                    vr ->
-                                            vr.getVenue() != null
-                                                    && vr.getVenue()
-                                                            .getPublicId()
-                                                            .equals(eventVenue.getPublicId()))
-                            .filter(vr -> vr.getStatus() == Status.PENDING) // Only approve PENDING
-                            // reservations
-                            .findFirst();
-
-            if (targetReservationOpt.isPresent()) {
-                VenueReservation targetReservation = targetReservationOpt.get();
-
-                boolean alreadyApprovedByThisUser =
-                        venueApprovalRepository.existsByVenueReservationAndSignedByAndStatus(
-                                targetReservation, approver, Status.APPROVED);
-
-                if (alreadyApprovedByThisUser) {
-                    combinedMessage
-                            .append("\nAssociated venue reservation (ID: ")
-                            .append(targetReservation.getPublicId())
-                            .append(") was already approved by you.");
-                } else {
-                    try {
-                        String venueReservationApprovalRemarks =
-                                "Automatically approved following event approval by venue owner."
-                                        + " Event remarks: "
-                                        + remarks;
-                        String vrApprovalResult =
-                                venueReservationService.approveReservation(
-                                        targetReservation.getPublicId(),
-                                        venueReservationApprovalRemarks);
-
-                        if (vrApprovalResult.startsWith("Error:")
-                                || vrApprovalResult.startsWith("Warning:")) {
-                            combinedMessage
-                                    .append("\nNote on associated venue reservation (ID: ")
-                                    .append(targetReservation.getPublicId())
-                                    .append("): ")
-                                    .append(vrApprovalResult);
-                        } else {
-                            combinedMessage
-                                    .append("\nAssociated venue reservation (ID: ")
-                                    .append(targetReservation.getPublicId())
-                                    .append(") also processed: ")
-                                    .append(vrApprovalResult);
-                        }
-                    } catch (Exception e) {
-                        System.err.println(
-                                "Exception while trying to approve venue reservation "
-                                        + targetReservation.getPublicId()
-                                        + ": "
-                                        + e.getMessage());
-                        combinedMessage
-                                .append("\nFailed to process associated venue reservation (ID: ")
-                                .append(targetReservation.getPublicId())
-                                .append(") due to an internal error: ")
-                                .append(e.getMessage());
-                    }
-                }
-            } else {
-                System.out.println(
-                        "No PENDING venue reservation found for event "
-                                + event.getPublicId()
-                                + " and venue "
-                                + eventVenue.getPublicId()
-                                + " to auto-approve.");
-            }
-        }
-
-        return combinedMessage.toString();
+        return eventApprovalMessage;
     }
 
     public String approveByDepartmentHead(UUID eventId, User approver, String remarks) {
