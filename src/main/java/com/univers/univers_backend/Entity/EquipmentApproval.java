@@ -14,7 +14,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
 @Entity
@@ -43,11 +43,11 @@ public class EquipmentApproval {
     private String remarks;
 
     @Column(nullable = false)
-    private LocalDateTime dateSigned;
+    private Instant dateSigned;
 
     @PrePersist
     protected void onCreate() {
-        this.dateSigned = LocalDateTime.now();
+        this.dateSigned = Instant.now();
         if (this.publicId == null) {
             this.publicId = UUID.randomUUID();
         }
@@ -94,11 +94,11 @@ public class EquipmentApproval {
         this.remarks = remarks;
     }
 
-    public LocalDateTime getDateSigned() {
+    public Instant getDateSigned() {
         return dateSigned;
     }
 
-    public void setDateSigned(LocalDateTime dateSigned) {
+    public void setDateSigned(Instant dateSigned) {
         this.dateSigned = dateSigned;
     }
 

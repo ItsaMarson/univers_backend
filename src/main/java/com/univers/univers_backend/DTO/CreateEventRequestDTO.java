@@ -5,7 +5,7 @@ package com.univers.univers_backend.DTO;
 import jakarta.validation.constraints.FutureOrPresent;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
 public record CreateEventRequestDTO(
@@ -13,5 +13,5 @@ public record CreateEventRequestDTO(
         @NotBlank String eventType,
         @NotNull UUID venuePublicId,
         UUID departmentPublicId,
-        @NotNull @FutureOrPresent LocalDateTime startTime,
-        @NotNull @FutureOrPresent LocalDateTime endTime) {}
+        @NotNull @FutureOrPresent Instant startTime,
+        @NotNull @FutureOrPresent Instant endTime) {}

@@ -1,11 +1,12 @@
 /* (C)2025 */
 package com.univers.univers_backend.Repository;
 
+import com.univers.univers_backend.Entity.Department;
 import com.univers.univers_backend.Entity.Equipment;
 import com.univers.univers_backend.Entity.EquipmentReservation;
 import com.univers.univers_backend.Entity.User;
 import com.univers.univers_backend.Enum.Status;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -24,8 +25,8 @@ public interface EquipmentReservationRepository extends JpaRepository<EquipmentR
                     + "AND er.startTime < :endTime AND er.endTime > :startTime")
     List<EquipmentReservation> findOverlappingReservations(
             @Param("equipmentId") Long equipmentId,
-            @Param("startTime") LocalDateTime startTime,
-            @Param("endTime") LocalDateTime endTime);
+            @Param("startTime") Instant startTime,
+            @Param("endTime") Instant endTime);
 
     List<EquipmentReservation> findByEquipment(Equipment equipment);
 
@@ -48,4 +49,6 @@ public interface EquipmentReservationRepository extends JpaRepository<EquipmentR
     List<EquipmentReservation> findByEvent_Id(Long eventId);
 
     List<EquipmentReservation> findByEvent_PublicId(UUID eventPublicId);
+
+    boolean existsByDepartment(Department department);
 }

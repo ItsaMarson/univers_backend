@@ -15,7 +15,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.Map;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -167,7 +167,7 @@ public class AuthController {
                                     HttpStatus.UNAUTHORIZED.value(), "Invalid verification code"));
         }
 
-        if (user.getVerificationCodeExpiration().isBefore(LocalDateTime.now())) {
+        if (user.getVerificationCodeExpiration().isBefore(Instant.now())) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(
                             ApiResponse.error(

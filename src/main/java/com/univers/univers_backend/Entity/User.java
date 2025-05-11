@@ -3,7 +3,7 @@ package com.univers.univers_backend.Entity;
 
 import com.univers.univers_backend.Enum.Role;
 import jakarta.persistence.*;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
 @Entity
@@ -36,7 +36,7 @@ public class User {
     private Boolean emailVerified = false;
 
     private String verificationCode;
-    private LocalDateTime verificationCodeExpiration;
+    private Instant verificationCodeExpiration;
 
     @Enumerated(EnumType.STRING)
     private Role roles;
@@ -46,13 +46,13 @@ public class User {
     public String profileImagePath;
 
     @Column(updatable = false)
-    private LocalDateTime createdAt;
+    private Instant createdAt;
 
-    private LocalDateTime updatedAt;
+    private Instant updatedAt;
 
     @PrePersist
     protected void onCreate() {
-        this.createdAt = LocalDateTime.now();
+        this.createdAt = Instant.now();
         if (this.publicId == null) {
             this.publicId = UUID.randomUUID();
         }
@@ -60,7 +60,7 @@ public class User {
 
     @PreUpdate
     protected void onUpdate() {
-        this.updatedAt = LocalDateTime.now();
+        this.updatedAt = Instant.now();
     }
 
     public User() {}
@@ -174,11 +174,11 @@ public class User {
         this.verificationCode = verificationCode;
     }
 
-    public LocalDateTime getVerificationCodeExpiration() {
+    public Instant getVerificationCodeExpiration() {
         return verificationCodeExpiration;
     }
 
-    public void setVerificationCodeExpiration(LocalDateTime verificationCodeExpiration) {
+    public void setVerificationCodeExpiration(Instant verificationCodeExpiration) {
         this.verificationCodeExpiration = verificationCodeExpiration;
     }
 
@@ -198,11 +198,11 @@ public class User {
         this.active = active;
     }
 
-    public LocalDateTime getCreatedAt() {
+    public Instant getCreatedAt() {
         return createdAt;
     }
 
-    public LocalDateTime getUpdatedAt() {
+    public Instant getUpdatedAt() {
         return updatedAt;
     }
 

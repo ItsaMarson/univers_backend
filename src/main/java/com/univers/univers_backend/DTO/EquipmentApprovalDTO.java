@@ -1,7 +1,7 @@
 /* (C)2025 */
 package com.univers.univers_backend.DTO;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
 public record EquipmentApprovalDTO(
@@ -11,4 +11,4 @@ public record EquipmentApprovalDTO(
         String userRole,
         String remarks,
         String status,
-        LocalDateTime dateSigned) {}
+        Instant dateSigned) {}

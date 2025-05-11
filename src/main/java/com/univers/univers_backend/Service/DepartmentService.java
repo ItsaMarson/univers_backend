@@ -9,6 +9,7 @@ import com.univers.univers_backend.Mapper.DepartmentMapper; // Import Department
 // UserMapper is a dependency of DepartmentMapper, not necessarily needed directly here for DTO
 // mapping
 import com.univers.univers_backend.Repository.DepartmentRepository;
+import com.univers.univers_backend.Repository.EquipmentReservationRepository; // Added import
 import com.univers.univers_backend.Repository.UserRepository;
 import java.util.List;
 import java.util.Optional;
@@ -23,17 +24,20 @@ public class DepartmentService {
     private final DepartmentRepository departmentRepository;
     private final UserRepository userRepository;
     private final DepartmentMapper departmentMapper; // Injected DepartmentMapper
+    private final EquipmentReservationRepository equipmentReservationRepository; // Added import
 
     public DepartmentService(
             DepartmentRepository departmentRepository,
             UserRepository userRepository,
             @Lazy
                     DepartmentMapper
-                            departmentMapper) { // Inject DepartmentMapper, @Lazy if cycles are a
+                            departmentMapper, // Inject DepartmentMapper, @Lazy if cycles are a
+            EquipmentReservationRepository equipmentReservationRepository) { // Added repository
         // concern
         this.departmentRepository = departmentRepository;
         this.userRepository = userRepository;
         this.departmentMapper = departmentMapper;
+        this.equipmentReservationRepository = equipmentReservationRepository; // Added assignment
     }
 
     public String assignDepartmentHead(UUID departmentPublicId, UUID userPublicId) {
@@ -173,13 +177,15 @@ public class DepartmentService {
                                                         + departmentPublicId
                                                         + ", cannot delete."));
 
-        // TODO: Add any business logic before deletion if necessary,
-        // e.g., check if department is associated with other entities (Users, Events)
-        // and handle those cases (e.g., disallow deletion, reassign, nullify).
-        // For example, if users are in this department, what happens?
-        // if (!userRepository.findAllByDepartment(department).isEmpty()) {
-        //    return "Cannot delete department: Users are still assigned to it.";
-        // }
+        // Check if users are assigned to this department
+        if (!userRepository.findByDepartment(department).isEmpty()) {
+            return "Cannot delete department: Users are still assigned to it.";
+        }
+
+        // Check if equipment reservations are associated with this department
+        if (equipmentReservationRepository.existsByDepartment(department)) {
+            return "Cannot delete department: Equipment reservations are still associated with it.";
+        }
 
         departmentRepository.delete(department);
         return "Department successfully deleted.";

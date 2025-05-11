@@ -3,7 +3,7 @@ package com.univers.univers_backend.Entity;
 
 import com.univers.univers_backend.Enum.Status;
 import jakarta.persistence.*;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
 @Entity
@@ -35,21 +35,21 @@ public class Equipment {
     private Status status;
 
     @Column(updatable = false)
-    private LocalDateTime createdAt;
+    private Instant createdAt;
 
-    private LocalDateTime updatedAt;
+    private Instant updatedAt;
 
     @PrePersist
     protected void onCreate() {
-        this.createdAt = LocalDateTime.now();
+        this.createdAt = Instant.now();
         if (this.publicId == null) {
             this.publicId = UUID.randomUUID();
         }
     }
 
     @PreUpdate
-    protected void onUpdated() {
-        this.updatedAt = LocalDateTime.now();
+    protected void onUpdate() {
+        this.updatedAt = Instant.now();
     }
 
     public Equipment() {}
@@ -63,8 +63,8 @@ public class Equipment {
             String brand,
             String imagePath,
             Status status,
-            LocalDateTime createdAt,
-            LocalDateTime updatedAt) {
+            Instant createdAt,
+            Instant updatedAt) {
         this.id = id;
         this.name = name;
         this.availability = availability;
@@ -141,19 +141,19 @@ public class Equipment {
         this.imagePath = imagePath;
     }
 
-    public LocalDateTime getCreatedAt() {
+    public Instant getCreatedAt() {
         return createdAt;
     }
 
-    public void setCreatedAt(LocalDateTime createdAt) {
+    public void setCreatedAt(Instant createdAt) {
         this.createdAt = createdAt;
     }
 
-    public LocalDateTime getUpdatedAt() {
+    public Instant getUpdatedAt() {
         return updatedAt;
     }
 
-    public void setUpdatedAt(LocalDateTime updatedAt) {
+    public void setUpdatedAt(Instant updatedAt) {
         this.updatedAt = updatedAt;
     }
 

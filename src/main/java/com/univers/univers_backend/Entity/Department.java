@@ -2,7 +2,7 @@
 package com.univers.univers_backend.Entity;
 
 import jakarta.persistence.*;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
 @Entity
@@ -25,12 +25,12 @@ public class Department {
     @JoinColumn(name = "dept_head_id", unique = true)
     private User deptHead;
 
-    LocalDateTime createdAt;
-    LocalDateTime updatedAt;
+    Instant createdAt;
+    Instant updatedAt;
 
     @PrePersist
     protected void OnCreate() {
-        this.createdAt = LocalDateTime.now();
+        this.createdAt = Instant.now();
         if (this.publicId == null) {
             this.publicId = UUID.randomUUID();
         }
@@ -38,7 +38,7 @@ public class Department {
 
     @PreUpdate
     protected void onUpdate() {
-        this.updatedAt = LocalDateTime.now();
+        this.updatedAt = Instant.now();
     }
 
     public Department() {}
@@ -48,8 +48,8 @@ public class Department {
             String name,
             String description,
             User deptHead,
-            LocalDateTime createdAt,
-            LocalDateTime updatedAt) {
+            Instant createdAt,
+            Instant updatedAt) {
         this.id = id;
         this.name = name;
         this.description = description;
@@ -90,11 +90,11 @@ public class Department {
         this.deptHead = deptHead;
     }
 
-    public LocalDateTime getCreatedAt() {
+    public Instant getCreatedAt() {
         return createdAt;
     }
 
-    public LocalDateTime getUpdatedAt() {
+    public Instant getUpdatedAt() {
         return updatedAt;
     }
 

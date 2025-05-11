@@ -25,7 +25,7 @@ import com.univers.univers_backend.Repository.EquipmentRepository;
 import com.univers.univers_backend.Repository.EquipmentReservationRepository;
 import com.univers.univers_backend.Repository.EventRepository;
 import com.univers.univers_backend.Repository.UserRepository;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Set;
@@ -152,11 +152,11 @@ public class EquipmentReservationService {
             department = userDepartment;
         }
 
-        LocalDateTime startTime =
+        Instant startTime =
                 reservationDTO.startTime() != null
                         ? reservationDTO.startTime()
                         : event.getStartTime();
-        LocalDateTime endTime =
+        Instant endTime =
                 reservationDTO.endTime() != null ? reservationDTO.endTime() : event.getEndTime();
         Integer requestedQuantity = reservationDTO.quantity();
 

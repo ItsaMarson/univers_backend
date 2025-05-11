@@ -22,7 +22,8 @@ import com.univers.univers_backend.Repository.VenueRepository;
 import com.univers.univers_backend.config.JwtUtil;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletResponse;
-import java.time.LocalDateTime;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
@@ -194,7 +195,7 @@ public class UserService {
 
         user.setEmailVerified(false);
         user.setVerificationCode(verificationCode);
-        user.setVerificationCodeExpiration(LocalDateTime.now().plusMinutes(10));
+        user.setVerificationCodeExpiration(Instant.now().plus(10, ChronoUnit.MINUTES));
         user.setActive(true);
         userRepository.save(user);
 
@@ -239,7 +240,7 @@ public class UserService {
                                                 "User not found with email: " + email));
         String resetCode = String.format("%06d", new Random().nextInt(1000000));
         user.setVerificationCode(resetCode);
-        user.setVerificationCodeExpiration(LocalDateTime.now().plusMinutes(15));
+        user.setVerificationCodeExpiration(Instant.now().plus(15, ChronoUnit.MINUTES));
         userRepository.save(user);
 
         String subject = "Password Reset Code [UniVERS]";
@@ -294,7 +295,7 @@ public class UserService {
 
         user.setEmailVerified(request.emailVerified() != null ? request.emailVerified() : false);
         user.setVerificationCode(verificationCode);
-        user.setVerificationCodeExpiration(LocalDateTime.now().plusMinutes(10));
+        user.setVerificationCodeExpiration(Instant.now().plus(10, ChronoUnit.MINUTES));
         user.setActive(true);
         userRepository.save(user);
 
@@ -483,7 +484,7 @@ public class UserService {
             return "Invalid reset code";
         }
 
-        if (user.getVerificationCodeExpiration().isBefore(LocalDateTime.now())) {
+        if (user.getVerificationCodeExpiration().isBefore(Instant.now())) {
             return "Reset code has expired. Please request a new one.";
         }
 
@@ -501,7 +502,7 @@ public class UserService {
             return "Invalid reset code";
         }
 
-        if (user.getVerificationCodeExpiration().isBefore(LocalDateTime.now())) {
+        if (user.getVerificationCodeExpiration().isBefore(Instant.now())) {
             return "Reset code has expired";
         }
 

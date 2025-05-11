@@ -3,7 +3,7 @@ package com.univers.univers_backend.DTO;
 
 import com.univers.univers_backend.Enum.Status; // Assuming Status is an enum
 import jakarta.validation.constraints.FutureOrPresent;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
 public record UpdateEventRequestDTO(
@@ -13,7 +13,7 @@ public record UpdateEventRequestDTO(
         UUID venuePublicId, // Optional
         UUID departmentPublicId, // Optional, can be null to unassign or not present to keep
         // existing
-        @FutureOrPresent LocalDateTime startTime, // Optional
-        @FutureOrPresent LocalDateTime endTime, // Optional
+        @FutureOrPresent Instant startTime, // Optional
+        @FutureOrPresent Instant endTime, // Optional
         Status status // Optional, using the Enum type
         ) {}

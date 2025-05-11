@@ -2,7 +2,7 @@
 package com.univers.univers_backend.DTO;
 
 import com.univers.univers_backend.Enum.Status;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
 public record EquipmentDTO(
@@ -14,5 +14,5 @@ public record EquipmentDTO(
         UserDTO equipmentOwner,
         String imagePath,
         Status status,
-        LocalDateTime createdAt,
-        LocalDateTime updatedAt) {}
+        Instant createdAt,
+        Instant updatedAt) {}

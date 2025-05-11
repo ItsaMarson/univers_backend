@@ -2,7 +2,7 @@
 package com.univers.univers_backend.Entity;
 
 import jakarta.persistence.*;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
 @Entity
@@ -28,13 +28,13 @@ public class Venue {
     private String imagePath;
 
     @Column(updatable = false)
-    LocalDateTime createdAt;
+    Instant createdAt;
 
-    LocalDateTime updatedAt;
+    Instant updatedAt;
 
     @PrePersist
     protected void onCreate() {
-        this.createdAt = LocalDateTime.now();
+        this.createdAt = Instant.now();
         if (this.publicId == null) {
             this.publicId = UUID.randomUUID();
         }
@@ -42,7 +42,7 @@ public class Venue {
 
     @PreUpdate
     protected void onUpdate() {
-        this.updatedAt = LocalDateTime.now();
+        this.updatedAt = Instant.now();
     }
 
     public Venue() {}
@@ -53,8 +53,8 @@ public class Venue {
             String venueLocation,
             User owner,
             String imgPath,
-            LocalDateTime createdTime,
-            LocalDateTime updatedTime) {
+            Instant createdTime,
+            Instant updatedTime) {
         this.id = venueId;
         this.name = venueName;
         this.location = venueLocation;
@@ -100,11 +100,11 @@ public class Venue {
         this.imagePath = imagePath;
     }
 
-    public LocalDateTime getCreatedAt() {
+    public Instant getCreatedAt() {
         return createdAt;
     }
 
-    public LocalDateTime getUpdatedAt() {
+    public Instant getUpdatedAt() {
         return updatedAt;
     }
 

@@ -4,7 +4,7 @@ package com.univers.univers_backend.Service;
 import com.univers.univers_backend.Entity.Event;
 import com.univers.univers_backend.Enum.Status;
 import com.univers.univers_backend.Repository.EventRepository;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,10 +26,10 @@ public class EventScheduler {
         this.notificationService = notificationService;
     }
 
-    @Scheduled(cron = "0 */5 * * * ?") // Runs every 5 minutes
+    @Scheduled(cron = "0 */1 * * * ?") // Runs every 1 minute
     @Transactional
     public void updateEventsToOngoing() {
-        LocalDateTime now = LocalDateTime.now();
+        Instant now = Instant.now();
         logger.info("Scheduler: Checking for events to set to ONGOING at {}", now);
         List<Event> eventsToStart =
                 eventRepository.findByStatusAndStartTimeBeforeAndEndTimeAfter(
@@ -63,10 +63,10 @@ public class EventScheduler {
                 eventsToStart.size());
     }
 
-    @Scheduled(cron = "0 */5 * * * ?") // Runs every 5 minutes
+    @Scheduled(cron = "0 */1 * * * ?") // Runs every 1 minute
     @Transactional
     public void updateEventsToCompleted() {
-        LocalDateTime now = LocalDateTime.now();
+        Instant now = Instant.now();
         logger.info("Scheduler: Checking for events to set to COMPLETED at {}", now);
         List<Event> eventsToComplete =
                 eventRepository.findByStatusAndEndTimeBefore(Status.ONGOING, now);

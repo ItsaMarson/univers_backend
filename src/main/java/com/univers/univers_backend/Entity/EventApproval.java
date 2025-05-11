@@ -3,7 +3,7 @@ package com.univers.univers_backend.Entity;
 
 import com.univers.univers_backend.Enum.Status;
 import jakarta.persistence.*;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
 @Entity
@@ -30,14 +30,14 @@ public class EventApproval {
     @Enumerated(EnumType.STRING)
     private Status status;
 
-    private LocalDateTime dateSigned;
+    private Instant dateSigned;
 
     public EventApproval() {}
 
     @PrePersist
     protected void onCreate() {
         if (this.dateSigned == null) {
-            this.dateSigned = LocalDateTime.now();
+            this.dateSigned = Instant.now();
         }
         if (this.publicId == null) {
             this.publicId = UUID.randomUUID();
@@ -50,7 +50,7 @@ public class EventApproval {
             Event relatedEvent,
             String approvalRemarks,
             Status approvalStatus,
-            LocalDateTime approvalDateSigned) {
+            Instant approvalDateSigned) {
         this.id = approvalId;
         this.signedBy = signedByUser;
         this.event = relatedEvent;
@@ -99,11 +99,11 @@ public class EventApproval {
         this.status = status;
     }
 
-    public LocalDateTime getDateSigned() {
+    public Instant getDateSigned() {
         return dateSigned;
     }
 
-    public void setDateSigned(LocalDateTime dateSigned) {
+    public void setDateSigned(Instant dateSigned) {
         this.dateSigned = dateSigned;
     }
 

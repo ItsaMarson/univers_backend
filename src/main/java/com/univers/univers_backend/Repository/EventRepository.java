@@ -4,7 +4,7 @@ package com.univers.univers_backend.Repository;
 import com.univers.univers_backend.Entity.Event;
 import com.univers.univers_backend.Entity.User;
 import com.univers.univers_backend.Enum.Status;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -17,7 +17,7 @@ public interface EventRepository extends JpaRepository<Event, Long> {
     Optional<Event> findByPublicId(UUID publicId);
 
     List<Event> findByStartTimeLessThanEqualAndEndTimeGreaterThanEqual(
-            LocalDateTime endTime, LocalDateTime startTime);
+            Instant endTime, Instant startTime);
 
     @Query(
             "SELECT e FROM Event e WHERE e.eventVenue.id = :venueId "
@@ -25,8 +25,8 @@ public interface EventRepository extends JpaRepository<Event, Long> {
                     + "AND e.startTime <= :endTime AND e.endTime >= :startTime")
     List<Event> findConflictingEvents(
             @Param("venueId") Long venueId,
-            @Param("startTime") LocalDateTime startTime,
-            @Param("endTime") LocalDateTime endTime);
+            @Param("startTime") Instant startTime,
+            @Param("endTime") Instant endTime);
 
     @Query(
             "SELECT e FROM Event e WHERE e.status = 'PENDING' AND e.eventVenue.venueOwner ="
@@ -46,10 +46,10 @@ public interface EventRepository extends JpaRepository<Event, Long> {
 
     // For ONGOING status: status is APPROVED, current time is after startTime and before endTime
     List<Event> findByStatusAndStartTimeBeforeAndEndTimeAfter(
-            Status status, LocalDateTime currentTime, LocalDateTime currentTimeCopy);
+            Status status, Instant currentTime, Instant currentTimeCopy);
 
     // For COMPLETED status: status is ONGOING, current time is after endTime
-    List<Event> findByStatusAndEndTimeBefore(Status status, LocalDateTime currentTime);
+    List<Event> findByStatusAndEndTimeBefore(Status status, Instant currentTime);
 
     List<Event> findByStatusInAndEventVenue_PublicId(List<Status> statuses, UUID venuePublicId);
 }

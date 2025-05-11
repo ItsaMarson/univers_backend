@@ -2,7 +2,7 @@
 package com.univers.univers_backend.DTO;
 
 import jakarta.validation.constraints.NotBlank;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
 public record DepartmentDTO(
@@ -10,5 +10,5 @@ public record DepartmentDTO(
         @NotBlank String name,
         String description,
         UserDTO deptHead,
-        LocalDateTime createdAt,
-        LocalDateTime updatedAt) {}
+        Instant createdAt,
+        Instant updatedAt) {}

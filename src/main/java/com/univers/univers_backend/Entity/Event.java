@@ -3,7 +3,7 @@ package com.univers.univers_backend.Entity;
 
 import com.univers.univers_backend.Enum.Status;
 import jakarta.persistence.*;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -20,8 +20,8 @@ public class Event {
 
     private String eventName;
     private String eventType;
-    private LocalDateTime startTime;
-    private LocalDateTime endTime;
+    private Instant startTime;
+    private Instant endTime;
     private String approvedLetterPath;
 
     @Enumerated(EnumType.STRING)
@@ -40,13 +40,13 @@ public class Event {
     private Department department;
 
     @Column(updatable = false)
-    private LocalDateTime createdAt;
+    private Instant createdAt;
 
-    private LocalDateTime updatedAt;
+    private Instant updatedAt;
 
     @PrePersist
     protected void OnCreate() {
-        this.createdAt = LocalDateTime.now();
+        this.createdAt = Instant.now();
         if (this.publicId == null) {
             this.publicId = UUID.randomUUID();
         }
@@ -54,7 +54,7 @@ public class Event {
 
     @PreUpdate
     protected void onUpdate() {
-        this.updatedAt = LocalDateTime.now();
+        this.updatedAt = Instant.now();
     }
 
     @OneToMany(mappedBy = "event", cascade = CascadeType.ALL)
@@ -71,12 +71,12 @@ public class Event {
             String status,
             User organizer,
             Venue eventVenue,
-            LocalDateTime startTime,
-            LocalDateTime endTime,
+            Instant startTime,
+            Instant endTime,
             String approvedLetterPath,
             String imagePath,
-            LocalDateTime createdAt,
-            LocalDateTime updatedAt) {
+            Instant createdAt,
+            Instant updatedAt) {
         this.id = id;
         this.eventName = eventName;
         this.eventType = eventType;
@@ -114,19 +114,19 @@ public class Event {
         this.eventType = eventType;
     }
 
-    public LocalDateTime getStartTime() {
+    public Instant getStartTime() {
         return startTime;
     }
 
-    public void setStartTime(LocalDateTime startTime) {
+    public void setStartTime(Instant startTime) {
         this.startTime = startTime;
     }
 
-    public LocalDateTime getEndTime() {
+    public Instant getEndTime() {
         return endTime;
     }
 
-    public void setEndTime(LocalDateTime endTime) {
+    public void setEndTime(Instant endTime) {
         this.endTime = endTime;
     }
 
@@ -178,11 +178,11 @@ public class Event {
         this.status = status;
     }
 
-    public LocalDateTime getCreatedAt() {
+    public Instant getCreatedAt() {
         return createdAt;
     }
 
-    public LocalDateTime getUpdatedAt() {
+    public Instant getUpdatedAt() {
         return updatedAt;
     }
 

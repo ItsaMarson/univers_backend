@@ -13,7 +13,7 @@ import com.univers.univers_backend.Mapper.UserMapper;
 import com.univers.univers_backend.Repository.EventApprovalRepository;
 import com.univers.univers_backend.Repository.EventRepository;
 import com.univers.univers_backend.Repository.UserRepository;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -76,7 +76,7 @@ public class EventApprovalService {
             eventApproval.setSignedBy(currentUser);
             eventApproval.setRemarks("Approved directly by SUPER_ADMIN. " + remarks);
             eventApproval.setStatus(Status.APPROVED);
-            eventApproval.setDateSigned(LocalDateTime.now());
+            eventApproval.setDateSigned(Instant.now());
             eventApprovalRepository.save(eventApproval);
 
             event.setStatus(Status.APPROVED);
@@ -161,7 +161,7 @@ public class EventApprovalService {
         eventApproval.setSignedBy(approver);
         eventApproval.setRemarks(remarks);
         eventApproval.setStatus(Status.APPROVED);
-        eventApproval.setDateSigned(LocalDateTime.now());
+        eventApproval.setDateSigned(Instant.now());
         eventApprovalRepository.save(eventApproval);
 
         checkAndUpdateEventStatus(event, approver, Role.VENUE_OWNER);
@@ -229,7 +229,7 @@ public class EventApprovalService {
         eventApproval.setSignedBy(approver);
         eventApproval.setRemarks(remarks);
         eventApproval.setStatus(Status.APPROVED);
-        eventApproval.setDateSigned(LocalDateTime.now());
+        eventApproval.setDateSigned(Instant.now());
 
         eventApprovalRepository.save(eventApproval);
 
@@ -300,7 +300,7 @@ public class EventApprovalService {
         eventApproval.setSignedBy(approver);
         eventApproval.setRemarks(remarks);
         eventApproval.setStatus(Status.APPROVED);
-        eventApproval.setDateSigned(LocalDateTime.now());
+        eventApproval.setDateSigned(Instant.now());
         eventApprovalRepository.save(eventApproval);
 
         checkAndUpdateEventStatus(event, approver, requiredRole);
@@ -494,7 +494,7 @@ public class EventApprovalService {
         rejectionRecord.setSignedBy(currentUser);
         rejectionRecord.setRemarks(remarks);
         rejectionRecord.setStatus(Status.REJECTED);
-        rejectionRecord.setDateSigned(LocalDateTime.now());
+        rejectionRecord.setDateSigned(Instant.now());
         eventApprovalRepository.save(rejectionRecord);
 
         User organizer = event.getOrganizer();
