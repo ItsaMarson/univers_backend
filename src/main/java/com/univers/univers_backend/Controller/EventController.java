@@ -416,4 +416,45 @@ public class EventController {
                                     "An unexpected error occurred while searching events"));
         }
     }
+
+    @Operation(
+            summary = "Get timeline events by date range",
+            description =
+                    "Retrieves events suitable for a timeline view, filtered by an optional date"
+                            + " range. Filters out PENDING, CANCELED, REJECTED events.")
+    @ApiResponses(
+            value = {
+                @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                        responseCode = "200",
+                        description = "Timeline events retrieved successfully"),
+                @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                        responseCode = "400",
+                        description = "Invalid date parameters"),
+                @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                        responseCode = "500",
+                        description = "Internal server error")
+            })
+    @GetMapping("/timeline")
+    public ResponseEntity<ApiResponse<List<EventDTO>>> getTimelineEventsByDateRange(
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate) {
+        try {
+            List<EventDTO> events = eventService.getTimelineEventsByDateRange(startDate, endDate);
+            return ResponseEntity.ok(ApiResponse.success(events));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest()
+                    .body(
+                            ApiResponse.error(
+                                    HttpStatus.BAD_REQUEST.value(),
+                                    "Invalid date parameters",
+                                    e.getMessage()));
+        } catch (Exception e) {
+            // Log the exception details
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(
+                            ApiResponse.error(
+                                    HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                                    "An unexpected error occurred while fetching timeline events"));
+        }
+    }
 }

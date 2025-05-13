@@ -19,6 +19,7 @@ import com.univers.univers_backend.Repository.VenueRepository;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
+import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.UUID;
@@ -654,6 +655,79 @@ public class EventService {
         List<Event> events = eventRepository.findAll(spec, sort);
 
         // 6. Map to DTOs
+        return events.stream().map(eventMapper::toDto).collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<EventDTO> getTimelineEventsByDateRange(String startDateStr, String endDateStr) {
+        Instant startDate = null;
+        Instant endDate = null;
+
+        try {
+            if (startDateStr != null && !startDateStr.isEmpty()) {
+                startDate = Instant.parse(startDateStr);
+            }
+            if (endDateStr != null && !endDateStr.isEmpty()) {
+                endDate = Instant.parse(endDateStr);
+            }
+        } catch (DateTimeParseException e) {
+            logger.error(
+                    "Invalid date format provided for timeline: {} or {}",
+                    startDateStr,
+                    endDateStr,
+                    e);
+            throw new IllegalArgumentException(
+                    "Invalid date format. Please use ISO 8601 format (e.g., YYYY-MM-DDTHH:mm:ssZ).",
+                    e);
+        }
+
+        // Define statuses to include (exclude PENDING, CANCELED, REJECTED)
+        List<Status> includedStatuses = List.of(Status.APPROVED, Status.COMPLETED, Status.ONGOING);
+
+        // Create final variables for use in lambdas
+        final Instant finalStartDate = startDate;
+        final Instant finalEndDate = endDate;
+
+        Specification<Event> spec = Specification.where(null);
+
+        // Filter by statuses
+        spec = spec.and((root, query, cb) -> root.get("status").in(includedStatuses));
+
+        // Filter by date range (event overlaps with the given range)
+        if (finalStartDate != null && finalEndDate != null) {
+            spec =
+                    spec.and(
+                            (root, query, cb) ->
+                                    cb.and(
+                                            cb.lessThanOrEqualTo(
+                                                    root.get("startTime"),
+                                                    finalEndDate), // Event starts before or at
+                                            // query end
+                                            cb.greaterThanOrEqualTo(
+                                                    root.get("endTime"),
+                                                    finalStartDate) // Event ends after or at query
+                                            // start
+                                            ));
+        } else if (finalStartDate != null) {
+            // If only startDate is provided, find events that end on or after startDate
+            spec =
+                    spec.and(
+                            (root, query, cb) ->
+                                    cb.greaterThanOrEqualTo(root.get("endTime"), finalStartDate));
+        } else if (finalEndDate != null) {
+            // If only endDate is provided, find events that start on or before endDate
+            spec =
+                    spec.and(
+                            (root, query, cb) ->
+                                    cb.lessThanOrEqualTo(root.get("startTime"), finalEndDate));
+        }
+        // If neither startDate nor endDate is provided, it fetches all events with the
+        // includedStatuses.
+
+        // Sort by start time
+        Sort sort = Sort.by(Sort.Direction.ASC, "startTime");
+
+        List<Event> events = eventRepository.findAll(spec, sort);
         return events.stream().map(eventMapper::toDto).collect(Collectors.toList());
     }
 }
