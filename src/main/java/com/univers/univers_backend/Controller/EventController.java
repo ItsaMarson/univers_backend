@@ -375,4 +375,45 @@ public class EventController {
                                     "Error retrieving pending events"));
         }
     }
+
+    @Operation(
+            summary = "Search and filter events",
+            description = "Retrieves a list of events based on scope and optional status filter.")
+    @ApiResponses(
+            value = {
+                @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                        responseCode = "200",
+                        description = "Events retrieved successfully"),
+                @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                        responseCode = "400",
+                        description = "Invalid scope or status parameter"),
+                @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                        responseCode = "500",
+                        description = "Internal server error")
+            })
+    @GetMapping("/search")
+    public ResponseEntity<ApiResponse<List<EventDTO>>> searchEvents(
+            @RequestParam String scope,
+            @RequestParam(required = false, defaultValue = "ALL") String status,
+            @RequestParam(required = false, defaultValue = "default") String sortBy,
+            @RequestParam(required = false, defaultValue = "allTime") String dateRange) {
+        try {
+            List<EventDTO> events = eventService.searchEvents(scope, status, sortBy, dateRange);
+            return ResponseEntity.ok(ApiResponse.success(events));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest()
+                    .body(
+                            ApiResponse.error(
+                                    HttpStatus.BAD_REQUEST.value(),
+                                    "Invalid parameter",
+                                    e.getMessage()));
+        } catch (Exception e) {
+            // Log the exception details
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(
+                            ApiResponse.error(
+                                    HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                                    "An unexpected error occurred while searching events"));
+        }
+    }
 }

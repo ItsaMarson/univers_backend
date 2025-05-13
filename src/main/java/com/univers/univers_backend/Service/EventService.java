@@ -16,6 +16,9 @@ import com.univers.univers_backend.Repository.EventApprovalRepository;
 import com.univers.univers_backend.Repository.EventRepository;
 import com.univers.univers_backend.Repository.UserRepository;
 import com.univers.univers_backend.Repository.VenueRepository;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.UUID;
@@ -24,6 +27,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Lazy;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -493,5 +498,162 @@ public class EventService {
             return null;
         }
         return this.eventMapper.toDto(event);
+    }
+
+    // REFACTORED method for server-side search and filtering with Specifications
+    @Transactional(readOnly = true)
+    public List<EventDTO> searchEvents(
+            String scope, String statusString, String sortBy, String dateRangeFilter) {
+        User currentUser = getCurrentUser();
+        Role userRole = currentUser.getRoles();
+
+        // 1. Parse Status Filter
+        Status statusFilter = null;
+        if (statusString != null && !statusString.equalsIgnoreCase("ALL")) {
+            try {
+                statusFilter = Status.valueOf(statusString.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                logger.warn(
+                        "Invalid status value provided: {}, ignoring status filter.", statusString);
+            }
+        }
+
+        // 2. Parse Sorting
+        Sort sort;
+        if ("recency".equalsIgnoreCase(sortBy)) {
+            sort = Sort.by(Sort.Direction.DESC, "createdAt");
+        } else {
+            // Default sort, e.g., by start time ascending
+            sort = Sort.by(Sort.Direction.ASC, "startTime");
+        }
+
+        // 3. Parse Date Range Filter (applied to createdAt)
+        Instant startDateTime = null;
+        // Use ZonedDateTime for calendar-based calculations
+        ZonedDateTime nowZoned = ZonedDateTime.now(ZoneOffset.UTC); // Work in UTC
+        Instant endDateTime = nowZoned.toInstant(); // End date is always now
+        boolean useDateFilter = true;
+
+        if ("pastDay".equalsIgnoreCase(dateRangeFilter)) {
+            startDateTime = nowZoned.minusDays(1).toInstant();
+        } else if ("pastWeek".equalsIgnoreCase(dateRangeFilter)) {
+            startDateTime = nowZoned.minusWeeks(1).toInstant();
+        } else if ("pastMonth".equalsIgnoreCase(dateRangeFilter)) {
+            startDateTime = nowZoned.minusMonths(1).toInstant();
+        } else { // Includes "allTime" or any other value
+            startDateTime = null;
+            endDateTime = null; // Set endDateTime to null as well for allTime
+            useDateFilter = false;
+        }
+
+        // Create final variables for use in lambdas
+        final Status finalStatusFilter = statusFilter;
+        final Instant finalStartDateTime = startDateTime;
+        final Instant finalEndDateTime = endDateTime;
+        final boolean finalUseDateFilter = useDateFilter;
+
+        // 4. Build Specification
+        Specification<Event> spec = Specification.where(null); // Start with a neutral specification
+
+        // Apply scope-based filtering
+        switch (scope.toLowerCase()) {
+            case "mine":
+                spec = spec.and((root, query, cb) -> cb.equal(root.get("organizer"), currentUser));
+                break;
+
+            case "related":
+                if (userRole == Role.VENUE_OWNER) {
+                    spec =
+                            spec.and(
+                                    (root, query, cb) ->
+                                            cb.equal(
+                                                    root.get("eventVenue").get("venueOwner"),
+                                                    currentUser));
+                } else if (userRole == Role.DEPT_HEAD) {
+                    spec =
+                            spec.and(
+                                    (root, query, cb) ->
+                                            cb.equal(
+                                                    root.get("organizer")
+                                                            .get("department")
+                                                            .get("deptHead"),
+                                                    currentUser));
+                } else {
+                    logger.info(
+                            "User role {} cannot query for scope 'related'. Returning empty list.",
+                            userRole);
+                    return List.of(); // Return empty list immediately if scope is invalid for role
+                }
+                break;
+
+            case "all":
+                if (!(userRole == Role.SUPER_ADMIN
+                        || userRole == Role.VP_ADMIN
+                        || userRole == Role.MSDO
+                        || userRole == Role.OPC
+                        || userRole == Role.SSD
+                        || userRole == Role.FAO
+                        || userRole == Role.VPAA)) {
+                    logger.warn(
+                            "Scope 'all' requested by non-admin role {}, defaulting to 'approved'"
+                                    + " events only.",
+                            userRole);
+                    spec =
+                            spec.and(
+                                    (root, query, cb) ->
+                                            cb.equal(root.get("status"), Status.APPROVED));
+                } // Admins implicitly see all, no additional spec needed here for them
+                break;
+
+            case "approved":
+            default:
+                spec = spec.and((root, query, cb) -> cb.equal(root.get("status"), Status.APPROVED));
+                break;
+        }
+
+        // Apply optional status filter (if scope didn't already enforce a status like 'approved')
+        if (finalStatusFilter != null) {
+            if (scope.equalsIgnoreCase("all")
+                    && !(userRole == Role.SUPER_ADMIN
+                            || userRole == Role.VP_ADMIN
+                            || userRole == Role.MSDO
+                            || userRole == Role.OPC
+                            || userRole == Role.SSD
+                            || userRole == Role.FAO
+                            || userRole == Role.VPAA)) {
+                // Non-admin requested 'all' which defaults to 'approved', ignore other status
+                // filters
+                logger.warn(
+                        "Status filter {} ignored for non-admin 'all' scope (shows only APPROVED).",
+                        statusString);
+            } else if (scope.equalsIgnoreCase("approved") && finalStatusFilter != Status.APPROVED) {
+                // 'approved' scope requested with a non-approved status filter, ignore
+                logger.warn(
+                        "Status filter {} ignored for 'approved' scope (shows only APPROVED).",
+                        statusString);
+            } else {
+                spec =
+                        spec.and(
+                                (root, query, cb) ->
+                                        cb.equal(root.get("status"), finalStatusFilter));
+            }
+        }
+
+        // Apply optional date range filter
+        if (finalUseDateFilter && finalStartDateTime != null && finalEndDateTime != null) {
+            spec =
+                    spec.and(
+                            (root, query, cb) ->
+                                    cb.between(
+                                            root.get("createdAt"),
+                                            finalStartDateTime,
+                                            finalEndDateTime));
+        }
+
+        // 5. Execute Query
+        List<Event> events = eventRepository.findAll(spec, sort);
+
+        // 6. Map to DTOs
+        return events.stream().map(eventMapper::toDto).collect(Collectors.toList());
     }
 }
