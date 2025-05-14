@@ -396,9 +396,11 @@ public class EventController {
             @RequestParam String scope,
             @RequestParam(required = false, defaultValue = "ALL") String status,
             @RequestParam(required = false, defaultValue = "default") String sortBy,
-            @RequestParam(required = false, defaultValue = "allTime") String dateRange) {
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate) {
         try {
-            List<EventDTO> events = eventService.searchEvents(scope, status, sortBy, dateRange);
+            List<EventDTO> events =
+                    eventService.searchEvents(scope, status, sortBy, startDate, endDate);
             return ResponseEntity.ok(ApiResponse.success(events));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest()

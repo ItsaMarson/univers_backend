@@ -17,8 +17,6 @@ import com.univers.univers_backend.Repository.EventRepository;
 import com.univers.univers_backend.Repository.UserRepository;
 import com.univers.univers_backend.Repository.VenueRepository;
 import java.time.Instant;
-import java.time.ZoneOffset;
-import java.time.ZonedDateTime;
 import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -493,7 +491,6 @@ public class EventService {
         return events.stream().map(eventMapper::toDto).collect(Collectors.toList());
     }
 
-    // Added public method to allow UserService to map Event to EventDTO via EventService
     public EventDTO mapToDTO(Event event) {
         if (event == null) {
             return null;
@@ -501,10 +498,13 @@ public class EventService {
         return this.eventMapper.toDto(event);
     }
 
-    // REFACTORED method for server-side search and filtering with Specifications
     @Transactional(readOnly = true)
     public List<EventDTO> searchEvents(
-            String scope, String statusString, String sortBy, String dateRangeFilter) {
+            String scope,
+            String statusString,
+            String sortBy,
+            String startDateStr,
+            String endDateStr) {
         User currentUser = getCurrentUser();
         Role userRole = currentUser.getRoles();
 
@@ -528,30 +528,32 @@ public class EventService {
             sort = Sort.by(Sort.Direction.ASC, "startTime");
         }
 
-        // 3. Parse Date Range Filter (applied to createdAt)
-        Instant startDateTime = null;
-        // Use ZonedDateTime for calendar-based calculations
-        ZonedDateTime nowZoned = ZonedDateTime.now(ZoneOffset.UTC); // Work in UTC
-        Instant endDateTime = nowZoned.toInstant(); // End date is always now
-        boolean useDateFilter = true;
+        // 3. Parse Date Range Filter (now applies to event startTime/endTime)
+        Instant queryStartDate = null;
+        Instant queryEndDate = null;
 
-        if ("pastDay".equalsIgnoreCase(dateRangeFilter)) {
-            startDateTime = nowZoned.minusDays(1).toInstant();
-        } else if ("pastWeek".equalsIgnoreCase(dateRangeFilter)) {
-            startDateTime = nowZoned.minusWeeks(1).toInstant();
-        } else if ("pastMonth".equalsIgnoreCase(dateRangeFilter)) {
-            startDateTime = nowZoned.minusMonths(1).toInstant();
-        } else { // Includes "allTime" or any other value
-            startDateTime = null;
-            endDateTime = null; // Set endDateTime to null as well for allTime
-            useDateFilter = false;
+        try {
+            if (startDateStr != null && !startDateStr.isEmpty()) {
+                queryStartDate = Instant.parse(startDateStr);
+            }
+            if (endDateStr != null && !endDateStr.isEmpty()) {
+                queryEndDate = Instant.parse(endDateStr);
+            }
+        } catch (DateTimeParseException e) {
+            logger.error(
+                    "Invalid date format provided for searchEvents: {} or {}",
+                    startDateStr,
+                    endDateStr,
+                    e);
+            throw new IllegalArgumentException(
+                    "Invalid date format. Please use ISO 8601 format (e.g., YYYY-MM-DDTHH:mm:ssZ).",
+                    e);
         }
 
         // Create final variables for use in lambdas
         final Status finalStatusFilter = statusFilter;
-        final Instant finalStartDateTime = startDateTime;
-        final Instant finalEndDateTime = endDateTime;
-        final boolean finalUseDateFilter = useDateFilter;
+        final Instant finalQueryStartDate = queryStartDate;
+        final Instant finalQueryEndDate = queryEndDate;
 
         // 4. Build Specification
         Specification<Event> spec = Specification.where(null); // Start with a neutral specification
@@ -640,15 +642,34 @@ public class EventService {
             }
         }
 
-        // Apply optional date range filter
-        if (finalUseDateFilter && finalStartDateTime != null && finalEndDateTime != null) {
+        // Apply optional date range filter to event's startTime and endTime
+        if (finalQueryStartDate != null && finalQueryEndDate != null) {
             spec =
                     spec.and(
                             (root, query, cb) ->
-                                    cb.between(
-                                            root.get("createdAt"),
-                                            finalStartDateTime,
-                                            finalEndDateTime));
+                                    cb.and(
+                                            cb.lessThanOrEqualTo(
+                                                    root.get("startTime"),
+                                                    finalQueryEndDate), // Event starts before or at
+                                            // query end
+                                            cb.greaterThanOrEqualTo(
+                                                    root.get("endTime"),
+                                                    finalQueryStartDate) // Event ends after or at
+                                            // query start
+                                            ));
+        } else if (finalQueryStartDate != null) {
+            // If only startDate is provided, find events that end on or after startDate
+            spec =
+                    spec.and(
+                            (root, query, cb) ->
+                                    cb.greaterThanOrEqualTo(
+                                            root.get("endTime"), finalQueryStartDate));
+        } else if (finalQueryEndDate != null) {
+            // If only endDate is provided, find events that start on or before endDate
+            spec =
+                    spec.and(
+                            (root, query, cb) ->
+                                    cb.lessThanOrEqualTo(root.get("startTime"), finalQueryEndDate));
         }
 
         // 5. Execute Query

@@ -10,15 +10,17 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.stereotype.Repository;
 
+@Repository
 public interface EquipmentReservationRepository extends JpaRepository<EquipmentReservation, Long> {
 
     Optional<EquipmentReservation> findByPublicId(UUID publicId);
 
-    // Find overlapping reservations for a specific equipment item, excluding canceled ones
     @Query(
             "SELECT er FROM EquipmentReservation er WHERE er.equipment.id = :equipmentId "
                     + "AND er.status <> com.univers.univers_backend.Enum.Status.CANCELED "
@@ -51,4 +53,19 @@ public interface EquipmentReservationRepository extends JpaRepository<EquipmentR
     List<EquipmentReservation> findByEvent_PublicId(UUID eventPublicId);
 
     boolean existsByDepartment(Department department);
+
+    List<EquipmentReservation> findByEquipmentAndStatusAndEndTimeAfterAndStartTimeBefore(
+            Equipment equipment, Status status, Instant startTime, Instant endTime);
+
+    @Query(
+            "SELECT er.equipment.name AS equipmentName, COUNT(er) AS reservationCount FROM"
+                + " EquipmentReservation er WHERE er.startTime >= :startDate AND er.startTime <="
+                + " :endDate AND (:equipmentTypeName IS NULL OR LOWER(er.equipment.name) LIKE"
+                + " LOWER(CONCAT('%', :equipmentTypeName, '%'))) GROUP BY er.equipment.name ORDER"
+                + " BY reservationCount DESC")
+    List<Object[]> findTopEquipmentByReservationCount(
+            @Param("startDate") Instant startDate,
+            @Param("endDate") Instant endDate,
+            @Param("equipmentTypeName") String equipmentTypeName,
+            Pageable pageable);
 }
