@@ -13,13 +13,22 @@ import com.univers.univers_backend.config.JwtUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import java.time.Instant;
+import java.util.Arrays;
+import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -31,6 +40,7 @@ public class AuthController {
     private final JwtUtil jwtUtil;
     private final UserService userService;
     private final UserRepository userRepository;
+    private final UserDetailsService userDetailsService;
 
     private final EmailService emailService;
 
@@ -39,12 +49,14 @@ public class AuthController {
             JwtUtil jwtUtil,
             UserService userService,
             UserRepository userRepository,
-            EmailService emailService) {
+            EmailService emailService,
+            UserDetailsService userDetailsService) {
         this.authManager = authManager;
         this.jwtUtil = jwtUtil;
         this.userService = userService;
         this.userRepository = userRepository;
         this.emailService = emailService;
+        this.userDetailsService = userDetailsService;
     }
 
     @Operation(
@@ -85,16 +97,36 @@ public class AuthController {
                         description = "Invalid credentials")
             })
     @PostMapping("/login")
-    public ResponseEntity<ApiResponse<Map<String, Object>>> login(
-            @Valid @RequestBody LoginRequest request, HttpServletResponse response) {
-        ResponseEntity<Map<String, Object>> loginResponse = userService.login(request, response);
-        if (loginResponse.getStatusCode() == HttpStatus.OK) {
-            return ResponseEntity.ok(
-                    ApiResponse.success("Login successful", loginResponse.getBody()));
-        } else {
-            return ResponseEntity.status(loginResponse.getStatusCode())
-                    .body(ApiResponse.error(loginResponse.getStatusCode().value(), "Login failed"));
+    public ResponseEntity<?> login(
+            @RequestBody LoginRequest loginRequest, HttpServletResponse response) {
+        try {
+            authManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(
+                            loginRequest.email(), loginRequest.password()));
+        } catch (BadCredentialsException e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid credentials");
         }
+
+        final String accessToken = jwtUtil.generateAccessToken(loginRequest.email());
+        final String refreshToken = jwtUtil.generateRefreshToken(loginRequest.email());
+
+        Cookie accessTokenCookie = new Cookie("access_token", accessToken);
+        accessTokenCookie.setHttpOnly(true);
+        accessTokenCookie.setPath("/");
+        accessTokenCookie.setMaxAge((int) (jwtUtil.ACCESS_TOKEN_EXPIRATION / 1000));
+
+        Cookie refreshTokenCookie = new Cookie("refresh_token", refreshToken);
+        refreshTokenCookie.setHttpOnly(true);
+        refreshTokenCookie.setPath("/");
+        refreshTokenCookie.setMaxAge((int) (jwtUtil.REFRESH_TOKEN_EXPIRATION / 1000));
+
+        response.addCookie(accessTokenCookie);
+        response.addCookie(refreshTokenCookie);
+
+        Map<String, String> tokens = new HashMap<>();
+        tokens.put("access_token", accessToken);
+        tokens.put("refresh_token", refreshToken);
+        return ResponseEntity.ok(tokens);
     }
 
     @Operation(
@@ -110,27 +142,38 @@ public class AuthController {
                         description = "Invalid refresh token")
             })
     @PostMapping("/refresh")
-    public ResponseEntity<ApiResponse<Map<String, String>>> refresh(
-            @RequestBody Map<String, String> request) {
-        String refreshToken = request.get("refreshToken");
+    public ResponseEntity<?> refreshToken(
+            HttpServletRequest request, HttpServletResponse response) {
+        Optional<Cookie> refreshTokenCookieOpt = Optional.empty();
+        Cookie[] cookies = request.getCookies();
 
-        if (refreshToken == null || !jwtUtil.validateToken(refreshToken)) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(
-                            ApiResponse.error(
-                                    HttpStatus.UNAUTHORIZED.value(), "Invalid refresh token"));
+        if (cookies != null) {
+            refreshTokenCookieOpt =
+                    Arrays.stream(cookies)
+                            .filter(cookie -> "refresh_token".equals(cookie.getName()))
+                            .findFirst();
         }
 
-        String email = jwtUtil.extractUsername(refreshToken);
-        String newAccessToken = jwtUtil.generateAccessToken(email);
-        String newRefreshToken = jwtUtil.generateRefreshToken(email);
+        if (refreshTokenCookieOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Refresh token not found.");
+        }
 
-        Map<String, String> tokens =
-                Map.of(
-                        "accessToken", newAccessToken,
-                        "refreshToken", newRefreshToken);
+        String refreshToken = refreshTokenCookieOpt.get().getValue();
+        if (!jwtUtil.validateToken(refreshToken)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid refresh token.");
+        }
 
-        return ResponseEntity.ok(ApiResponse.success("Tokens refreshed successfully", tokens));
+        String username = jwtUtil.extractUsername(refreshToken);
+        UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+
+        String newAccessToken = jwtUtil.generateAccessToken(userDetails.getUsername());
+        Cookie newAccessTokenCookie = new Cookie("access_token", newAccessToken);
+        newAccessTokenCookie.setHttpOnly(true);
+        newAccessTokenCookie.setPath("/");
+        newAccessTokenCookie.setMaxAge((int) (jwtUtil.ACCESS_TOKEN_EXPIRATION / 1000));
+        response.addCookie(newAccessTokenCookie);
+
+        return ResponseEntity.ok().body("Access token refreshed successfully.");
     }
 
     @Operation(

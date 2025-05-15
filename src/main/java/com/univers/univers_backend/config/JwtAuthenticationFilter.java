@@ -1,3 +1,4 @@
+/* (C)2025 */
 package com.univers.univers_backend.config;
 
 import jakarta.servlet.FilterChain;
@@ -5,15 +6,15 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import java.util.Arrays;
+import java.util.Optional;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
-
-import java.io.IOException;
-import java.util.Arrays;
 
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
@@ -27,32 +28,88 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     }
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
+    protected void doFilterInternal(
+            HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
 
         String path = request.getServletPath();
-        // 👉 Skip filtering for these endpoints:
-        if (path.equals("/auth/login") || path.equals("/auth/register")) {
+        if (path.equals("/auth/login")
+                || path.equals("/auth/register")
+                || path.equals("/auth/refresh")) {
             filterChain.doFilter(request, response);
             return;
         }
 
         Cookie[] cookies = request.getCookies();
+        Optional<Cookie> accessTokenCookie = Optional.empty();
+        Optional<Cookie> refreshTokenCookie = Optional.empty();
+
         if (cookies != null) {
-            Arrays.stream(cookies)
-                    .filter(cookie -> "access_token".equals(cookie.getName()))
-                    .findFirst()
-                    .ifPresent(cookie -> {
-                        String token = cookie.getValue();
-                        if (jwtUtil.validateToken(token)) {
-                            String username = jwtUtil.extractUsername(token);
-                            UserDetails userDetails = userDetailsService.loadUserByUsername(username);
-                            var auth = new UsernamePasswordAuthenticationToken(
-                                    userDetails, null, userDetails.getAuthorities());
-                            SecurityContextHolder.getContext().setAuthentication(auth);
-                        }
-                    });
+            accessTokenCookie =
+                    Arrays.stream(cookies)
+                            .filter(cookie -> "access_token".equals(cookie.getName()))
+                            .findFirst();
+            refreshTokenCookie =
+                    Arrays.stream(cookies)
+                            .filter(cookie -> "refresh_token".equals(cookie.getName()))
+                            .findFirst();
         }
+
+        if (accessTokenCookie.isPresent()) {
+            String token = accessTokenCookie.get().getValue();
+            if (jwtUtil.validateToken(token)) {
+                String username = jwtUtil.extractUsername(token);
+                UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+                var auth =
+                        new UsernamePasswordAuthenticationToken(
+                                userDetails, null, userDetails.getAuthorities());
+                SecurityContextHolder.getContext().setAuthentication(auth);
+            } else if (refreshTokenCookie.isPresent()) {
+                String refreshToken = refreshTokenCookie.get().getValue();
+                if (jwtUtil.validateToken(refreshToken)) {
+                    String username = jwtUtil.extractUsername(refreshToken);
+                    UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+                    String newAccessToken = jwtUtil.generateAccessToken(userDetails.getUsername());
+
+                    Cookie newAccessTokenCookie = new Cookie("access_token", newAccessToken);
+                    newAccessTokenCookie.setHttpOnly(true);
+                    newAccessTokenCookie.setPath("/");
+                    newAccessTokenCookie.setMaxAge((int) (jwtUtil.ACCESS_TOKEN_EXPIRATION / 1000));
+                    response.addCookie(newAccessTokenCookie);
+
+                    var auth =
+                            new UsernamePasswordAuthenticationToken(
+                                    userDetails, null, userDetails.getAuthorities());
+                    SecurityContextHolder.getContext().setAuthentication(auth);
+                }
+            }
+        } else if (refreshTokenCookie.isPresent()) {
+            String refreshToken = refreshTokenCookie.get().getValue();
+            if (jwtUtil.validateToken(refreshToken)) {
+                String username = jwtUtil.extractUsername(refreshToken);
+                UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+                String newAccessToken = jwtUtil.generateAccessToken(userDetails.getUsername());
+
+                Cookie newAccessTokenCookie = new Cookie("access_token", newAccessToken);
+                newAccessTokenCookie.setHttpOnly(true);
+                newAccessTokenCookie.setPath("/");
+                newAccessTokenCookie.setMaxAge((int) (jwtUtil.ACCESS_TOKEN_EXPIRATION / 1000));
+                response.addCookie(newAccessTokenCookie);
+
+                String newRefreshToken = jwtUtil.generateRefreshToken(userDetails.getUsername());
+                Cookie newRefreshTokenCookie = new Cookie("refresh_token", newRefreshToken);
+                newRefreshTokenCookie.setHttpOnly(true);
+                newRefreshTokenCookie.setPath("/");
+                newRefreshTokenCookie.setMaxAge((int) (jwtUtil.REFRESH_TOKEN_EXPIRATION / 1000));
+                response.addCookie(newRefreshTokenCookie);
+
+                var auth =
+                        new UsernamePasswordAuthenticationToken(
+                                userDetails, null, userDetails.getAuthorities());
+                SecurityContextHolder.getContext().setAuthentication(auth);
+            }
+        }
+
         filterChain.doFilter(request, response);
     }
 }
