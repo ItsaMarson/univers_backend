@@ -25,7 +25,6 @@ public record RecentActivityItemDTO(
                 String actorName,
         @Schema(
                         description =
-                                "Optional: A relative path for frontend linking e.g."
-                                        + " '/app/events/details/123'",
-                        example = "/app/events/details/123")
+                                "Optional: A relative path for frontend linking e.g." + " '123'",
+                        example = "123")
                 String entityPath) {}

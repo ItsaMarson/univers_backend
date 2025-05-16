@@ -84,7 +84,6 @@ public class DashboardService {
 
     public List<EventCountDTO> getEventsOverview(LocalDate startDate, LocalDate endDate) {
         Instant startInstant = startDate.atStartOfDay().toInstant(ZoneOffset.UTC);
-        // For endDate, we query up to the start of the next day (exclusive)
         Instant endInstantPlusOne = endDate.plusDays(1).atStartOfDay().toInstant(ZoneOffset.UTC);
 
         List<Object[]> results =
@@ -95,39 +94,29 @@ public class DashboardService {
         return results.stream()
                 .map(
                         result -> {
-                            // The date from FUNCTION('DATE', e.startTime) might be java.sql.Date or
-                            // other type
-                            // depending on JPA provider and database.
-                            // Explicitly convert to LocalDate.
                             LocalDate eventDate;
                             if (result[0] instanceof java.sql.Date) {
                                 eventDate = ((java.sql.Date) result[0]).toLocalDate();
-                            } else if (result[0]
-                                    instanceof
-                                    LocalDate) { // Some JPA providers might directly return
-                                // LocalDate
+                            } else if (result[0] instanceof LocalDate) {
                                 eventDate = (LocalDate) result[0];
-                            } else if (result[0]
-                                    != null) { // Fallback for other types, e.g., String, then parse
+                            } else if (result[0] != null) {
                                 try {
                                     eventDate = LocalDate.parse(result[0].toString());
                                 } catch (Exception e) {
-                                    // Log error or handle as appropriate, for now, skip this entry
-                                    // or use a default
                                     System.err.println(
                                             "Could not parse date from query result: "
                                                     + result[0]
                                                     + " Error: "
                                                     + e.getMessage());
-                                    return null; // Or throw, or return a DTO with a placeholder
+                                    return null;
                                 }
                             } else {
-                                return null; // Skip if date is null
+                                return null;
                             }
                             Long count = (Long) result[1];
                             return new EventCountDTO(eventDate, count);
                         })
-                .filter(dto -> dto != null) // Remove any nulls from parsing errors
+                .filter(dto -> dto != null)
                 .collect(Collectors.toList());
     }
 
@@ -164,19 +153,14 @@ public class DashboardService {
                                 return null;
                             }
 
-                            long canceledCount =
-                                    ((Number) result[1])
-                                            .longValue(); // SUM can return various Number types
-                            long totalCreatedCount =
-                                    ((Number) result[2])
-                                            .longValue(); // COUNT returns Long, but being safe
+                            long canceledCount = ((Number) result[1]).longValue();
+                            long totalCreatedCount = ((Number) result[2]).longValue();
 
                             double rate = 0.0;
                             if (totalCreatedCount > 0) {
                                 rate = ((double) canceledCount / totalCreatedCount) * 100.0;
                             }
 
-                            // Round to 2 decimal places for cleaner output
                             rate = Math.round(rate * 100.0) / 100.0;
 
                             return new CancellationRateDTO(
@@ -199,10 +183,7 @@ public class DashboardService {
                 .map(
                         result -> {
                             Integer hourOfDay = null;
-                            if (result[0]
-                                    instanceof
-                                    Number) { // FUNCTION('HOUR', ...) typically returns an Integer
-                                // or BigDecimal
+                            if (result[0] instanceof Number) {
                                 hourOfDay = ((Number) result[0]).intValue();
                             } else if (result[0] != null) {
                                 try {
@@ -216,8 +197,7 @@ public class DashboardService {
                                     return null;
                                 }
                             }
-                            if (hourOfDay == null)
-                                return null; // Skip if hour is null or unparseable
+                            if (hourOfDay == null) return null;
 
                             Long count = (Long) result[1];
                             return new PeakHourDTO(hourOfDay, count);
@@ -266,9 +246,14 @@ public class DashboardService {
 
         recentEvents.forEach(
                 event -> {
-                    String description = "Event '" + event.getEventName() + "' was last updated.";
-                    if (event.getCreatedAt().equals(event.getUpdatedAt())) {
+                    Instant eventUpdatedAt = event.getUpdatedAt();
+                    Instant eventCreatedAt = event.getCreatedAt();
+                    Instant activityTimestamp;
+                    String description;
+
+                    if (eventUpdatedAt == null || eventUpdatedAt.equals(eventCreatedAt)) {
                         description = "Event '" + event.getEventName() + "' created.";
+                        activityTimestamp = eventCreatedAt;
                     } else {
                         description =
                                 "Event '"
@@ -276,33 +261,49 @@ public class DashboardService {
                                         + "' status is "
                                         + event.getStatus().toString().toLowerCase()
                                         + ".";
+                        activityTimestamp = eventUpdatedAt;
                     }
+
+                    if (activityTimestamp == null) {
+                        activityTimestamp = eventCreatedAt;
+                    }
+                    if (activityTimestamp == null) {
+                        activityTimestamp = Instant.now();
+                    }
+
+                    String actorName =
+                            event.getOrganizer() != null
+                                    ? event.getOrganizer().getFirstname()
+                                            + " "
+                                            + event.getOrganizer().getLastname()
+                                    : "System";
+                    String entityPath = "/app/events/" + event.getPublicId().toString();
+
                     activityItems.add(
                             new RecentActivityItemDTO(
                                     event.getPublicId().toString(),
                                     "Event",
                                     event.getEventName(),
                                     description,
-                                    event.getUpdatedAt(),
-                                    event.getOrganizer() != null
-                                            ? event.getOrganizer().getFirstname()
-                                                    + " "
-                                                    + event.getOrganizer().getLastname()
-                                            : "System",
-                                    "/app/events/details/" + event.getPublicId().toString()));
+                                    activityTimestamp,
+                                    actorName,
+                                    entityPath));
                 });
 
         recentReservations.forEach(
                 reservation -> {
-                    String description =
-                            "Reservation for '"
-                                    + reservation.getEquipment().getName()
-                                    + "' was last updated.";
-                    if (reservation.getCreatedAt().equals(reservation.getUpdatedAt())) {
+                    Instant reservationUpdatedAt = reservation.getUpdatedAt();
+                    Instant reservationCreatedAt = reservation.getCreatedAt();
+                    Instant activityTimestamp;
+                    String description;
+
+                    if (reservationUpdatedAt == null
+                            || reservationUpdatedAt.equals(reservationCreatedAt)) {
                         description =
                                 "Reservation for '"
                                         + reservation.getEquipment().getName()
                                         + "' created.";
+                        activityTimestamp = reservationCreatedAt;
                     } else {
                         description =
                                 "Reservation for '"
@@ -310,20 +311,33 @@ public class DashboardService {
                                         + "' status is "
                                         + reservation.getStatus().toString().toLowerCase()
                                         + ".";
+                        activityTimestamp = reservationUpdatedAt;
                     }
+
+                    if (activityTimestamp == null) {
+                        activityTimestamp = reservationCreatedAt;
+                    }
+                    if (activityTimestamp == null) {
+                        activityTimestamp = Instant.now();
+                    }
+
+                    String actorName =
+                            reservation.getRequestingUser() != null
+                                    ? reservation.getRequestingUser().getFirstname()
+                                            + " "
+                                            + reservation.getRequestingUser().getLastname()
+                                    : "System";
+                    String entityPath = reservation.getPublicId().toString();
+
                     activityItems.add(
                             new RecentActivityItemDTO(
                                     reservation.getPublicId().toString(),
                                     "Equipment Reservation",
                                     "Reservation for " + reservation.getEquipment().getName(),
                                     description,
-                                    reservation.getUpdatedAt(),
-                                    reservation.getRequestingUser() != null
-                                            ? reservation.getRequestingUser().getFirstname()
-                                                    + " "
-                                                    + reservation.getRequestingUser().getLastname()
-                                            : "System",
-                                    reservation.getPublicId().toString()));
+                                    activityTimestamp,
+                                    actorName,
+                                    entityPath));
                 });
 
         return activityItems.stream()
