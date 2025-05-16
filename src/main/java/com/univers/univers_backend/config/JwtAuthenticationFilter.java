@@ -60,6 +60,27 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             if (jwtUtil.validateToken(token)) {
                 String username = jwtUtil.extractUsername(token);
                 UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+
+                if (userDetails instanceof com.univers.univers_backend.Entity.User) {
+                    com.univers.univers_backend.Entity.User user =
+                            (com.univers.univers_backend.Entity.User) userDetails;
+                    if (!user.getEmailVerified()) {
+                        response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                        response.setContentType("application/json");
+                        response.getWriter()
+                                .write(
+                                        "{\"error\": \"Email not verified. Please verify your"
+                                                + " email.\"}");
+                        return;
+                    }
+                } else {
+                    response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                    response.setContentType("application/json");
+                    response.getWriter()
+                            .write("{\"error\": \"User details configuration error.\"}");
+                    return;
+                }
+
                 var auth =
                         new UsernamePasswordAuthenticationToken(
                                 userDetails, null, userDetails.getAuthorities());
@@ -69,6 +90,28 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 if (jwtUtil.validateToken(refreshToken)) {
                     String username = jwtUtil.extractUsername(refreshToken);
                     UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+
+                    // Check for email verification
+                    if (userDetails instanceof com.univers.univers_backend.Entity.User) {
+                        com.univers.univers_backend.Entity.User user =
+                                (com.univers.univers_backend.Entity.User) userDetails;
+                        if (!user.getEmailVerified()) {
+                            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                            response.setContentType("application/json");
+                            response.getWriter()
+                                    .write(
+                                            "{\"error\": \"Email not verified. Please verify your"
+                                                    + " email.\"}");
+                            return;
+                        }
+                    } else {
+                        response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                        response.setContentType("application/json");
+                        response.getWriter()
+                                .write("{\"error\": \"User details configuration error.\"}");
+                        return;
+                    }
+
                     String newAccessToken = jwtUtil.generateAccessToken(userDetails.getUsername());
 
                     Cookie newAccessTokenCookie = new Cookie("access_token", newAccessToken);
@@ -88,6 +131,27 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             if (jwtUtil.validateToken(refreshToken)) {
                 String username = jwtUtil.extractUsername(refreshToken);
                 UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+
+                if (userDetails instanceof com.univers.univers_backend.Entity.User) {
+                    com.univers.univers_backend.Entity.User user =
+                            (com.univers.univers_backend.Entity.User) userDetails;
+                    if (!user.getEmailVerified()) {
+                        response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                        response.setContentType("application/json");
+                        response.getWriter()
+                                .write(
+                                        "{\"error\": \"Email not verified. Please verify your"
+                                                + " email.\"}");
+                        return;
+                    }
+                } else {
+                    response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                    response.setContentType("application/json");
+                    response.getWriter()
+                            .write("{\"error\": \"User details configuration error.\"}");
+                    return;
+                }
+
                 String newAccessToken = jwtUtil.generateAccessToken(userDetails.getUsername());
 
                 Cookie newAccessTokenCookie = new Cookie("access_token", newAccessToken);

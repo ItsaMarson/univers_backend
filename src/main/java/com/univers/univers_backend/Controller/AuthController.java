@@ -29,6 +29,7 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -104,11 +105,35 @@ public class AuthController {
                     new UsernamePasswordAuthenticationToken(
                             loginRequest.email(), loginRequest.password()));
         } catch (BadCredentialsException e) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid credentials");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("error", "Invalid credentials"));
         }
 
-        final String accessToken = jwtUtil.generateAccessToken(loginRequest.email());
-        final String refreshToken = jwtUtil.generateRefreshToken(loginRequest.email());
+        com.univers.univers_backend.Entity.User userDetails;
+        try {
+            UserDetails springUserDetails =
+                    userDetailsService.loadUserByUsername(loginRequest.email());
+            if (!(springUserDetails instanceof com.univers.univers_backend.Entity.User)) {
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                        .body(Map.of("error", "User details configuration error"));
+            }
+            userDetails = (com.univers.univers_backend.Entity.User) springUserDetails;
+        } catch (UsernameNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Error retrieving user details after authentication"));
+        }
+
+        if (!userDetails.getEmailVerified()) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(
+                            Map.of(
+                                    "error",
+                                    "Email not verified. Please verify your email before logging"
+                                            + " in."));
+        }
+
+        final String accessToken = jwtUtil.generateAccessToken(userDetails.getUsername());
+        final String refreshToken = jwtUtil.generateRefreshToken(userDetails.getUsername());
 
         Cookie accessTokenCookie = new Cookie("access_token", accessToken);
         accessTokenCookie.setHttpOnly(true);

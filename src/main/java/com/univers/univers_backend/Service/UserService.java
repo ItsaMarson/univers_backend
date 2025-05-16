@@ -117,7 +117,7 @@ public class UserService {
                             .orElseThrow(() -> new RuntimeException("User not found"));
 
             if (!user.getEmailVerified()) {
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
                         .body(
                                 Map.of(
                                         "error",

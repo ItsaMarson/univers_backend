@@ -1,8 +1,8 @@
+/* (C)2025 */
 package com.univers.univers_backend.config;
 
 import com.univers.univers_backend.Entity.User;
 import com.univers.univers_backend.Repository.UserRepository;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -19,19 +19,20 @@ public class CustomUserDetailsService implements UserDetailsService {
 
     @Override
     public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + email));
+        User user =
+                userRepository
+                        .findByEmail(email)
+                        .orElseThrow(
+                                () ->
+                                        new UsernameNotFoundException(
+                                                "User not found with email: " + email));
 
-        if(!user.isActive()){
+        if (!user.isActive()) {
             System.out.println("User account is deactivated");
-            throw new UsernameNotFoundException("User account is deactivated. Contact your administrator");
-
+            throw new UsernameNotFoundException(
+                    "User account is deactivated. Contact your administrator");
         }
 
-        return org.springframework.security.core.userdetails.User.builder()
-                .username(user.getEmail())
-                .password(user.getPassword())
-                .authorities(new SimpleGrantedAuthority(user.getRoles().name()))
-                .build();
+        return user;
     }
 }
