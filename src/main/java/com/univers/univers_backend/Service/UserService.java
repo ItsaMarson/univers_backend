@@ -38,6 +38,7 @@ import org.springframework.security.authentication.InternalAuthenticationService
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -461,8 +462,29 @@ public class UserService {
         return "User activated successfully.";
     }
 
-    public UserDTO getCurrentUser(String token) {
-        String username = jwtUtil.extractUsername(token);
+    public UserDTO getCurrentUser() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null
+                || !authentication.isAuthenticated()
+                || authentication.getPrincipal() == null
+                || "anonymousUser".equals(authentication.getPrincipal().toString())) {
+            throw new UsernameNotFoundException(
+                    "No authenticated user found in security context or user is anonymous.");
+        }
+
+        String username;
+        if (authentication.getPrincipal() instanceof UserDetails) {
+            username = ((UserDetails) authentication.getPrincipal()).getUsername();
+        } else if (authentication.getPrincipal() instanceof String) {
+            username = (String) authentication.getPrincipal();
+        } else {
+            System.err.println(
+                    "Unexpected principal type in SecurityContext: "
+                            + authentication.getPrincipal().getClass().getName());
+            throw new UsernameNotFoundException(
+                    "Cannot determine username from security principal.");
+        }
+
         User user =
                 userRepository
                         .findByEmail(username)

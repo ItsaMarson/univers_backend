@@ -304,10 +304,16 @@ public class AuthController {
                         description = "Not authenticated")
             })
     @GetMapping("/me")
-    public ResponseEntity<ApiResponse<UserDTO>> getCurrentUser(
-            @CookieValue("access_token") String token) {
-        UserDTO user = userService.getCurrentUser(token);
-        return ResponseEntity.ok(ApiResponse.success(user));
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getCurrentUser(
+            @CookieValue(name = "access_token", required = false) String accessToken,
+            @CookieValue(name = "refresh_token", required = false) String refreshTokenFromCookie) {
+        UserDTO user = userService.getCurrentUser();
+
+        Map<String, Object> responseData = new HashMap<>();
+        responseData.put("user", user);
+        responseData.put("refreshToken", refreshTokenFromCookie);
+
+        return ResponseEntity.ok(ApiResponse.success(responseData));
     }
 
     @Operation(
