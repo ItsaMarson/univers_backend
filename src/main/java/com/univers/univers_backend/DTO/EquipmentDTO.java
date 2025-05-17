@@ -15,4 +15,5 @@ public record EquipmentDTO(
         String imagePath,
         Status status,
         Instant createdAt,
-        Instant updatedAt) {}
+        Instant updatedAt,
+        String serialNo) {}

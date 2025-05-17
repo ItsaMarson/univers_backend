@@ -56,7 +56,8 @@ public class EquipmentMapper {
                 imageUrl,
                 equipment.getStatus(),
                 equipment.getCreatedAt(),
-                equipment.getUpdatedAt());
+                equipment.getUpdatedAt(),
+                equipment.getSerialNo());
     }
 
     // public Equipment toEntity(EquipmentDTO dto) { ... } // If needed later
