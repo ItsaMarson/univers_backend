@@ -17,6 +17,9 @@ public class Equipment {
     @Column(unique = true, nullable = false, updatable = false)
     private UUID publicId;
 
+    @Column(name = "serial_no", unique = true, nullable = false)
+    private String serialNo;
+
     private String name;
 
     private Boolean availability;
@@ -56,6 +59,7 @@ public class Equipment {
 
     public Equipment(
             Long id,
+            String serialNo,
             String name,
             Boolean availability,
             User equipmentOwner,
@@ -66,6 +70,7 @@ public class Equipment {
             Instant createdAt,
             Instant updatedAt) {
         this.id = id;
+        this.serialNo = serialNo;
         this.name = name;
         this.availability = availability;
         this.equipmentOwner = equipmentOwner;
@@ -83,6 +88,14 @@ public class Equipment {
 
     public void setId(Long id) {
         this.id = id;
+    }
+
+    public String getSerialNo() {
+        return serialNo;
+    }
+
+    public void setSerialNo(String serialNo) {
+        this.serialNo = serialNo;
     }
 
     public String getName() {
