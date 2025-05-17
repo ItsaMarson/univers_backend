@@ -13,4 +13,7 @@ public interface EquipmentRepository extends JpaRepository<Equipment, Long> {
     Optional<Equipment> findByPublicId(UUID publicId);
 
     List<Equipment> findAllByEquipmentOwner(User owner);
+    
+    Optional<Equipment> findBySerialNo(String serialNo);
+
 }

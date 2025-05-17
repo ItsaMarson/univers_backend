@@ -95,6 +95,7 @@ public class EquipmentService {
         newEquipment.setQuantity(request.quantity());
         newEquipment.setStatus(request.status() != null ? request.status() : Status.NEW);
         newEquipment.setEquipmentOwner(owner);
+        newEquipment.setSerialNo(request.serialNo());
 
         if (imageFile != null && !imageFile.isEmpty()) {
             String objectName =
@@ -183,6 +184,10 @@ public class EquipmentService {
         if (request.status() != null) {
             equipment.setStatus(request.status());
         }
+        if (request.serialNo() != null && !request.serialNo().isBlank()) {
+            equipment.setSerialNo(request.serialNo());
+}
+
 
         UUID newOwnerPublicIdFromRequest =
                 (request.equipmentOwner() != null && request.equipmentOwner().publicId() != null)
@@ -326,6 +331,7 @@ public class EquipmentService {
                 imageUrl,
                 equipment.getStatus(),
                 equipment.getCreatedAt(),
-                equipment.getUpdatedAt());
+                equipment.getUpdatedAt(),
+                equipment.getSerialNo());
     }
 }
