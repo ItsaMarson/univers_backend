@@ -24,10 +24,7 @@ import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletResponse;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.List;
-import java.util.Map;
-import java.util.Random;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -178,7 +175,7 @@ public class UserService {
         User user = new User();
         user.setEmail(request.email());
         user.setPassword(passwordEncoder.encode(request.password()));
-        user.setRoles(Role.ORGANIZER);
+        user.setRoles(Set.of(Role.ORGANIZER));
         user.setFirstname(request.firstName() != null ? request.firstName() : "User");
         user.setLastname(request.lastName());
         user.setId_number(request.idNumber());
@@ -278,7 +275,7 @@ public class UserService {
         User user = new User();
         user.setEmail(request.email());
         user.setPassword(passwordEncoder.encode(request.password()));
-        user.setRoles(request.role() != null ? request.role() : Role.ORGANIZER);
+        user.setRoles(request.role() != null ? request.role() : Set.of(Role.ORGANIZER));
         user.setFirstname(request.firstName() != null ? request.firstName() : "User");
         user.setLastname(request.lastName());
         user.setId_number(request.idNumber());
@@ -406,7 +403,10 @@ public class UserService {
 
         if (editUserDTO.role() != null) {
             try {
-                user.setRoles(Role.valueOf(editUserDTO.role().toUpperCase()));
+                Set<Role> roles = editUserDTO.role().stream()
+                                .map(r -> Role.valueOf(r.toUpperCase()))
+                                .collect(Collectors.toSet());
+                user.setRoles(roles);
             } catch (IllegalArgumentException e) {
                 throw new RuntimeException("Error: Invalid role specified.", e);
             }

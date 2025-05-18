@@ -4,9 +4,9 @@ package com.univers.univers_backend.Entity;
 import com.univers.univers_backend.Enum.Role;
 import jakarta.persistence.*;
 import java.time.Instant;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.UUID;
+import java.util.*;
+import java.util.stream.Collectors;
+
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -43,8 +43,11 @@ public class User implements UserDetails {
     private String verificationCode;
     private Instant verificationCodeExpiration;
 
+    @ElementCollection(targetClass = Role.class, fetch = FetchType.EAGER)
+    @CollectionTable(name = "user_roles", joinColumns = @JoinColumn(name = "user_id"))
     @Enumerated(EnumType.STRING)
-    private Role roles;
+    @Column(name = "role")
+    private Set<Role> roles = new HashSet<>();
 
     private Boolean active;
 
@@ -73,7 +76,7 @@ public class User implements UserDetails {
     public User(
             String email,
             String password,
-            Role roles,
+            Set<Role> roles,
             String firstName,
             String lastName,
             String idNumber,
@@ -187,11 +190,11 @@ public class User implements UserDetails {
         this.verificationCodeExpiration = verificationCodeExpiration;
     }
 
-    public Role getRoles() {
+    public Set<Role> getRoles() {
         return roles;
     }
 
-    public void setRoles(Role roles) {
+    public void setRoles(Set<Role> roles) {
         this.roles = roles;
     }
 
@@ -229,10 +232,12 @@ public class User implements UserDetails {
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        if (this.roles == null) {
+        if (this.roles == null || this.roles.isEmpty()) {
             return Collections.emptyList();
         }
-        return Collections.singletonList(new SimpleGrantedAuthority(this.roles.name()));
+        return this.roles.stream()
+                .map(role -> new SimpleGrantedAuthority(role.name()))
+                .collect(Collectors.toList());
     }
 
     @Override

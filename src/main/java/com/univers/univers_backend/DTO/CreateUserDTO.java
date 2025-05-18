@@ -4,6 +4,8 @@ package com.univers.univers_backend.DTO;
 import com.univers.univers_backend.Enum.Role;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+
+import java.util.Set;
 import java.util.UUID;
 
 public record CreateUserDTO(
@@ -15,5 +17,5 @@ public record CreateUserDTO(
         String idNumber,
         String phoneNumber,
         String telephoneNumber,
-        Role role,
+        Set<Role> role,
         Boolean emailVerified) {}

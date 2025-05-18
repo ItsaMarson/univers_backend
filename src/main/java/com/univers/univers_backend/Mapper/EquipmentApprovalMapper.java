@@ -4,6 +4,8 @@ package com.univers.univers_backend.Mapper;
 import com.univers.univers_backend.DTO.EquipmentApprovalDTO;
 import com.univers.univers_backend.DTO.UserDTO;
 import com.univers.univers_backend.Entity.EquipmentApproval;
+
+import java.util.Set;
 import java.util.UUID;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
@@ -33,7 +35,7 @@ public class EquipmentApprovalMapper {
 
         // The DTO has a 'userRole' field. This might come from signedByUserDto.getRole()
         // or another source. Placeholder for now.
-        String userRole = signedByUserDto != null ? signedByUserDto.role() : null;
+        Set<String> userRole = signedByUserDto != null ? signedByUserDto.role() : null;
 
         return new EquipmentApprovalDTO(
                 approval.getPublicId(),

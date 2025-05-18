@@ -2,6 +2,7 @@
 package com.univers.univers_backend.DTO;
 
 import java.time.Instant;
+import java.util.Set;
 import java.util.UUID;
 
 public record UserDTO(
@@ -12,7 +13,7 @@ public record UserDTO(
         String idNumber,
         String phoneNumber,
         String telephoneNumber,
-        String role,
+        Set<String> role,
         DepartmentDTO department,
         Boolean emailVerified,
         Boolean active,
