@@ -4,7 +4,10 @@ package com.univers.univers_backend.Mapper;
 import com.univers.univers_backend.DTO.DepartmentDTO;
 import com.univers.univers_backend.DTO.UserDTO;
 import com.univers.univers_backend.Entity.User;
+import com.univers.univers_backend.Enum.Role;
 import com.univers.univers_backend.Service.FileStorageService;
+import java.util.HashSet;
+import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
@@ -56,7 +59,9 @@ public class UserMapper {
                 user.getId_number(),
                 user.getPhone_number(),
                 user.getTelephoneNumber(),
-                user.getRoles() != null ? user.getRoles().name() : null,
+                user.getRoles() != null
+                        ? user.getRoles().stream().map(Role::name).collect(Collectors.toSet())
+                        : new HashSet<>(),
                 departmentDto,
                 user.getEmailVerified(),
                 user.isActive(),
@@ -84,7 +89,7 @@ public class UserMapper {
         }
 
         // Intentionally skip mapping the department to break cycles
-        DepartmentDTO departmentDto = null; 
+        DepartmentDTO departmentDto = null;
 
         return new UserDTO(
                 user.getPublicId(),
@@ -94,8 +99,10 @@ public class UserMapper {
                 user.getId_number(),
                 user.getPhone_number(),
                 user.getTelephoneNumber(),
-                user.getRoles() != null ? user.getRoles().name() : null,
-                departmentDto, // This will be null
+                user.getRoles() != null
+                        ? user.getRoles().stream().map(Role::name).collect(Collectors.toSet())
+                        : new HashSet<>(),
+                departmentDto,
                 user.getEmailVerified(),
                 user.isActive(),
                 profileImageUrl,

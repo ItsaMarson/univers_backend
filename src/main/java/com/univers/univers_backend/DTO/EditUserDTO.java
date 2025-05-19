@@ -13,7 +13,7 @@ public record EditUserDTO(
         String idNumber,
         String phoneNumber,
         String telephoneNumber,
-        Set<String> role,
+        Set<String> roles,
         // Long departmentId, // Removed departmentId
         UUID departmentPublicId, // Added departmentPublicId
         Boolean emailVerified, // Usually server-controlled or via specific verification flow

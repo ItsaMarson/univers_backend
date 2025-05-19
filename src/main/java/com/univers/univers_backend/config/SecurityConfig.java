@@ -24,12 +24,10 @@ import org.springframework.web.cors.CorsConfiguration;
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtFilter;
-    private final UserDetailsService userDetailsService;
 
     public SecurityConfig(
             JwtAuthenticationFilter jwtFilter, UserDetailsService userDetailsService) {
         this.jwtFilter = jwtFilter;
-        this.userDetailsService = userDetailsService;
     }
 
     @Bean

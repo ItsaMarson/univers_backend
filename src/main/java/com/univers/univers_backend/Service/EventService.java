@@ -20,6 +20,7 @@ import java.time.Instant;
 import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
@@ -49,9 +50,6 @@ public class EventService {
 
     // Mappers
     private final EventMapper eventMapper;
-    private final UserMapper userMapper;
-    private final VenueMapper venueMapper;
-    private final DepartmentMapper departmentMapper;
 
     private static final Logger logger = LoggerFactory.getLogger(EventService.class);
 
@@ -83,9 +81,6 @@ public class EventService {
         this.eventApprovalRepository = eventApprovalRepository;
         this.equipmentReservationService = equipmentReservationService;
         this.eventMapper = eventMapper;
-        this.userMapper = userMapper;
-        this.venueMapper = venueMapper;
-        this.departmentMapper = departmentMapper;
     }
 
     @Transactional
@@ -205,7 +200,7 @@ public class EventService {
                                                 "Event not found with public ID: " + publicId));
 
         User currentUser = getCurrentUser();
-        boolean isAdmin = currentUser.getRoles() == Role.SUPER_ADMIN;
+        boolean isAdmin = currentUser.getRoles().contains(Role.SUPER_ADMIN);
         boolean isOrganizer = event.getOrganizer().getPublicId().equals(currentUser.getPublicId());
         if (!isAdmin && !isOrganizer) {
             throw new SecurityException("User not authorized to update this event.");
@@ -311,7 +306,7 @@ public class EventService {
                                         new NoSuchElementException(
                                                 "Event not found with public ID: " + publicId));
 
-        if (currentUser.getRoles() == Role.SUPER_ADMIN) {
+        if (currentUser.getRoles().contains(Role.SUPER_ADMIN)) {
             logger.info("SUPER_ADMIN deleting event {}. Performing thorough deletion.", publicId);
 
             List<EventApproval> approvals = eventApprovalRepository.findAllByEvent(event);
@@ -397,7 +392,7 @@ public class EventService {
                                         new NoSuchElementException(
                                                 "Event not found with public ID: " + publicId));
 
-        boolean isAdmin = currentUser.getRoles() == Role.SUPER_ADMIN;
+        boolean isAdmin = currentUser.getRoles().contains(Role.SUPER_ADMIN);
         boolean isOrganizer = event.getOrganizer().getPublicId().equals(currentUser.getPublicId());
 
         if (!isAdmin && !isOrganizer) {
@@ -506,7 +501,7 @@ public class EventService {
             String startDateStr,
             String endDateStr) {
         User currentUser = getCurrentUser();
-        Role userRole = currentUser.getRoles();
+        Set<Role> userRole = currentUser.getRoles();
 
         // 1. Parse Status Filter
         Status statusFilter = null;
@@ -565,14 +560,14 @@ public class EventService {
                 break;
 
             case "related":
-                if (userRole == Role.VENUE_OWNER) {
+                if (userRole.contains(Role.VENUE_OWNER)) {
                     spec =
                             spec.and(
                                     (root, query, cb) ->
                                             cb.equal(
                                                     root.get("eventVenue").get("venueOwner"),
                                                     currentUser));
-                } else if (userRole == Role.DEPT_HEAD) {
+                } else if (userRole.contains(Role.DEPT_HEAD)) {
                     spec =
                             spec.and(
                                     (root, query, cb) ->
@@ -590,13 +585,13 @@ public class EventService {
                 break;
 
             case "all":
-                if (!(userRole == Role.SUPER_ADMIN
-                        || userRole == Role.VP_ADMIN
-                        || userRole == Role.MSDO
-                        || userRole == Role.OPC
-                        || userRole == Role.SSD
-                        || userRole == Role.FAO
-                        || userRole == Role.VPAA)) {
+                if (!(userRole.contains(Role.SUPER_ADMIN)
+                        || userRole.contains(Role.VP_ADMIN)
+                        || userRole.contains(Role.MSDO)
+                        || userRole.contains(Role.OPC)
+                        || userRole.contains(Role.SSD)
+                        || userRole.contains(Role.FAO)
+                        || userRole.contains(Role.VPAA))) {
                     logger.warn(
                             "Scope 'all' requested by non-admin role {}, defaulting to 'approved'"
                                     + " events only.",
@@ -617,13 +612,13 @@ public class EventService {
         // Apply optional status filter (if scope didn't already enforce a status like 'approved')
         if (finalStatusFilter != null) {
             if (scope.equalsIgnoreCase("all")
-                    && !(userRole == Role.SUPER_ADMIN
-                            || userRole == Role.VP_ADMIN
-                            || userRole == Role.MSDO
-                            || userRole == Role.OPC
-                            || userRole == Role.SSD
-                            || userRole == Role.FAO
-                            || userRole == Role.VPAA)) {
+                    && !(userRole.contains(Role.SUPER_ADMIN)
+                            || userRole.contains(Role.VP_ADMIN)
+                            || userRole.contains(Role.MSDO)
+                            || userRole.contains(Role.OPC)
+                            || userRole.contains(Role.SSD)
+                            || userRole.contains(Role.FAO)
+                            || userRole.contains(Role.VPAA))) {
                 // Non-admin requested 'all' which defaults to 'approved', ignore other status
                 // filters
                 logger.warn(

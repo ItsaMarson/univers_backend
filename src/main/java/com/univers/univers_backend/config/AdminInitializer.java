@@ -5,6 +5,7 @@ import com.univers.univers_backend.Entity.User;
 import com.univers.univers_backend.Enum.Role;
 import com.univers.univers_backend.Repository.UserRepository;
 import io.github.cdimascio.dotenv.Dotenv;
+import java.util.Set;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -38,7 +39,7 @@ public class AdminInitializer implements ApplicationRunner {
         admin.setPassword(passwordEncoder.encode(adminPassword));
         admin.setFirstname("System");
         admin.setLastname("Admin");
-        admin.setRoles(Role.SUPER_ADMIN);
+        admin.setRoles(Set.of(Role.SUPER_ADMIN));
         admin.setActive(true);
         admin.setEmailVerified(true);
 

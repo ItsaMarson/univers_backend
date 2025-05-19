@@ -13,7 +13,7 @@ public record UserDTO(
         String idNumber,
         String phoneNumber,
         String telephoneNumber,
-        Set<String> role,
+        Set<String> roles,
         DepartmentDTO department,
         Boolean emailVerified,
         Boolean active,

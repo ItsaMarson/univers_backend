@@ -1,11 +1,11 @@
 /* (C)2025 */
 package com.univers.univers_backend.Service;
 
-import com.univers.univers_backend.DTO.DepartmentDTO;
 import com.univers.univers_backend.DTO.UserDTO;
 import com.univers.univers_backend.DTO.VenueDTO;
 import com.univers.univers_backend.Entity.User;
 import com.univers.univers_backend.Entity.Venue;
+import com.univers.univers_backend.Mapper.UserMapper;
 import com.univers.univers_backend.Repository.UserRepository;
 import com.univers.univers_backend.Repository.VenueRepository;
 import java.util.List;
@@ -20,6 +20,8 @@ import org.springframework.web.multipart.MultipartFile;
 
 @Service
 public class VenueService {
+
+    private final UserMapper userMapper;
 
     private final VenueRepository venueRepository;
     private final UserRepository userRepository;
@@ -39,10 +41,12 @@ public class VenueService {
     public VenueService(
             VenueRepository venueRepository,
             UserRepository userRepository,
-            FileStorageService fileStorageService) {
+            FileStorageService fileStorageService,
+            UserMapper userMapper) {
         this.venueRepository = venueRepository;
         this.userRepository = userRepository;
-        this.fileStorageService = fileStorageService; // Add to constructor
+        this.fileStorageService = fileStorageService;
+        this.userMapper = userMapper; // Add to constructor
     }
 
     @Transactional
@@ -81,7 +85,7 @@ public class VenueService {
         // Regenerate ownerDto if it wasn't set initially but owner exists after save
         UserDTO finalOwnerDto = null;
         if (savedVenue.getVenueOwner() != null) {
-            finalOwnerDto = mapUserToDTO(savedVenue.getVenueOwner());
+            finalOwnerDto = userMapper.toDto(savedVenue.getVenueOwner());
         }
 
         return mapVenueToDTO(savedVenue, finalOwnerDto);
@@ -90,11 +94,7 @@ public class VenueService {
     public List<VenueDTO> getAllVenues() {
         List<Venue> venues = venueRepository.findAll();
         return venues.stream()
-                .map(
-                        venue ->
-                                mapVenueToDTO(
-                                        venue,
-                                        mapUserToDTO(venue.getVenueOwner()))) // mapVenueToDTO needs
+                .map(venue -> mapVenueToDTO(venue, userMapper.toDto(venue.getVenueOwner())))
                 // update
                 .collect(Collectors.toList());
     }
@@ -108,7 +108,7 @@ public class VenueService {
                                         new NoSuchElementException(
                                                 "Venue not found with Public ID: " + venueId));
         return mapVenueToDTO(
-                venue, mapUserToDTO(venue.getVenueOwner())); // mapVenueToDTO needs update
+                venue, userMapper.toDto(venue.getVenueOwner())); // mapVenueToDTO needs update
     }
 
     @Transactional
@@ -182,7 +182,7 @@ public class VenueService {
 
         UserDTO finalOwnerDto = null;
         if (updatedVenue.getVenueOwner() != null) {
-            finalOwnerDto = mapUserToDTO(updatedVenue.getVenueOwner());
+            finalOwnerDto = userMapper.toDto(updatedVenue.getVenueOwner());
         }
 
         return mapVenueToDTO(updatedVenue, finalOwnerDto);
@@ -212,42 +212,6 @@ public class VenueService {
      * private String saveImage(MultipartFile imageFile) { ... }
      * private void deleteImage(String imagePathString) { ... }
      */
-
-    // This mapping needs to stay
-    private UserDTO mapUserToDTO(User user) {
-        if (user == null) return null;
-        String profileImageUrl = null;
-        if (user.getProfileImagePath() != null && !user.getProfileImagePath().isBlank()) {
-            try {
-                profileImageUrl =
-                        fileStorageService.getFileUrl(user.getProfileImagePath(), usersBucketName);
-            } catch (Exception e) {
-                System.err.println(
-                        "Error generating image URL for user "
-                                + user.getPublicId()
-                                + ": "
-                                + e.getMessage());
-            }
-        }
-
-        DepartmentDTO departmentDto = null;
-
-        return new UserDTO(
-                user.getPublicId(),
-                user.getEmail(),
-                user.getFirstname() != null ? user.getFirstname() : null,
-                user.getLastname() != null ? user.getLastname() : null,
-                user.getId_number() != null ? user.getId_number() : null,
-                user.getPhone_number() != null ? user.getPhone_number() : null,
-                user.getTelephoneNumber() != null ? user.getTelephoneNumber() : null,
-                user.getRoles() != null ? user.getRoles().name() : null,
-                departmentDto,
-                user.getEmailVerified(),
-                user.isActive(),
-                profileImageUrl,
-                user.getCreatedAt(),
-                user.getUpdatedAt());
-    }
 
     // Update mapVenueToDTO to generate URL from object name
     private VenueDTO mapVenueToDTO(Venue venue, UserDTO ownerDto) {

@@ -1,17 +1,18 @@
 /* (C)2025 */
 package com.univers.univers_backend.Service;
 
-import com.univers.univers_backend.DTO.DepartmentDTO;
 import com.univers.univers_backend.DTO.EquipmentDTO;
 import com.univers.univers_backend.DTO.UserDTO;
 import com.univers.univers_backend.Entity.Equipment;
 import com.univers.univers_backend.Entity.User;
 import com.univers.univers_backend.Enum.Role;
 import com.univers.univers_backend.Enum.Status;
+import com.univers.univers_backend.Mapper.UserMapper;
 import com.univers.univers_backend.Repository.EquipmentRepository;
 import com.univers.univers_backend.Repository.UserRepository;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Value;
@@ -25,6 +26,7 @@ public class EquipmentService {
     private final EquipmentRepository equipmentRepository;
     private final UserRepository userRepository;
     private final FileStorageService fileStorageService;
+    private final UserMapper userMapper;
 
     @Value("${minio.bucket.equipments}")
     private String equipmentsBucketName;
@@ -35,10 +37,12 @@ public class EquipmentService {
     public EquipmentService(
             EquipmentRepository equipmentRepository,
             UserRepository userRepository,
-            FileStorageService fileStorageService) {
+            FileStorageService fileStorageService,
+            UserMapper userMapper) {
         this.equipmentRepository = equipmentRepository;
         this.userRepository = userRepository;
         this.fileStorageService = fileStorageService;
+        this.userMapper = userMapper;
     }
 
     @Transactional
@@ -51,9 +55,9 @@ public class EquipmentService {
                                         new IllegalArgumentException(
                                                 "User not found with Public ID: " + userId));
 
-        List<Role> authorizedRoles =
-                List.of(Role.EQUIPMENT_OWNER, Role.SUPER_ADMIN, Role.MSDO, Role.OPC);
-        if (!authorizedRoles.contains(requester.getRoles())) {
+        Set<Role> authorizedRoles =
+                Set.of(Role.EQUIPMENT_OWNER, Role.SUPER_ADMIN, Role.MSDO, Role.OPC);
+        if (!requester.getRoles().stream().anyMatch(authorizedRoles::contains)) {
             throw new IllegalArgumentException("User is not authorized to add equipment.");
         }
 
@@ -63,7 +67,7 @@ public class EquipmentService {
                         ? request.equipmentOwner().publicId()
                         : null;
 
-        if (requester.getRoles().equals(Role.SUPER_ADMIN)) {
+        if (requester.getRoles().contains(Role.SUPER_ADMIN)) {
             if (ownerPublicIdFromRequest == null) {
                 throw new IllegalArgumentException(
                         "SUPER_ADMIN must specify the equipment owner's publicId in the request.");
@@ -77,7 +81,7 @@ public class EquipmentService {
                                                     "Specified Equipment Owner not found with"
                                                             + " Public ID: "
                                                             + ownerPublicIdFromRequest));
-            if (!authorizedRoles.contains(owner.getRoles())) {
+            if (!owner.getRoles().stream().anyMatch(authorizedRoles::contains)) {
                 throw new IllegalArgumentException(
                         "Specified user (Public ID: "
                                 + owner.getPublicId()
@@ -158,10 +162,10 @@ public class EquipmentService {
                                         new IllegalArgumentException(
                                                 "User (requester) not found with ID: " + userId));
 
-        List<Role> equipmentManagerRoles = List.of(Role.EQUIPMENT_OWNER, Role.MSDO, Role.OPC);
+        Set<Role> equipmentManagerRoles = Set.of(Role.EQUIPMENT_OWNER, Role.MSDO, Role.OPC);
 
-        if (!requester.getRoles().equals(Role.SUPER_ADMIN)
-                && !(equipmentManagerRoles.contains(requester.getRoles())
+        if (!requester.getRoles().stream().anyMatch(role -> role == Role.SUPER_ADMIN)
+                && !(requester.getRoles().stream().anyMatch(equipmentManagerRoles::contains)
                         && equipment
                                 .getEquipmentOwner()
                                 .getPublicId()
@@ -186,15 +190,14 @@ public class EquipmentService {
         }
         if (request.serialNo() != null && !request.serialNo().isBlank()) {
             equipment.setSerialNo(request.serialNo());
-}
-
+        }
 
         UUID newOwnerPublicIdFromRequest =
                 (request.equipmentOwner() != null && request.equipmentOwner().publicId() != null)
                         ? request.equipmentOwner().publicId()
                         : null;
 
-        if (requester.getRoles().equals(Role.SUPER_ADMIN)
+        if (requester.getRoles().contains(Role.SUPER_ADMIN)
                 && newOwnerPublicIdFromRequest != null
                 && (equipment.getEquipmentOwner() == null
                         || !newOwnerPublicIdFromRequest.equals(
@@ -208,8 +211,9 @@ public class EquipmentService {
                                                     "Specified new Equipment Owner not found with"
                                                             + " Public ID: "
                                                             + newOwnerPublicIdFromRequest));
-            if (!equipmentManagerRoles.contains(newOwner.getRoles())
-                    && !newOwner.getRoles().equals(Role.SUPER_ADMIN)) {
+
+            if (!newOwner.getRoles().stream().anyMatch(equipmentManagerRoles::contains)
+                    && !newOwner.getRoles().stream().anyMatch(role -> role == Role.SUPER_ADMIN)) {
                 throw new IllegalArgumentException(
                         "Specified new owner (Public ID: "
                                 + newOwner.getPublicId()
@@ -251,10 +255,10 @@ public class EquipmentService {
                                         new IllegalArgumentException(
                                                 "User (requester) not found with ID: " + userId));
 
-        List<Role> equipmentManagerRoles = List.of(Role.EQUIPMENT_OWNER, Role.MSDO, Role.OPC);
+        Set<Role> equipmentManagerRoles = Set.of(Role.EQUIPMENT_OWNER, Role.MSDO, Role.OPC);
 
-        if (!requester.getRoles().equals(Role.SUPER_ADMIN)
-                && !(equipmentManagerRoles.contains(requester.getRoles())
+        if (!requester.getRoles().stream().anyMatch(role -> role == Role.SUPER_ADMIN)
+                && !(requester.getRoles().stream().anyMatch(equipmentManagerRoles::contains)
                         && equipment
                                 .getEquipmentOwner()
                                 .getPublicId()
@@ -269,44 +273,8 @@ public class EquipmentService {
         equipmentRepository.deleteById((equipment.getId()));
     }
 
-    private UserDTO mapUserToDTO(User user) {
-        if (user == null) return null;
-        String profileImageUrl = null;
-        if (user.getProfileImagePath() != null && !user.getProfileImagePath().isBlank()) {
-            try {
-                profileImageUrl =
-                        fileStorageService.getFileUrl(user.getProfileImagePath(), usersBucketName);
-            } catch (Exception e) {
-                System.err.println(
-                        "Error generating image URL for user "
-                                + user.getPublicId()
-                                + ": "
-                                + e.getMessage());
-            }
-        }
-
-        DepartmentDTO departmentDto = null;
-
-        return new UserDTO(
-                user.getPublicId(),
-                user.getEmail(),
-                user.getFirstname() != null ? user.getFirstname() : null,
-                user.getLastname() != null ? user.getLastname() : null,
-                user.getId_number() != null ? user.getId_number() : null,
-                user.getPhone_number() != null ? user.getPhone_number() : null,
-                user.getTelephoneNumber() != null ? user.getTelephoneNumber() : null,
-                user.getRoles() != null ? user.getRoles().name() : null,
-                departmentDto,
-                user.getEmailVerified(),
-                user.isActive(),
-                profileImageUrl,
-                user.getCreatedAt(),
-                user.getUpdatedAt());
-    }
-
-    // Update mapToDTO to generate URL from object name
     private EquipmentDTO mapToDTO(Equipment equipment) {
-        UserDTO ownerDto = mapUserToDTO(equipment.getEquipmentOwner());
+        UserDTO ownerDto = userMapper.toDto(equipment.getEquipmentOwner());
         String imageUrl = null;
         if (equipment.getImagePath() != null && !equipment.getImagePath().isBlank()) {
             try {

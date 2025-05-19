@@ -2,7 +2,6 @@
 package com.univers.univers_backend.Controller;
 
 import com.univers.univers_backend.DTO.VenueDTO;
-import com.univers.univers_backend.Repository.VenueRepository;
 import com.univers.univers_backend.Service.VenueService;
 import com.univers.univers_backend.config.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -19,11 +18,9 @@ import org.springframework.web.bind.annotation.*;
 public class VenueController {
 
     private final VenueService venueService;
-    private final VenueRepository venueRepository;
 
-    public VenueController(VenueService venueService, VenueRepository venueRepository) {
+    public VenueController(VenueService venueService) {
         this.venueService = venueService;
-        this.venueRepository = venueRepository;
     }
 
     @Operation(summary = "Get all venues", description = "Retrieves a list of all venues")

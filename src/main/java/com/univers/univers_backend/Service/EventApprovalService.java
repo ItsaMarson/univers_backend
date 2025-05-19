@@ -16,6 +16,7 @@ import com.univers.univers_backend.Repository.UserRepository;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -66,7 +67,8 @@ public class EventApprovalService {
         }
         Event event = eventOpt.get();
 
-        if (currentUser.getRoles() == Role.SUPER_ADMIN) {
+        Set<Role> currentUserRoles = currentUser.getRoles();
+        if (currentUserRoles.contains(Role.SUPER_ADMIN)) {
             if (event.getStatus() == Status.CANCELED) {
                 return "Error: Cannot approve a canceled event.";
             }
@@ -100,28 +102,29 @@ public class EventApprovalService {
             return "Event approved directly by SUPER_ADMIN: " + currentUser.getFullName();
         }
 
-        Role currentUserRole = currentUser.getRoles();
-        if (currentUserRole == Role.VENUE_OWNER) {
+        if (currentUserRoles.contains(Role.VENUE_OWNER)) {
             return approveByVenueOwner(eventId, currentUser, remarks);
-        } else if ((currentUserRole == Role.EQUIPMENT_OWNER || currentUserRole == Role.MSDO)
+        } else if ((currentUserRoles.contains(Role.EQUIPMENT_OWNER)
+                        || currentUserRoles.contains(Role.MSDO))
                 && currentUser.getDepartment() != null
                 && currentUser.getDepartment().getName() != null
                 && currentUser.getDepartment().getName().contains("MSDO")) {
             return approveByMSDO(eventId, currentUser, remarks);
-        } else if ((currentUserRole == Role.EQUIPMENT_OWNER || currentUserRole == Role.OPC)
+        } else if ((currentUserRoles.contains(Role.EQUIPMENT_OWNER)
+                        || currentUserRoles.contains(Role.OPC))
                 && currentUser.getDepartment() != null
                 && currentUser.getDepartment().getName() != null
                 && currentUser.getDepartment().getName().contains("OPC")) {
             return approveByOPC(eventId, currentUser, remarks);
-        } else if (currentUserRole == Role.DEPT_HEAD) {
+        } else if (currentUserRoles.contains(Role.DEPT_HEAD)) {
             return approveByDepartmentHead(eventId, currentUser, remarks);
-        } else if (currentUserRole == Role.VP_ADMIN) {
+        } else if (currentUserRoles.contains(Role.VP_ADMIN)) {
             return approveByVPAdmin(eventId, currentUser, remarks);
-        } else if (currentUserRole == Role.VPAA) {
+        } else if (currentUserRoles.contains(Role.VPAA)) {
             return approveByVPAA(eventId, currentUser, remarks);
-        } else if (currentUserRole == Role.SSD) {
+        } else if (currentUserRoles.contains(Role.SSD)) {
             return approveBySSD(eventId, currentUser, remarks);
-        } else if (currentUserRole == Role.FAO) {
+        } else if (currentUserRoles.contains(Role.FAO)) {
             return approveByFAO(eventId, currentUser, remarks);
         } else {
             return "You are not authorized to approve this event based on your roles.";
@@ -145,7 +148,7 @@ public class EventApprovalService {
                 || !venue.getVenueOwner().getId().equals(approver.getId())) {
             return "Error: You are not the owner of this venue (" + venue.getName() + ").";
         }
-        if (approver.getRoles() != Role.VENUE_OWNER) {
+        if (!approver.getRoles().contains(Role.VENUE_OWNER)) {
             return "Error: User does not have the VENUE_OWNER role.";
         }
 
@@ -184,7 +187,7 @@ public class EventApprovalService {
 
         String eventApprovalMessage =
                 "Venue approved successfully by "
-                        + approver.getRoles().name()
+                        + approver.getRoles().iterator().next().name()
                         + ": "
                         + approver.getFullName();
         return eventApprovalMessage;
@@ -212,7 +215,7 @@ public class EventApprovalService {
                     + event.getOrganizer().getDepartment().getName()
                     + ").";
         }
-        if (approver.getRoles() != Role.DEPT_HEAD) {
+        if (!approver.getRoles().contains(Role.DEPT_HEAD)) {
             return "Error: User does not have the DEPT_HEAD role.";
         }
 
@@ -282,7 +285,7 @@ public class EventApprovalService {
         if (eventOptional.isEmpty()) return "Error: Event not found";
         Event event = eventOptional.get();
 
-        if (approver.getRoles() != requiredRole) {
+        if (!approver.getRoles().contains(requiredRole)) {
             return "Error: You do not have the required role ("
                     + requiredRole.name()
                     + ") to approve this event.";
@@ -321,7 +324,9 @@ public class EventApprovalService {
 
         return String.format(
                 "%s approval successful by %s: %s",
-                requiredRole.name(), approver.getRoles().name(), approver.getFullName());
+                requiredRole.name(),
+                approver.getRoles().iterator().next().name(),
+                approver.getFullName());
     }
 
     private void checkAndUpdateEventStatus(Event event, User lastApprover, Role lastApprovalRole) {
@@ -343,8 +348,9 @@ public class EventApprovalService {
                             .anyMatch(
                                     a ->
                                             a.getSignedBy().getId().equals(requiredDeptHead.getId())
-                                                    && a.getSignedBy().getRoles()
-                                                            == Role.DEPT_HEAD);
+                                                    && a.getSignedBy()
+                                                            .getRoles()
+                                                            .contains(Role.DEPT_HEAD));
         } else {
             // If no specific department head for the organizer, this condition is not met for full
             // approval based on this specific check.
@@ -366,8 +372,9 @@ public class EventApprovalService {
                                             a.getSignedBy()
                                                             .getId()
                                                             .equals(requiredVenueOwner.getId())
-                                                    && a.getSignedBy().getRoles()
-                                                            == Role.VENUE_OWNER);
+                                                    && a.getSignedBy()
+                                                            .getRoles()
+                                                            .contains(Role.VENUE_OWNER));
         } else {
             // If no venue is assigned to the event, or the venue has no owner,
             // this specific approval is considered not applicable/waived for the purpose of this
@@ -381,9 +388,9 @@ public class EventApprovalService {
                         .anyMatch(
                                 a -> {
                                     User signedBy = a.getSignedBy();
-                                    boolean isMSDORole = signedBy.getRoles() == Role.MSDO;
+                                    boolean isMSDORole = signedBy.getRoles().contains(Role.MSDO);
                                     boolean isEquipmentOwnerInMSDODept =
-                                            signedBy.getRoles() == Role.EQUIPMENT_OWNER
+                                            signedBy.getRoles().contains(Role.EQUIPMENT_OWNER)
                                                     && signedBy.getDepartment() != null
                                                     && signedBy.getDepartment().getName() != null
                                                     && signedBy.getDepartment()
@@ -398,9 +405,9 @@ public class EventApprovalService {
                         .anyMatch(
                                 a -> {
                                     User signedBy = a.getSignedBy();
-                                    boolean isOPCRole = signedBy.getRoles() == Role.OPC;
+                                    boolean isOPCRole = signedBy.getRoles().contains(Role.OPC);
                                     boolean isEquipmentOwnerInOPCDept =
-                                            signedBy.getRoles() == Role.EQUIPMENT_OWNER
+                                            signedBy.getRoles().contains(Role.EQUIPMENT_OWNER)
                                                     && signedBy.getDepartment() != null
                                                     && signedBy.getDepartment().getName() != null
                                                     && signedBy.getDepartment()
@@ -411,19 +418,20 @@ public class EventApprovalService {
 
         // 5. Check for VP_ADMIN Approval
         boolean vpAdminApproved =
-                approvals.stream().anyMatch(a -> a.getSignedBy().getRoles() == Role.VP_ADMIN);
+                approvals.stream()
+                        .anyMatch(a -> a.getSignedBy().getRoles().contains(Role.VP_ADMIN));
 
         // 6. Check for VPAA Approval
         boolean vpaaApproved =
-                approvals.stream().anyMatch(a -> a.getSignedBy().getRoles() == Role.VPAA);
+                approvals.stream().anyMatch(a -> a.getSignedBy().getRoles().contains(Role.VPAA));
 
         // 7. Check for SSD Approval
         boolean ssdApproved =
-                approvals.stream().anyMatch(a -> a.getSignedBy().getRoles() == Role.SSD);
+                approvals.stream().anyMatch(a -> a.getSignedBy().getRoles().contains(Role.SSD));
 
         // 8. Check for FAO Approval
         boolean faoApproved =
-                approvals.stream().anyMatch(a -> a.getSignedBy().getRoles() == Role.FAO);
+                approvals.stream().anyMatch(a -> a.getSignedBy().getRoles().contains(Role.FAO));
 
         boolean isFullyApproved =
                 organizerDeptHeadApproved
@@ -484,7 +492,7 @@ public class EventApprovalService {
             return "Error: Rejection remarks are required.";
         }
 
-        Role rejectingRole = currentUser.getRoles();
+        Set<Role> rejectingRole = currentUser.getRoles();
 
         event.setStatus(Status.REJECTED);
         eventRepository.save(event);
@@ -503,7 +511,7 @@ public class EventApprovalService {
                     "Your event '"
                             + event.getEventName()
                             + "' has been rejected by "
-                            + rejectingRole.name()
+                            + rejectingRole.iterator().next().name()
                             + ": "
                             + currentUser.getFullName()
                             + ". Remarks: "
@@ -532,7 +540,7 @@ public class EventApprovalService {
         if (signedByEntity != null) {
             signedByUserDto = userMapper.toDto(signedByEntity);
             if (signedByEntity.getRoles() != null) {
-                userRole = signedByEntity.getRoles().name();
+                userRole = signedByEntity.getRoles().iterator().next().name();
             }
         }
 

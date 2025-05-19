@@ -26,6 +26,7 @@ import com.univers.univers_backend.Repository.EquipmentReservationRepository;
 import com.univers.univers_backend.Repository.EventRepository;
 import com.univers.univers_backend.Repository.UserRepository;
 import java.time.Instant;
+import java.util.HashSet;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Set;
@@ -55,7 +56,6 @@ public class EquipmentReservationService {
     private final EventMapper eventMapper;
     private final DepartmentMapper departmentMapper;
     private final EquipmentMapper equipmentMapper;
-    private final UserMapper userMapper;
     private static final Logger logger = LoggerFactory.getLogger(EquipmentReservationService.class);
     // Define roles that can approve/reject equipment reservations
     // Assuming EQUIPMENT_OWNER is the primary role
@@ -94,7 +94,6 @@ public class EquipmentReservationService {
         this.eventMapper = eventMapper;
         this.departmentMapper = departmentMapper;
         this.equipmentMapper = equipmentMapper;
-        this.userMapper = userMapper;
     }
 
     @Transactional
@@ -251,13 +250,13 @@ public class EquipmentReservationService {
             return "Error: Reservation is not PENDING.";
         }
 
-        Role currentUserRole = currentUser.getRoles();
-        if (!EQUIPMENT_APPROVER_ROLES.contains(currentUserRole)) {
+        Set<Role> currentUserRoles = currentUser.getRoles();
+        if (!EQUIPMENT_APPROVER_ROLES.stream().anyMatch(currentUserRoles::contains)) {
             return "Error: You lack the required role to approve.";
         }
 
         // Specific check for EQUIPMENT_OWNER
-        if (currentUserRole == Role.EQUIPMENT_OWNER) {
+        if (currentUserRoles.contains(Role.EQUIPMENT_OWNER)) {
             User equipmentOwner = reservation.getEquipment().getEquipmentOwner();
             if (equipmentOwner == null || !currentUser.getId().equals(equipmentOwner.getId())) {
                 return "Error: You are not the designated owner for this equipment.";
@@ -281,12 +280,12 @@ public class EquipmentReservationService {
 
         notifyRequester(
                 reservation,
-                "received approval from " + currentUserRole.name(),
+                "received approval from " + currentUserRoles.iterator().next().name(),
                 currentUser,
                 "EQUIPMENT_RESERVATION_APPROVED");
 
         return "Equipment reservation approved by "
-                + currentUserRole.name()
+                + currentUserRoles.iterator().next().name()
                 + ": "
                 + currentUser.getFullName();
     }
@@ -307,7 +306,7 @@ public class EquipmentReservationService {
             return "Error: Reservation is not PENDING.";
         }
 
-        Role currentUserRole = currentUser.getRoles();
+        Role currentUserRole = currentUser.getRoles().iterator().next();
         if (!EQUIPMENT_APPROVER_ROLES.contains(currentUserRole)) {
             return "Error: You lack the required role to reject.";
         }
@@ -348,7 +347,9 @@ public class EquipmentReservationService {
                 equipmentApprovalRepository.findAllByEquipmentReservationAndStatus(
                         reservation, Status.APPROVED);
         Set<Role> approvingRoles =
-                approvals.stream().map(a -> a.getSignedBy().getRoles()).collect(Collectors.toSet());
+                approvals.stream()
+                        .map(a -> a.getSignedBy().getRoles().iterator().next())
+                        .collect(Collectors.toSet());
 
         boolean allRequiredApproved = approvingRoles.containsAll(REQUIRED_APPROVAL_ROLES);
 
@@ -374,7 +375,7 @@ public class EquipmentReservationService {
 
         boolean isRequester =
                 reservation.getRequestingUser().getPublicId().equals(currentUser.getPublicId());
-        boolean isSuperAdmin = currentUser.getRoles() == Role.SUPER_ADMIN;
+        boolean isSuperAdmin = currentUser.getRoles().iterator().next() == Role.SUPER_ADMIN;
 
         if (!isRequester && !isSuperAdmin) {
             throw new SecurityException("You are not authorized to cancel this reservation.");
@@ -416,7 +417,7 @@ public class EquipmentReservationService {
 
         boolean isRequester =
                 reservation.getRequestingUser().getPublicId().equals(currentUser.getPublicId());
-        boolean isSuperAdmin = currentUser.getRoles() == Role.SUPER_ADMIN;
+        boolean isSuperAdmin = currentUser.getRoles().iterator().next() == Role.SUPER_ADMIN;
 
         if (!isSuperAdmin
                 && (!isRequester
@@ -475,7 +476,7 @@ public class EquipmentReservationService {
                     equipmentOwner,
                     message,
                     reservation.getEvent().getPublicId(),
-                    reservation.getPublicId(),
+                    reservation.getEvent().getPublicId(),
                     "EQUIPMENT_RESERVATION_REQUEST");
 
             System.out.println(
@@ -588,14 +589,14 @@ public class EquipmentReservationService {
 
         String userRole = null;
         if (signedByEntity != null && signedByEntity.getRoles() != null) {
-            userRole = signedByEntity.getRoles().name();
+            userRole = signedByEntity.getRoles().iterator().next().name();
         }
 
         return new EquipmentApprovalDTO(
                 approval.getPublicId(),
                 approval.getEquipmentReservation().getPublicId(),
                 signedByUserDto,
-                userRole,
+                Set.of(userRole),
                 approval.getRemarks(),
                 approval.getStatus().name(),
                 approval.getDateSigned());
@@ -631,7 +632,9 @@ public class EquipmentReservationService {
                 user.getId_number(),
                 user.getPhone_number(),
                 user.getTelephoneNumber(),
-                user.getRoles() != null ? user.getRoles().name() : null,
+                user.getRoles() != null
+                        ? Set.of(user.getRoles().iterator().next().name())
+                        : new HashSet<>(),
                 departmentDto,
                 user.getEmailVerified(),
                 user.isActive(),

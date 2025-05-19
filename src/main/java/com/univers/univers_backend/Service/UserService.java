@@ -275,7 +275,7 @@ public class UserService {
         User user = new User();
         user.setEmail(request.email());
         user.setPassword(passwordEncoder.encode(request.password()));
-        user.setRoles(request.role() != null ? request.role() : Set.of(Role.ORGANIZER));
+        user.setRoles(request.roles() != null ? request.roles() : Set.of(Role.ORGANIZER));
         user.setFirstname(request.firstName() != null ? request.firstName() : "User");
         user.setLastname(request.lastName());
         user.setId_number(request.idNumber());
@@ -401,9 +401,10 @@ public class UserService {
             user.setDepartment(null);
         }
 
-        if (editUserDTO.role() != null) {
+        if (editUserDTO.roles() != null) {
             try {
-                Set<Role> roles = editUserDTO.role().stream()
+                Set<Role> roles =
+                        editUserDTO.roles().stream()
                                 .map(r -> Role.valueOf(r.toUpperCase()))
                                 .collect(Collectors.toSet());
                 user.setRoles(roles);
