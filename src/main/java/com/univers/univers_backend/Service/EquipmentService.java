@@ -55,8 +55,7 @@ public class EquipmentService {
                                         new IllegalArgumentException(
                                                 "User not found with Public ID: " + userId));
 
-        Set<Role> authorizedRoles =
-                Set.of(Role.EQUIPMENT_OWNER, Role.SUPER_ADMIN, Role.MSDO, Role.OPC);
+        Set<Role> authorizedRoles = Set.of(Role.EQUIPMENT_OWNER, Role.SUPER_ADMIN);
         if (!requester.getRoles().stream().anyMatch(authorizedRoles::contains)) {
             throw new IllegalArgumentException("User is not authorized to add equipment.");
         }
@@ -162,7 +161,7 @@ public class EquipmentService {
                                         new IllegalArgumentException(
                                                 "User (requester) not found with ID: " + userId));
 
-        Set<Role> equipmentManagerRoles = Set.of(Role.EQUIPMENT_OWNER, Role.MSDO, Role.OPC);
+        Set<Role> equipmentManagerRoles = Set.of(Role.EQUIPMENT_OWNER);
 
         if (!requester.getRoles().stream().anyMatch(role -> role == Role.SUPER_ADMIN)
                 && !(requester.getRoles().stream().anyMatch(equipmentManagerRoles::contains)
@@ -255,7 +254,7 @@ public class EquipmentService {
                                         new IllegalArgumentException(
                                                 "User (requester) not found with ID: " + userId));
 
-        Set<Role> equipmentManagerRoles = Set.of(Role.EQUIPMENT_OWNER, Role.MSDO, Role.OPC);
+        Set<Role> equipmentManagerRoles = Set.of(Role.EQUIPMENT_OWNER);
 
         if (!requester.getRoles().stream().anyMatch(role -> role == Role.SUPER_ADMIN)
                 && !(requester.getRoles().stream().anyMatch(equipmentManagerRoles::contains)

@@ -11,13 +11,17 @@ import com.univers.univers_backend.Entity.User;
 import com.univers.univers_backend.Entity.Venue;
 import com.univers.univers_backend.Enum.Role;
 import com.univers.univers_backend.Enum.Status;
-import com.univers.univers_backend.Mapper.*;
+import com.univers.univers_backend.Mapper.DepartmentMapper;
+import com.univers.univers_backend.Mapper.EventMapper;
+import com.univers.univers_backend.Mapper.UserMapper;
+import com.univers.univers_backend.Mapper.VenueMapper;
 import com.univers.univers_backend.Repository.EventApprovalRepository;
 import com.univers.univers_backend.Repository.EventRepository;
 import com.univers.univers_backend.Repository.UserRepository;
 import com.univers.univers_backend.Repository.VenueRepository;
 import java.time.Instant;
 import java.time.format.DateTimeParseException;
+import java.util.HashSet;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Set;
@@ -91,6 +95,14 @@ public class EventService {
 
         User organizer = getCurrentUser();
 
+        Instant now = Instant.now();
+        Instant fiveDaysFromNow = now.plus(5, java.time.temporal.ChronoUnit.DAYS);
+        if (requestDTO.startTime().isBefore(fiveDaysFromNow)
+                || requestDTO.startTime().equals(fiveDaysFromNow)) {
+            throw new IllegalArgumentException(
+                    "Event start time must be more than 5 days from now.");
+        }
+
         Venue venue =
                 venueRepository
                         .findByPublicId(requestDTO.venuePublicId())
@@ -147,6 +159,83 @@ public class EventService {
         }
 
         Event savedEvent = eventRepository.save(event);
+
+        Set<User> processedApprovers = new HashSet<>();
+
+        // 1. Venue Owner
+        Venue eventVenue = savedEvent.getEventVenue();
+        if (eventVenue != null && eventVenue.getVenueOwner() != null) {
+            User venueOwner = eventVenue.getVenueOwner();
+            if (processedApprovers.add(venueOwner)) {
+                EventApproval venueApproval = new EventApproval();
+                venueApproval.setEvent(savedEvent);
+                venueApproval.setSignedBy(venueOwner);
+                venueApproval.setStatus(Status.PENDING);
+                eventApprovalRepository.save(venueApproval);
+            }
+            if (!venueOwner.getPublicId().equals(organizer.getPublicId())) {
+                notificationService.createNotification(
+                        venueOwner,
+                        "A new event '"
+                                + savedEvent.getEventName()
+                                + "' has been proposed for your venue '"
+                                + eventVenue.getName()
+                                + "' and requires your approval.",
+                        savedEvent.getPublicId(),
+                        savedEvent.getPublicId(),
+                        "VENUE_RESERVATION_APPROVAL");
+            }
+        }
+
+        // 2. Department Head
+        Department eventDept = savedEvent.getDepartment();
+        if (eventDept != null && eventDept.getDeptHead() != null) {
+            User deptHead = eventDept.getDeptHead();
+            if (processedApprovers.add(deptHead)) {
+                EventApproval deptApproval = new EventApproval();
+                deptApproval.setEvent(savedEvent);
+                deptApproval.setSignedBy(deptHead);
+                deptApproval.setStatus(Status.PENDING);
+                eventApprovalRepository.save(deptApproval);
+
+                if (!deptHead.getPublicId().equals(organizer.getPublicId())) {
+                    notificationService.createNotification(
+                            deptHead,
+                            "A new event '"
+                                    + savedEvent.getEventName()
+                                    + "' has been proposed under your department '"
+                                    + eventDept.getName()
+                                    + "' and requires your approval.",
+                            savedEvent.getPublicId(),
+                            savedEvent.getPublicId(),
+                            "DEPARTMENT_EVENT_APPROVAL");
+                }
+            }
+        }
+
+        // 3. Event Approvers (Role-based)
+        List<User> eventApprovers = userRepository.findAllByRolesContains(Role.ADMIN);
+        for (User approver : eventApprovers) {
+            if (processedApprovers.add(approver)) {
+                EventApproval roleApproval = new EventApproval();
+                roleApproval.setEvent(savedEvent);
+                roleApproval.setSignedBy(approver);
+                roleApproval.setStatus(Status.PENDING);
+                eventApprovalRepository.save(roleApproval);
+
+                if (!approver.getPublicId().equals(organizer.getPublicId())) {
+                    notificationService.createNotification(
+                            approver,
+                            "A new event '"
+                                    + savedEvent.getEventName()
+                                    + "' requires your approval as a designated Event Approver.",
+                            savedEvent.getPublicId(),
+                            savedEvent.getPublicId(),
+                            "EVENT_APPROVAL_REQUEST");
+                }
+            }
+        }
+
         return eventMapper.toDto(savedEvent);
     }
 
@@ -587,11 +676,7 @@ public class EventService {
             case "all":
                 if (!(userRole.contains(Role.SUPER_ADMIN)
                         || userRole.contains(Role.VP_ADMIN)
-                        || userRole.contains(Role.MSDO)
-                        || userRole.contains(Role.OPC)
-                        || userRole.contains(Role.SSD)
-                        || userRole.contains(Role.FAO)
-                        || userRole.contains(Role.VPAA))) {
+                        || userRole.contains(Role.ADMIN))) {
                     logger.warn(
                             "Scope 'all' requested by non-admin role {}, defaulting to 'approved'"
                                     + " events only.",
@@ -614,11 +699,7 @@ public class EventService {
             if (scope.equalsIgnoreCase("all")
                     && !(userRole.contains(Role.SUPER_ADMIN)
                             || userRole.contains(Role.VP_ADMIN)
-                            || userRole.contains(Role.MSDO)
-                            || userRole.contains(Role.OPC)
-                            || userRole.contains(Role.SSD)
-                            || userRole.contains(Role.FAO)
-                            || userRole.contains(Role.VPAA))) {
+                            || userRole.contains(Role.ADMIN))) {
                 // Non-admin requested 'all' which defaults to 'approved', ignore other status
                 // filters
                 logger.warn(
@@ -646,11 +727,9 @@ public class EventService {
                                             cb.lessThanOrEqualTo(
                                                     root.get("startTime"),
                                                     finalQueryEndDate), // Event starts before or at
-                                            // query end
                                             cb.greaterThanOrEqualTo(
                                                     root.get("endTime"),
                                                     finalQueryStartDate) // Event ends after or at
-                                            // query start
                                             ));
         } else if (finalQueryStartDate != null) {
             // If only startDate is provided, find events that end on or after startDate
@@ -718,11 +797,9 @@ public class EventService {
                                             cb.lessThanOrEqualTo(
                                                     root.get("startTime"),
                                                     finalEndDate), // Event starts before or at
-                                            // query end
                                             cb.greaterThanOrEqualTo(
                                                     root.get("endTime"),
                                                     finalStartDate) // Event ends after or at query
-                                            // start
                                             ));
         } else if (finalStartDate != null) {
             // If only startDate is provided, find events that end on or after startDate

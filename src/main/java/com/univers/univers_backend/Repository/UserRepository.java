@@ -19,4 +19,6 @@ public interface UserRepository extends JpaRepository<User, Long> {
     Boolean existsByRoles(Role role);
 
     List<User> findByDepartment(Department department);
+
+    List<User> findAllByRolesContains(Role role);
 }

@@ -18,4 +18,6 @@ public interface EventApprovalRepository extends JpaRepository<EventApproval, Lo
     boolean existsByEventAndSignedByAndStatus(Event event, User signedBy, Status status);
 
     List<EventApproval> findAllByEventAndStatus(Event event, Status status);
+
+    Optional<EventApproval> findByEventAndSignedBy(Event event, User signedBy);
 }

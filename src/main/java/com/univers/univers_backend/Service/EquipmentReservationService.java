@@ -536,7 +536,7 @@ public class EquipmentReservationService {
                     message,
                     reservation.getEvent().getPublicId(),
                     reservation.getPublicId(),
-                    "EQUIPMENT_RESERVATION_CANCELED_INFO");
+                    "EQUIPMENT_RESERVATION_CANCELED");
 
             System.out.println(
                     "DEBUG: Notify Owner of Cancellation: "

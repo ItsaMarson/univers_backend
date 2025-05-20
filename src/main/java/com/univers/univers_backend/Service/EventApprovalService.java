@@ -6,8 +6,6 @@ import com.univers.univers_backend.DTO.UserDTO;
 import com.univers.univers_backend.Entity.Event;
 import com.univers.univers_backend.Entity.EventApproval;
 import com.univers.univers_backend.Entity.User;
-import com.univers.univers_backend.Entity.Venue;
-import com.univers.univers_backend.Enum.Role;
 import com.univers.univers_backend.Enum.Status;
 import com.univers.univers_backend.Mapper.UserMapper;
 import com.univers.univers_backend.Repository.EventApprovalRepository;
@@ -15,17 +13,21 @@ import com.univers.univers_backend.Repository.EventRepository;
 import com.univers.univers_backend.Repository.UserRepository;
 import java.time.Instant;
 import java.util.List;
-import java.util.Optional;
-import java.util.Set;
+import java.util.NoSuchElementException;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class EventApprovalService {
+
+    private static final Logger logger = LoggerFactory.getLogger(EventApprovalService.class);
 
     private final EventApprovalRepository eventApprovalRepository;
     private final EventRepository eventRepository;
@@ -46,480 +48,178 @@ public class EventApprovalService {
         this.userMapper = userMapper;
     }
 
-    public String approveEvent(UUID eventId, String remarks) {
-        String currentUsername =
-                ((UserDetails)
-                                SecurityContextHolder.getContext()
-                                        .getAuthentication()
-                                        .getPrincipal())
-                        .getUsername();
-        User currentUser =
-                userRepository
-                        .findByEmail(currentUsername)
-                        .orElseThrow(
-                                () ->
-                                        new RuntimeException(
-                                                "Authenticated user not found in database"));
-
-        Optional<Event> eventOpt = eventRepository.findByPublicId(eventId);
-        if (eventOpt.isEmpty()) {
-            return "Error: Event not found.";
-        }
-        Event event = eventOpt.get();
-
-        Set<Role> currentUserRoles = currentUser.getRoles();
-        if (currentUserRoles.contains(Role.SUPER_ADMIN)) {
-            if (event.getStatus() == Status.CANCELED) {
-                return "Error: Cannot approve a canceled event.";
-            }
-
-            EventApproval eventApproval = new EventApproval();
-            eventApproval.setEvent(event);
-            eventApproval.setSignedBy(currentUser);
-            eventApproval.setRemarks("Approved directly by SUPER_ADMIN. " + remarks);
-            eventApproval.setStatus(Status.APPROVED);
-            eventApproval.setDateSigned(Instant.now());
-            eventApprovalRepository.save(eventApproval);
-
-            event.setStatus(Status.APPROVED);
-            eventRepository.save(event);
-
-            User organizer = event.getOrganizer();
-            if (organizer != null && organizer.getEmail() != null) {
-                String messageText =
-                        "Your event '"
-                                + event.getEventName()
-                                + "' has been approved by SUPER_ADMIN: "
-                                + currentUser.getFullName()
-                                + ".";
-                notificationService.createNotification(
-                        organizer,
-                        messageText,
-                        event.getPublicId(),
-                        event.getPublicId(),
-                        "EVENT_APPROVED");
-            }
-            return "Event approved directly by SUPER_ADMIN: " + currentUser.getFullName();
-        }
-
-        if (currentUserRoles.contains(Role.VENUE_OWNER)) {
-            return approveByVenueOwner(eventId, currentUser, remarks);
-        } else if ((currentUserRoles.contains(Role.EQUIPMENT_OWNER)
-                        || currentUserRoles.contains(Role.MSDO))
-                && currentUser.getDepartment() != null
-                && currentUser.getDepartment().getName() != null
-                && currentUser.getDepartment().getName().contains("MSDO")) {
-            return approveByMSDO(eventId, currentUser, remarks);
-        } else if ((currentUserRoles.contains(Role.EQUIPMENT_OWNER)
-                        || currentUserRoles.contains(Role.OPC))
-                && currentUser.getDepartment() != null
-                && currentUser.getDepartment().getName() != null
-                && currentUser.getDepartment().getName().contains("OPC")) {
-            return approveByOPC(eventId, currentUser, remarks);
-        } else if (currentUserRoles.contains(Role.DEPT_HEAD)) {
-            return approveByDepartmentHead(eventId, currentUser, remarks);
-        } else if (currentUserRoles.contains(Role.VP_ADMIN)) {
-            return approveByVPAdmin(eventId, currentUser, remarks);
-        } else if (currentUserRoles.contains(Role.VPAA)) {
-            return approveByVPAA(eventId, currentUser, remarks);
-        } else if (currentUserRoles.contains(Role.SSD)) {
-            return approveBySSD(eventId, currentUser, remarks);
-        } else if (currentUserRoles.contains(Role.FAO)) {
-            return approveByFAO(eventId, currentUser, remarks);
+    // Helper method to get the current authenticated user
+    private User getCurrentUser() {
+        Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        String username;
+        if (principal instanceof UserDetails) {
+            username = ((UserDetails) principal).getUsername();
+        } else if (principal instanceof String) {
+            username = (String) principal;
         } else {
-            return "You are not authorized to approve this event based on your roles.";
+            throw new IllegalStateException(
+                    "Principal is not of expected type (UserDetails or String).");
         }
+        return userRepository
+                .findByEmail(username)
+                .orElseThrow(
+                        () ->
+                                new UsernameNotFoundException(
+                                        "User not found with email: " + username));
     }
 
     @Transactional
-    public String approveByVenueOwner(UUID eventId, User approver, String remarks) {
+    public EventApprovalDTO processApprovalAction(
+            UUID eventPublicId, Status newStatus, String remarks) {
+        User currentUser = getCurrentUser();
 
-        Optional<Event> eventOpt = eventRepository.findByPublicId(eventId);
-        if (eventOpt.isEmpty()) {
-            return "Error: Event not found.";
-        }
-        Event event = eventOpt.get();
-        Venue venue = event.getEventVenue();
+        Event event =
+                eventRepository
+                        .findByPublicId(eventPublicId)
+                        .orElseThrow(
+                                () ->
+                                        new NoSuchElementException(
+                                                "Event not found with ID: " + eventPublicId));
 
-        if (venue == null) {
-            return "Error: No venue is assigned to this event.";
-        }
-        if (venue.getVenueOwner() == null
-                || !venue.getVenueOwner().getId().equals(approver.getId())) {
-            return "Error: You are not the owner of this venue (" + venue.getName() + ").";
-        }
-        if (!approver.getRoles().contains(Role.VENUE_OWNER)) {
-            return "Error: User does not have the VENUE_OWNER role.";
+        // Find the EventApproval record for this event and the current user
+        EventApproval eventApproval =
+                eventApprovalRepository
+                        .findByEventAndSignedBy(event, currentUser)
+                        .orElseThrow(
+                                () ->
+                                        new NoSuchElementException(
+                                                "No pending approval found for user "
+                                                        + currentUser.getPublicId()
+                                                        + " on event "
+                                                        + eventPublicId));
+
+        // The check for ownership is implicitly handled by finding the approval signed by the
+        // current user.
+        // If no record is found for the current user and this event, the above orElseThrow is
+        // triggered.
+        // We still need to check if an approval record exists but might belong to a different user
+        // if the query `findByEventAndSignedBy` was broader. However, given its name, it should be
+        // specific.
+        // For safety, let's ensure the found approval indeed matches the current user, though it
+        // should be redundant
+        // if `findByEventAndSignedBy` is correctly implemented and used.
+        if (!eventApproval.getSignedBy().getId().equals(currentUser.getId())) {
+            // This case should ideally not be reached if findByEventAndSignedBy is specific.
+            logger.warn(
+                    "Mismatch: Found approval {} for event {} but it is signed by {} instead of"
+                            + " current user {}.",
+                    eventApproval.getPublicId(),
+                    eventPublicId,
+                    eventApproval.getSignedBy().getPublicId(),
+                    currentUser.getPublicId());
+            throw new SecurityException(
+                    "Approval record does not belong to the current user for this event.");
         }
 
-        if (eventApprovalRepository.existsByEventAndSignedByAndStatus(
-                event, approver, Status.APPROVED)) {
-            return "Warning: You ("
-                    + approver.getFullName()
-                    + ") have already approved this event.";
+        if (eventApproval.getStatus() == Status.ONGOING
+                || eventApproval.getStatus() == Status.COMPLETED
+                || eventApproval.getStatus() == Status.CANCELED) {
+            throw new IllegalStateException(
+                    "This approval item has already been processed. Current status: "
+                            + eventApproval.getStatus());
         }
 
-        EventApproval eventApproval = new EventApproval();
-        eventApproval.setEvent(event);
-        eventApproval.setSignedBy(approver);
+        if (newStatus != Status.APPROVED && newStatus != Status.REJECTED) {
+            throw new IllegalArgumentException(
+                    "Invalid target status for approval action. Must be APPROVED or REJECTED.");
+        }
+
+        eventApproval.setStatus(newStatus);
         eventApproval.setRemarks(remarks);
-        eventApproval.setStatus(Status.APPROVED);
         eventApproval.setDateSigned(Instant.now());
-        eventApprovalRepository.save(eventApproval);
+        EventApproval updatedApproval = eventApprovalRepository.save(eventApproval);
 
-        checkAndUpdateEventStatus(event, approver, Role.VENUE_OWNER);
+        checkAndUpdateEventStatus(updatedApproval.getEvent());
 
-        User organizer = event.getOrganizer();
-        if (organizer != null && organizer.getEmail() != null) {
-            String notificationMessage =
-                    "Your event '"
-                            + event.getEventName()
-                            + "' has received approval from Venue Owner: "
-                            + approver.getFullName()
-                            + ".";
-            notificationService.createNotification(
-                    organizer,
-                    notificationMessage,
-                    event.getPublicId(),
-                    event.getPublicId(),
-                    "EVENT_APPROVED");
-        }
-
-        String eventApprovalMessage =
-                "Venue approved successfully by "
-                        + approver.getRoles().iterator().next().name()
-                        + ": "
-                        + approver.getFullName();
-        return eventApprovalMessage;
+        return mapToDTO(updatedApproval);
     }
 
-    public String approveByDepartmentHead(UUID eventId, User approver, String remarks) {
-        Optional<Event> eventOpt = eventRepository.findByPublicId(eventId);
-        if (eventOpt.isEmpty()) {
-            return "Error: Event not found.";
-        }
-        Event event = eventOpt.get();
+    private void checkAndUpdateEventStatus(Event event) {
+        List<EventApproval> approvals = eventApprovalRepository.findAllByEvent(event);
 
-        if (event.getOrganizer() == null
-                || event.getOrganizer().getDepartment() == null
-                || event.getOrganizer().getDepartment().getDeptHead() == null) {
-            return "Error: Cannot determine the required department head for this event's"
-                    + " organizer.";
-        }
-
-        User requiredDeptHead = event.getOrganizer().getDepartment().getDeptHead();
-
-        if (!requiredDeptHead.getId().equals(approver.getId())) {
-            return "Error: You are not the designated department head for the organizer's"
-                    + " department ("
-                    + event.getOrganizer().getDepartment().getName()
-                    + ").";
-        }
-        if (!approver.getRoles().contains(Role.DEPT_HEAD)) {
-            return "Error: User does not have the DEPT_HEAD role.";
-        }
-
-        // Check if this department head has already approved this event
-        if (eventApprovalRepository.existsByEventAndSignedByAndStatus(
-                event, approver, Status.APPROVED)) {
-            return "Warning: You (Department Head: "
-                    + approver.getFullName()
-                    + ") have already approved this event.";
-        }
-
-        EventApproval eventApproval = new EventApproval();
-        eventApproval.setEvent(event);
-        eventApproval.setSignedBy(approver);
-        eventApproval.setRemarks(remarks);
-        eventApproval.setStatus(Status.APPROVED);
-        eventApproval.setDateSigned(Instant.now());
-
-        eventApprovalRepository.save(eventApproval);
-
-        checkAndUpdateEventStatus(event, approver, Role.DEPT_HEAD);
-
-        User organizer = event.getOrganizer();
-        if (organizer != null && organizer.getEmail() != null) {
-            String notificationMessage =
-                    "Your event '"
-                            + event.getEventName()
-                            + "' has received approval from Department Head: "
-                            + approver.getFullName()
-                            + ".";
-            notificationService.createNotification(
-                    organizer,
-                    notificationMessage,
-                    event.getPublicId(),
-                    event.getPublicId(),
-                    "EVENT_APPROVED");
-        }
-        return "Approved successfully by Department Head: " + approver.getFullName();
-    }
-
-    public String approveByMSDO(UUID eventId, User approver, String remarks) {
-        return approve(eventId, approver, remarks, Role.MSDO);
-    }
-
-    public String approveByOPC(UUID eventId, User approver, String remarks) {
-        return approve(eventId, approver, remarks, Role.OPC);
-    }
-
-    public String approveByVPAdmin(UUID eventId, User approver, String remarks) {
-        return approve(eventId, approver, remarks, Role.VP_ADMIN);
-    }
-
-    public String approveByVPAA(UUID eventId, User approver, String remarks) {
-        return approve(eventId, approver, remarks, Role.VPAA);
-    }
-
-    public String approveBySSD(UUID eventId, User approver, String remarks) {
-        return approve(eventId, approver, remarks, Role.SSD);
-    }
-
-    public String approveByFAO(UUID eventId, User approver, String remarks) {
-        return approve(eventId, approver, remarks, Role.FAO);
-    }
-
-    public String approve(UUID eventId, User approver, String remarks, Role requiredRole) {
-        Optional<Event> eventOptional = eventRepository.findByPublicId(eventId);
-        if (eventOptional.isEmpty()) return "Error: Event not found";
-        Event event = eventOptional.get();
-
-        if (!approver.getRoles().contains(requiredRole)) {
-            return "Error: You do not have the required role ("
-                    + requiredRole.name()
-                    + ") to approve this event.";
-        }
-
-        if (eventApprovalRepository.existsByEventAndSignedByAndStatus(
-                event, approver, Status.APPROVED)) {
-            return "Warning: You ("
-                    + approver.getFullName()
-                    + ") have already approved this event.";
-        }
-
-        EventApproval eventApproval = new EventApproval();
-        eventApproval.setEvent(event);
-        eventApproval.setSignedBy(approver);
-        eventApproval.setRemarks(remarks);
-        eventApproval.setStatus(Status.APPROVED);
-        eventApproval.setDateSigned(Instant.now());
-        eventApprovalRepository.save(eventApproval);
-
-        checkAndUpdateEventStatus(event, approver, requiredRole);
-
-        User organizer = event.getOrganizer();
-        if (organizer != null && organizer.getEmail() != null) {
-            String notificationMessage =
-                    String.format(
-                            "Your event '%s' has received approval from %s: %s.",
-                            event.getEventName(), requiredRole.name(), approver.getFullName());
-            notificationService.createNotification(
-                    organizer,
-                    notificationMessage,
-                    event.getPublicId(),
-                    event.getPublicId(),
-                    "EVENT_PARTIALLY_APPROVED");
-        }
-
-        return String.format(
-                "%s approval successful by %s: %s",
-                requiredRole.name(),
-                approver.getRoles().iterator().next().name(),
-                approver.getFullName());
-    }
-
-    private void checkAndUpdateEventStatus(Event event, User lastApprover, Role lastApprovalRole) {
-        if (event.getStatus() == Status.APPROVED || event.getStatus() == Status.CANCELED) {
+        if (approvals.isEmpty()) {
+            logger.warn(
+                    "No approval records found for event ID: {}. Cannot determine overall status.",
+                    event.getPublicId());
+            // If event is PENDING and has no required approvers, it could be auto-approved.
+            // This needs clear business rules. For now, if no approval records exist (e.g. for an
+            // old event or misconfiguration)
+            // and status is PENDING, it will remain PENDING by this logic.
+            // If EventService correctly creates placeholders, this list should not be empty for
+            // events requiring approval.
             return;
         }
 
-        List<EventApproval> approvals =
-                eventApprovalRepository.findAllByEventAndStatus(event, Status.APPROVED);
+        boolean allApproved = true;
+        boolean anyRejected = false;
 
-        // 1. Check for Organizer's Department Head Approval
-        boolean organizerDeptHeadApproved = false;
-        if (event.getOrganizer() != null
-                && event.getOrganizer().getDepartment() != null
-                && event.getOrganizer().getDepartment().getDeptHead() != null) {
-            User requiredDeptHead = event.getOrganizer().getDepartment().getDeptHead();
-            organizerDeptHeadApproved =
-                    approvals.stream()
-                            .anyMatch(
-                                    a ->
-                                            a.getSignedBy().getId().equals(requiredDeptHead.getId())
-                                                    && a.getSignedBy()
-                                                            .getRoles()
-                                                            .contains(Role.DEPT_HEAD));
-        } else {
-            // If no specific department head for the organizer, this condition is not met for full
-            // approval based on this specific check.
-            // Alternatively, if any DEPT_HEAD approval was acceptable, the logic would be:
-            // organizerDeptHeadApproved = approvals.stream().anyMatch(a ->
-            // a.getSignedBy().getRoles() == Role.DEPT_HEAD);
-            // Sticking to specific DH for now.
-            organizerDeptHeadApproved = false;
-        }
-
-        // 2. Check for Event's Venue Owner Approval
-        boolean eventVenueOwnerApproved = false;
-        if (event.getEventVenue() != null && event.getEventVenue().getVenueOwner() != null) {
-            User requiredVenueOwner = event.getEventVenue().getVenueOwner();
-            eventVenueOwnerApproved =
-                    approvals.stream()
-                            .anyMatch(
-                                    a ->
-                                            a.getSignedBy()
-                                                            .getId()
-                                                            .equals(requiredVenueOwner.getId())
-                                                    && a.getSignedBy()
-                                                            .getRoles()
-                                                            .contains(Role.VENUE_OWNER));
-        } else {
-            // If no venue is assigned to the event, or the venue has no owner,
-            // this specific approval is considered not applicable/waived for the purpose of this
-            // check.
-            eventVenueOwnerApproved = true;
-        }
-
-        // 3. Check for MSDO-related Approval
-        boolean msdoApproved =
-                approvals.stream()
-                        .anyMatch(
-                                a -> {
-                                    User signedBy = a.getSignedBy();
-                                    boolean isMSDORole = signedBy.getRoles().contains(Role.MSDO);
-                                    boolean isEquipmentOwnerInMSDODept =
-                                            signedBy.getRoles().contains(Role.EQUIPMENT_OWNER)
-                                                    && signedBy.getDepartment() != null
-                                                    && signedBy.getDepartment().getName() != null
-                                                    && signedBy.getDepartment()
-                                                            .getName()
-                                                            .contains("MSDO");
-                                    return isMSDORole || isEquipmentOwnerInMSDODept;
-                                });
-
-        // 4. Check for OPC-related Approval
-        boolean opcApproved =
-                approvals.stream()
-                        .anyMatch(
-                                a -> {
-                                    User signedBy = a.getSignedBy();
-                                    boolean isOPCRole = signedBy.getRoles().contains(Role.OPC);
-                                    boolean isEquipmentOwnerInOPCDept =
-                                            signedBy.getRoles().contains(Role.EQUIPMENT_OWNER)
-                                                    && signedBy.getDepartment() != null
-                                                    && signedBy.getDepartment().getName() != null
-                                                    && signedBy.getDepartment()
-                                                            .getName()
-                                                            .contains("OPC");
-                                    return isOPCRole || isEquipmentOwnerInOPCDept;
-                                });
-
-        // 5. Check for VP_ADMIN Approval
-        boolean vpAdminApproved =
-                approvals.stream()
-                        .anyMatch(a -> a.getSignedBy().getRoles().contains(Role.VP_ADMIN));
-
-        // 6. Check for VPAA Approval
-        boolean vpaaApproved =
-                approvals.stream().anyMatch(a -> a.getSignedBy().getRoles().contains(Role.VPAA));
-
-        // 7. Check for SSD Approval
-        boolean ssdApproved =
-                approvals.stream().anyMatch(a -> a.getSignedBy().getRoles().contains(Role.SSD));
-
-        // 8. Check for FAO Approval
-        boolean faoApproved =
-                approvals.stream().anyMatch(a -> a.getSignedBy().getRoles().contains(Role.FAO));
-
-        boolean isFullyApproved =
-                organizerDeptHeadApproved
-                        && eventVenueOwnerApproved
-                        && msdoApproved
-                        && opcApproved
-                        && vpAdminApproved
-                        && vpaaApproved
-                        && ssdApproved
-                        && faoApproved;
-
-        if (isFullyApproved) {
-            if (event.getStatus() != Status.APPROVED) {
-                event.setStatus(Status.APPROVED);
-                eventRepository.save(event);
-
-                User organizer = event.getOrganizer();
-                if (organizer != null && organizer.getEmail() != null) {
-                    String message =
-                            "Your event '" + event.getEventName() + "' has been fully approved.";
-                    notificationService.createNotification(
-                            organizer,
-                            message,
-                            event.getPublicId(),
-                            event.getPublicId(),
-                            "EVENT_FULLY_APPROVED");
-                }
+        for (EventApproval approval : approvals) {
+            if (approval.getStatus() == Status.REJECTED) {
+                anyRejected = true;
+                break;
+            }
+            if (approval.getStatus() != Status.APPROVED) {
+                // Any non-approved (and not rejected) means not all are approved yet
+                allApproved = false;
             }
         }
-    }
 
-    @Transactional
-    public String rejectEvent(UUID eventId, String remarks) {
-        String currentUsername =
-                ((UserDetails)
-                                SecurityContextHolder.getContext()
-                                        .getAuthentication()
-                                        .getPrincipal())
-                        .getUsername();
-        User currentUser =
-                userRepository
-                        .findByEmail(currentUsername)
-                        .orElseThrow(
-                                () ->
-                                        new RuntimeException(
-                                                "Authenticated user not found in database"));
+        Status oldEventStatus = event.getStatus();
+        Status newEventStatus = oldEventStatus;
 
-        Optional<Event> eventOpt = eventRepository.findByPublicId(eventId);
-        if (eventOpt.isEmpty()) {
-            return "Error: Event not found.";
-        }
-        Event event = eventOpt.get();
-
-        if (event.getStatus() == Status.CANCELED || event.getStatus() == Status.APPROVED) {
-            return "Error: Cannot reject an already approved or canceled event.";
-        }
-        if (remarks == null || remarks.trim().isEmpty()) {
-            return "Error: Rejection remarks are required.";
+        if (anyRejected) {
+            newEventStatus = Status.REJECTED;
+        } else if (allApproved) {
+            newEventStatus = Status.APPROVED;
+        } else {
+            // If not all are approved and none are rejected, it's still PENDING
+            newEventStatus = Status.PENDING;
         }
 
-        Set<Role> rejectingRole = currentUser.getRoles();
+        if (newEventStatus != oldEventStatus) {
+            event.setStatus(newEventStatus);
+            eventRepository.save(event);
+            logger.info(
+                    "Event {} status updated from {} to {} due to approval processing.",
+                    event.getPublicId(),
+                    oldEventStatus,
+                    newEventStatus);
 
-        event.setStatus(Status.REJECTED);
-        eventRepository.save(event);
+            User organizer = event.getOrganizer();
+            if (organizer != null) {
+                String baseMessage =
+                        String.format(
+                                "The status of your event '%s' has been updated to %s.",
+                                event.getEventName(), newEventStatus.toString());
+                String finalMessage = baseMessage;
 
-        EventApproval rejectionRecord = new EventApproval();
-        rejectionRecord.setEvent(event);
-        rejectionRecord.setSignedBy(currentUser);
-        rejectionRecord.setRemarks(remarks);
-        rejectionRecord.setStatus(Status.REJECTED);
-        rejectionRecord.setDateSigned(Instant.now());
-        eventApprovalRepository.save(rejectionRecord);
+                if (newEventStatus == Status.REJECTED) {
+                    String rejectionReason =
+                            approvals.stream()
+                                    .filter(
+                                            a ->
+                                                    a.getStatus() == Status.REJECTED
+                                                            && a.getRemarks() != null
+                                                            && !a.getRemarks().isBlank())
+                                    .map(EventApproval::getRemarks)
+                                    .findFirst()
+                                    .orElse("No specific reason provided.");
+                    finalMessage = baseMessage + " Reason: " + rejectionReason;
+                }
 
-        User organizer = event.getOrganizer();
-        if (organizer != null && organizer.getEmail() != null) {
-            String message =
-                    "Your event '"
-                            + event.getEventName()
-                            + "' has been rejected by "
-                            + rejectingRole.iterator().next().name()
-                            + ": "
-                            + currentUser.getFullName()
-                            + ". Remarks: "
-                            + remarks;
-            notificationService.createNotification(
-                    organizer, message, event.getPublicId(), event.getPublicId(), "EVENT_REJECTED");
+                notificationService.createNotification(
+                        organizer,
+                        finalMessage,
+                        event.getPublicId(),
+                        event.getPublicId(),
+                        "EVENT_STATUS_UPDATE");
+            }
         }
-        return "Event rejected by " + currentUser.getFullName();
     }
 
     public List<EventApprovalDTO> getAllApprovalsOfEvent(UUID eventId) {
@@ -527,30 +227,33 @@ public class EventApprovalService {
                 eventRepository
                         .findByPublicId(eventId)
                         .orElseThrow(
-                                () -> new RuntimeException("Event not found with id: " + eventId));
+                                () ->
+                                        new NoSuchElementException(
+                                                "Event not found with public ID: " + eventId));
         List<EventApproval> approvals = eventApprovalRepository.findAllByEvent(event);
         return approvals.stream().map(this::mapToDTO).collect(Collectors.toList());
     }
 
     private EventApprovalDTO mapToDTO(EventApproval approval) {
-        User signedByEntity = approval.getSignedBy();
-        UserDTO signedByUserDto = null;
-        String userRole = null;
+        if (approval == null) return null;
 
-        if (signedByEntity != null) {
-            signedByUserDto = userMapper.toDto(signedByEntity);
-            if (signedByEntity.getRoles() != null) {
-                userRole = signedByEntity.getRoles().iterator().next().name();
+        UserDTO signedByUserDTO = null;
+        String userRoleStr = null;
+        if (approval.getSignedBy() != null) {
+            signedByUserDTO = userMapper.toDto(approval.getSignedBy());
+            if (approval.getSignedBy().getRoles() != null
+                    && !approval.getSignedBy().getRoles().isEmpty()) {
+                userRoleStr = approval.getSignedBy().getRoles().iterator().next().name();
             }
         }
 
         return new EventApprovalDTO(
                 approval.getPublicId(),
-                approval.getEvent().getPublicId(),
-                signedByUserDto,
-                userRole,
+                approval.getEvent() != null ? approval.getEvent().getPublicId() : null,
+                signedByUserDTO,
+                userRoleStr,
                 approval.getRemarks(),
-                approval.getStatus().name(),
+                approval.getStatus() != null ? approval.getStatus().name() : null,
                 approval.getDateSigned());
     }
 }
