@@ -2,6 +2,7 @@
 package com.univers.univers_backend.Controller;
 
 import com.univers.univers_backend.DTO.EquipmentDTO;
+import com.univers.univers_backend.DTO.EquipmentInputDTO;
 import com.univers.univers_backend.Service.EquipmentService;
 import com.univers.univers_backend.config.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -40,15 +41,15 @@ public class EquipmentController {
                         responseCode = "500",
                         description = "Internal server error")
             })
-    @PostMapping
+    @PostMapping(consumes = "multipart/form-data")
     public ResponseEntity<ApiResponse<EquipmentDTO>> addEquipment(
-            @RequestParam String userId,
-            @RequestPart("equipment") EquipmentDTO equipmentDTO,
-            @RequestPart(value = "image", required = false) MultipartFile imageFile) {
+            @RequestParam("userId") String userId,
+            @RequestPart("equipment") EquipmentInputDTO equipmentInputDTO,
+            @RequestPart(name = "image", required = true) MultipartFile imageFile) {
 
         try {
             EquipmentDTO newEquipment =
-                    equipmentService.addEquipment(userId, equipmentDTO, imageFile);
+                    equipmentService.addEquipment(userId, equipmentInputDTO, imageFile);
             return ResponseEntity.status(HttpStatus.CREATED)
                     .body(ApiResponse.success("Equipment created successfully", newEquipment));
         } catch (IllegalArgumentException e) {
@@ -193,15 +194,16 @@ public class EquipmentController {
                         responseCode = "500",
                         description = "Internal server error")
             })
-    @PatchMapping("/{equipmentId}")
+    @PatchMapping(value = "/{equipmentId}", consumes = "multipart/form-data")
     public ResponseEntity<ApiResponse<EquipmentDTO>> updateEquipment(
             @PathVariable String equipmentId,
-            @RequestParam String userId,
-            @RequestPart("equipment") EquipmentDTO equipmentDTO,
-            @RequestPart(value = "image", required = false) MultipartFile imageFile) {
+            @RequestParam("userId") String userId,
+            @RequestPart("equipment") EquipmentInputDTO equipmentInputDTO,
+            @RequestPart(name = "image", required = false) MultipartFile imageFile) {
         try {
             EquipmentDTO updatedEquipment =
-                    equipmentService.updateEquipment(equipmentId, userId, equipmentDTO, imageFile);
+                    equipmentService.updateEquipment(
+                            equipmentId, userId, equipmentInputDTO, imageFile);
             return ResponseEntity.ok(
                     ApiResponse.success("Equipment updated successfully", updatedEquipment));
         } catch (NoSuchElementException e) {
