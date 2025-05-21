@@ -82,95 +82,72 @@ public class Equipment {
         this.updatedAt = updatedAt;
     }
 
-    public Long getId() {
-        return id;
+    public Long getId() {return id;
     }
 
-    public void setId(Long id) {
-        this.id = id;
+    public void setId(Long id) {this.id = id;
     }
 
-    public String getSerialNo() {
-        return serialNo;
+    public String getSerialNo() {return serialNo;
     }
 
-    public void setSerialNo(String serialNo) {
-        this.serialNo = serialNo;
+    public void setSerialNo(String serialNo) {this.serialNo = serialNo;
     }
 
-    public String getName() {
-        return name;
+    public String getName() {return name;
     }
 
-    public void setName(String name) {
-        this.name = name;
+    public void setName(String name) {this.name = name;
     }
 
-    public Boolean getAvailability() {
-        return availability;
+    public Boolean getAvailability() {return availability;
     }
 
-    public void setAvailability(Boolean availability) {
-        this.availability = availability;
+    public void setAvailability(Boolean availability) {this.availability = availability;
     }
 
-    public User getEquipmentOwner() {
-        return equipmentOwner;
+    public User getEquipmentOwner() {return equipmentOwner;
     }
 
-    public void setEquipmentOwner(User equipmentOwner) {
-        this.equipmentOwner = equipmentOwner;
+    public void setEquipmentOwner(User equipmentOwner) {this.equipmentOwner = equipmentOwner;
     }
 
-    public Integer getQuantity() {
-        return quantity;
+    public Integer getQuantity() {return quantity;
     }
 
-    public void setQuantity(Integer quantity) {
-        this.quantity = quantity;
+    public void setQuantity(Integer quantity) {this.quantity = quantity;
     }
 
-    public String getBrand() {
-        return brand;
+    public String getBrand() {return brand;
     }
 
-    public void setBrand(String brand) {
-        this.brand = brand;
+    public void setBrand(String brand) {this.brand = brand;
     }
 
-    public Status getStatus() {
-        return status;
+    public Status getStatus() {return status;
     }
 
-    public void setStatus(Status status) {
-        this.status = status;
+    public void setStatus(Status status) {this.status = status;
     }
 
-    public String getImagePath() {
-        return imagePath;
+    public String getImagePath() {return imagePath;
     }
 
-    public void setImagePath(String imagePath) {
-        this.imagePath = imagePath;
+    public void setImagePath(String imagePath) {this.imagePath = imagePath;
     }
 
-    public Instant getCreatedAt() {
-        return createdAt;
+    public Instant getCreatedAt() {return createdAt;
     }
 
-    public void setCreatedAt(Instant createdAt) {
-        this.createdAt = createdAt;
+    public void setCreatedAt(Instant createdAt) {this.createdAt = createdAt;
     }
 
-    public Instant getUpdatedAt() {
-        return updatedAt;
+    public Instant getUpdatedAt() {return updatedAt;
     }
 
-    public void setUpdatedAt(Instant updatedAt) {
-        this.updatedAt = updatedAt;
+    public void setUpdatedAt(Instant updatedAt) {this.updatedAt = updatedAt;
     }
 
-    public UUID getPublicId() {
-        return publicId;
+    public UUID getPublicId() {return publicId;
     }
 }
