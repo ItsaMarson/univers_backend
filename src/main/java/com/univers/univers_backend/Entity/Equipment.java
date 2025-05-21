@@ -4,6 +4,8 @@ package com.univers.univers_backend.Entity;
 import com.univers.univers_backend.Enum.Status;
 import jakarta.persistence.*;
 import java.time.Instant;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.UUID;
 
 @Entity
@@ -37,6 +39,15 @@ public class Equipment {
     @Enumerated(EnumType.STRING)
     private Status status;
 
+    @ManyToMany(
+            fetch = FetchType.LAZY,
+            cascade = {CascadeType.PERSIST, CascadeType.MERGE})
+    @JoinTable(
+            name = "equipment_x_category",
+            joinColumns = @JoinColumn(name = "equipment_id"),
+            inverseJoinColumns = @JoinColumn(name = "category_id"))
+    private Set<EquipmentCategory> categories = new HashSet<>();
+
     @Column(updatable = false)
     private Instant createdAt;
 
@@ -67,6 +78,7 @@ public class Equipment {
             String brand,
             String imagePath,
             Status status,
+            Set<EquipmentCategory> categories,
             Instant createdAt,
             Instant updatedAt) {
         this.id = id;
@@ -78,6 +90,7 @@ public class Equipment {
         this.brand = brand;
         this.imagePath = imagePath;
         this.status = status;
+        this.categories = categories;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
     }
@@ -149,5 +162,23 @@ public class Equipment {
     }
 
     public UUID getPublicId() {return publicId;
+    }
+
+    public Set<EquipmentCategory> getCategories() {
+        return categories;
+    }
+
+    public void setCategories(Set<EquipmentCategory> categories) {
+        this.categories = categories;
+    }
+
+    public void addCategory(EquipmentCategory category) {
+        this.categories.add(category);
+        category.getEquipments().add(this);
+    }
+
+    public void removeCategory(EquipmentCategory category) {
+        this.categories.remove(category);
+        category.getEquipments().remove(this);
     }
 }

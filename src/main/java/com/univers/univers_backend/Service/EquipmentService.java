@@ -2,14 +2,17 @@
 package com.univers.univers_backend.Service;
 
 import com.univers.univers_backend.DTO.EquipmentDTO;
-import com.univers.univers_backend.DTO.UserDTO;
+import com.univers.univers_backend.DTO.EquipmentInputDTO;
 import com.univers.univers_backend.Entity.Equipment;
+import com.univers.univers_backend.Entity.EquipmentCategory;
 import com.univers.univers_backend.Entity.User;
 import com.univers.univers_backend.Enum.Role;
 import com.univers.univers_backend.Enum.Status;
-import com.univers.univers_backend.Mapper.UserMapper;
+import com.univers.univers_backend.Mapper.EquipmentMapper;
 import com.univers.univers_backend.Repository.EquipmentRepository;
 import com.univers.univers_backend.Repository.UserRepository;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Set;
@@ -26,7 +29,8 @@ public class EquipmentService {
     private final EquipmentRepository equipmentRepository;
     private final UserRepository userRepository;
     private final FileStorageService fileStorageService;
-    private final UserMapper userMapper;
+    private final EquipmentMapper equipmentMapper;
+    private final EquipmentCategoryService equipmentCategoryService;
 
     @Value("${minio.bucket.equipments}")
     private String equipmentsBucketName;
@@ -38,15 +42,37 @@ public class EquipmentService {
             EquipmentRepository equipmentRepository,
             UserRepository userRepository,
             FileStorageService fileStorageService,
-            UserMapper userMapper) {
+            EquipmentCategoryService equipmentCategoryService,
+            EquipmentMapper equipmentMapper) {
         this.equipmentRepository = equipmentRepository;
         this.userRepository = userRepository;
         this.fileStorageService = fileStorageService;
-        this.userMapper = userMapper;
+        this.equipmentCategoryService = equipmentCategoryService;
+        this.equipmentMapper = equipmentMapper;
+    }
+
+    private Set<EquipmentCategory> resolveCategoriesByIds(Set<String> categoryPublicIds) {
+        if (categoryPublicIds == null || categoryPublicIds.isEmpty()) {
+            return Collections.emptySet();
+        }
+        Set<EquipmentCategory> resolvedCategories = new HashSet<>();
+        for (String catId : categoryPublicIds) {
+            EquipmentCategory category =
+                    equipmentCategoryService
+                            .findByPublicId(UUID.fromString(catId))
+                            .orElseThrow(
+                                    () ->
+                                            new NoSuchElementException(
+                                                    "EquipmentCategory not found with public ID: "
+                                                            + catId));
+            resolvedCategories.add(category);
+        }
+        return resolvedCategories;
     }
 
     @Transactional
-    public EquipmentDTO addEquipment(String userId, EquipmentDTO request, MultipartFile imageFile) {
+    public EquipmentDTO addEquipment(
+            String userId, EquipmentInputDTO request, MultipartFile imageFile) {
         User requester =
                 userRepository
                         .findByPublicId(UUID.fromString(userId))
@@ -55,8 +81,7 @@ public class EquipmentService {
                                         new IllegalArgumentException(
                                                 "User not found with Public ID: " + userId));
 
-        Set<Role> authorizedRoles =
-                Set.of(Role.EQUIPMENT_OWNER, Role.SUPER_ADMIN, Role.MSDO, Role.OPC);
+        Set<Role> authorizedRoles = Set.of(Role.EQUIPMENT_OWNER, Role.SUPER_ADMIN);
         if (!requester.getRoles().stream().anyMatch(authorizedRoles::contains)) {
             throw new IllegalArgumentException("User is not authorized to add equipment.");
         }
@@ -101,6 +126,9 @@ public class EquipmentService {
         newEquipment.setEquipmentOwner(owner);
         newEquipment.setSerialNo(request.serialNo());
 
+        Set<EquipmentCategory> resolvedCategories = resolveCategoriesByIds(request.categoryIds());
+        newEquipment.setCategories(resolvedCategories);
+
         if (imageFile != null && !imageFile.isEmpty()) {
             String objectName =
                     fileStorageService.uploadFile(
@@ -110,7 +138,7 @@ public class EquipmentService {
 
         Equipment savedEquipment = equipmentRepository.save(newEquipment);
 
-        return mapToDTO(savedEquipment);
+        return equipmentMapper.toDto(savedEquipment);
     }
 
     public List<EquipmentDTO> getAllEquipmentsByOwner(String userId) {
@@ -124,12 +152,12 @@ public class EquipmentService {
 
         List<Equipment> equipmentList = equipmentRepository.findAllByEquipmentOwner(owner);
 
-        return equipmentList.stream().map(this::mapToDTO).collect(Collectors.toList());
+        return equipmentList.stream().map(equipmentMapper::toDto).collect(Collectors.toList());
     }
 
     public List<EquipmentDTO> getAllEquipments() {
         List<Equipment> equipmentList = equipmentRepository.findAll();
-        return equipmentList.stream().map(this::mapToDTO).collect(Collectors.toList());
+        return equipmentList.stream().map(equipmentMapper::toDto).collect(Collectors.toList());
     }
 
     public EquipmentDTO getEquipmentById(String equipmentId) {
@@ -140,12 +168,12 @@ public class EquipmentService {
                                 () ->
                                         new NoSuchElementException(
                                                 "Equipment not found with ID: " + equipmentId));
-        return mapToDTO(equipment);
+        return equipmentMapper.toDto(equipment);
     }
 
     @Transactional
     public EquipmentDTO updateEquipment(
-            String equipmentId, String userId, EquipmentDTO request, MultipartFile imageFile) {
+            String equipmentId, String userId, EquipmentInputDTO request, MultipartFile imageFile) {
         Equipment equipment =
                 equipmentRepository
                         .findByPublicId(UUID.fromString(equipmentId))
@@ -162,10 +190,11 @@ public class EquipmentService {
                                         new IllegalArgumentException(
                                                 "User (requester) not found with ID: " + userId));
 
-        Set<Role> equipmentManagerRoles = Set.of(Role.EQUIPMENT_OWNER, Role.MSDO, Role.OPC);
+        Set<Role> equipmentManagerRoles = Set.of(Role.EQUIPMENT_OWNER);
 
         if (!requester.getRoles().stream().anyMatch(role -> role == Role.SUPER_ADMIN)
                 && !(requester.getRoles().stream().anyMatch(equipmentManagerRoles::contains)
+                        && equipment.getEquipmentOwner() != null
                         && equipment
                                 .getEquipmentOwner()
                                 .getPublicId()
@@ -189,7 +218,28 @@ public class EquipmentService {
             equipment.setStatus(request.status());
         }
         if (request.serialNo() != null && !request.serialNo().isBlank()) {
-            equipment.setSerialNo(request.serialNo());
+            if (!equipment.getSerialNo().equals(request.serialNo())) {
+                equipmentRepository
+                        .findBySerialNo(request.serialNo())
+                        .ifPresent(
+                                existingEquipment -> {
+                                    if (!existingEquipment
+                                            .getPublicId()
+                                            .equals(equipment.getPublicId())) {
+                                        throw new IllegalArgumentException(
+                                                "Another equipment with serial number '"
+                                                        + request.serialNo()
+                                                        + "' already exists.");
+                                    }
+                                });
+                equipment.setSerialNo(request.serialNo());
+            }
+        }
+
+        if (request.categoryIds() != null) {
+            Set<EquipmentCategory> resolvedCategories =
+                    resolveCategoriesByIds(request.categoryIds());
+            equipment.setCategories(resolvedCategories);
         }
 
         UUID newOwnerPublicIdFromRequest =
@@ -234,7 +284,7 @@ public class EquipmentService {
         }
 
         Equipment updatedEquipment = equipmentRepository.save(equipment);
-        return mapToDTO(updatedEquipment);
+        return equipmentMapper.toDto(updatedEquipment);
     }
 
     @Transactional
@@ -255,10 +305,11 @@ public class EquipmentService {
                                         new IllegalArgumentException(
                                                 "User (requester) not found with ID: " + userId));
 
-        Set<Role> equipmentManagerRoles = Set.of(Role.EQUIPMENT_OWNER, Role.MSDO, Role.OPC);
+        Set<Role> equipmentManagerRoles = Set.of(Role.EQUIPMENT_OWNER);
 
         if (!requester.getRoles().stream().anyMatch(role -> role == Role.SUPER_ADMIN)
                 && !(requester.getRoles().stream().anyMatch(equipmentManagerRoles::contains)
+                        && equipment.getEquipmentOwner() != null // Add null check for owner
                         && equipment
                                 .getEquipmentOwner()
                                 .getPublicId()
@@ -266,40 +317,17 @@ public class EquipmentService {
             throw new IllegalArgumentException("User is not authorized to delete this equipment.");
         }
 
+        // Before deleting equipment, disassociate categories to avoid constraint violations
+        // if the relationship is managed from the Equipment side with cascade REMOVE or
+        // orphanRemoval.
+        // However, with standard ManyToMany, clearing the collection is enough.
+        equipment.getCategories().clear();
+        equipmentRepository.save(equipment);
+
         if (equipment.getImagePath() != null && !equipment.getImagePath().isBlank()) {
             fileStorageService.deleteFile(equipment.getImagePath(), equipmentsBucketName);
         }
 
-        equipmentRepository.deleteById((equipment.getId()));
-    }
-
-    private EquipmentDTO mapToDTO(Equipment equipment) {
-        UserDTO ownerDto = userMapper.toDto(equipment.getEquipmentOwner());
-        String imageUrl = null;
-        if (equipment.getImagePath() != null && !equipment.getImagePath().isBlank()) {
-            try {
-                imageUrl =
-                        fileStorageService.getFileUrl(
-                                equipment.getImagePath(), equipmentsBucketName);
-            } catch (Exception e) {
-                System.err.println(
-                        "Error generating image URL for equipment "
-                                + equipment.getPublicId()
-                                + ": "
-                                + e.getMessage());
-            }
-        }
-        return new EquipmentDTO(
-                equipment.getPublicId(),
-                equipment.getName(),
-                equipment.getAvailability(),
-                equipment.getBrand(),
-                equipment.getQuantity(),
-                ownerDto,
-                imageUrl,
-                equipment.getStatus(),
-                equipment.getCreatedAt(),
-                equipment.getUpdatedAt(),
-                equipment.getSerialNo());
+        equipmentRepository.delete(equipment);
     }
 }
