@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -217,13 +218,15 @@ public class EquipmentReservationController {
     }
 
     @Operation(
-            summary = "Approve reservation",
-            description = "Approves an equipment reservation with optional remarks")
+            summary = "Approve reservations",
+            description =
+                    "Approves one or more equipment reservations with optional remarks. Can be used"
+                            + " for both single and multiple reservations.")
     @ApiResponses(
             value = {
                 @io.swagger.v3.oas.annotations.responses.ApiResponse(
                         responseCode = "200",
-                        description = "Reservation approved successfully"),
+                        description = "Reservations processed successfully"),
                 @io.swagger.v3.oas.annotations.responses.ApiResponse(
                         responseCode = "400",
                         description = "Invalid request"),
@@ -231,36 +234,40 @@ public class EquipmentReservationController {
                         responseCode = "403",
                         description = "Access denied"),
                 @io.swagger.v3.oas.annotations.responses.ApiResponse(
-                        responseCode = "404",
-                        description = "Reservation not found"),
-                @io.swagger.v3.oas.annotations.responses.ApiResponse(
                         responseCode = "500",
                         description = "Internal server error")
             })
-    @PatchMapping("/{reservationId}/approve")
+    @PatchMapping("/approve")
     @PreAuthorize("hasAuthority('EQUIPMENT_OWNER')")
-    public ResponseEntity<ApiResponse<String>> approveReservation(
-            @PathVariable UUID reservationId, @RequestBody Map<String, String> payload) {
+    public ResponseEntity<ApiResponse<Map<UUID, String>>> approveReservations(
+            @RequestBody Map<String, Object> payload) {
         try {
-            String remarks = payload.getOrDefault("remarks", "");
-            String responseMessage =
-                    equipmentReservationService.approveReservation(reservationId, remarks);
-            if (responseMessage.startsWith("Error:") || responseMessage.startsWith("Warning:")) {
+            @SuppressWarnings("unchecked")
+            List<String> reservationIds = (List<String>) payload.get("reservationIds");
+            String remarks = (String) payload.getOrDefault("remarks", "");
+
+            if (reservationIds == null || reservationIds.isEmpty()) {
                 return ResponseEntity.badRequest()
                         .body(
                                 ApiResponse.error(
                                         HttpStatus.BAD_REQUEST.value(),
                                         "Invalid request",
-                                        responseMessage));
+                                        "Reservation IDs list cannot be null or empty."));
             }
+
+            List<UUID> reservationUuids =
+                    reservationIds.stream().map(UUID::fromString).collect(Collectors.toList());
+            Map<UUID, String> results =
+                    equipmentReservationService.bulkApproveReservations(reservationUuids, remarks);
+
             return ResponseEntity.ok(
-                    ApiResponse.success("Reservation approved successfully", responseMessage));
-        } catch (NoSuchElementException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    ApiResponse.success("Reservation(s) approved successfully", results));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest()
                     .body(
                             ApiResponse.error(
-                                    HttpStatus.NOT_FOUND.value(),
-                                    "Reservation not found",
+                                    HttpStatus.BAD_REQUEST.value(),
+                                    "Invalid UUID format",
                                     e.getMessage()));
         } catch (SecurityException e) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
@@ -272,18 +279,20 @@ public class EquipmentReservationController {
                     .body(
                             ApiResponse.error(
                                     HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                                    "An unexpected error occurred while approving reservation"));
+                                    "An unexpected error occurred while approving reservation(s)"));
         }
     }
 
     @Operation(
-            summary = "Reject reservation",
-            description = "Rejects an equipment reservation with required remarks")
+            summary = "Reject reservations",
+            description =
+                    "Rejects one or more equipment reservations with required remarks. Can be used"
+                            + " for both single and multiple reservations.")
     @ApiResponses(
             value = {
                 @io.swagger.v3.oas.annotations.responses.ApiResponse(
                         responseCode = "200",
-                        description = "Reservation rejected successfully"),
+                        description = "Reservations processed successfully"),
                 @io.swagger.v3.oas.annotations.responses.ApiResponse(
                         responseCode = "400",
                         description = "Invalid request or missing remarks"),
@@ -291,18 +300,27 @@ public class EquipmentReservationController {
                         responseCode = "403",
                         description = "Access denied"),
                 @io.swagger.v3.oas.annotations.responses.ApiResponse(
-                        responseCode = "404",
-                        description = "Reservation not found"),
-                @io.swagger.v3.oas.annotations.responses.ApiResponse(
                         responseCode = "500",
                         description = "Internal server error")
             })
-    @PatchMapping("/{reservationId}/reject")
+    @PatchMapping("/reject")
     @PreAuthorize("hasAuthority('EQUIPMENT_OWNER')")
-    public ResponseEntity<ApiResponse<String>> rejectReservation(
-            @PathVariable UUID reservationId, @RequestBody Map<String, String> payload) {
+    public ResponseEntity<ApiResponse<Map<UUID, String>>> rejectReservations(
+            @RequestBody Map<String, Object> payload) {
         try {
-            String remarks = payload.get("remarks");
+            @SuppressWarnings("unchecked")
+            List<String> reservationIds = (List<String>) payload.get("reservationIds");
+            String remarks = (String) payload.get("remarks");
+
+            if (reservationIds == null || reservationIds.isEmpty()) {
+                return ResponseEntity.badRequest()
+                        .body(
+                                ApiResponse.error(
+                                        HttpStatus.BAD_REQUEST.value(),
+                                        "Invalid request",
+                                        "Reservation IDs list cannot be null or empty."));
+            }
+
             if (remarks == null || remarks.isBlank()) {
                 return ResponseEntity.badRequest()
                         .body(
@@ -310,24 +328,20 @@ public class EquipmentReservationController {
                                         HttpStatus.BAD_REQUEST.value(),
                                         "Rejection remarks are required"));
             }
-            String responseMessage =
-                    equipmentReservationService.rejectReservation(reservationId, remarks);
-            if (responseMessage.startsWith("Error:") || responseMessage.startsWith("Warning:")) {
-                return ResponseEntity.badRequest()
-                        .body(
-                                ApiResponse.error(
-                                        HttpStatus.BAD_REQUEST.value(),
-                                        "Invalid request",
-                                        responseMessage));
-            }
+
+            List<UUID> reservationUuids =
+                    reservationIds.stream().map(UUID::fromString).collect(Collectors.toList());
+            Map<UUID, String> results =
+                    equipmentReservationService.bulkRejectReservations(reservationUuids, remarks);
+
             return ResponseEntity.ok(
-                    ApiResponse.success("Reservation rejected successfully", responseMessage));
-        } catch (NoSuchElementException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    ApiResponse.success("Reservation(s) rejected successfully", results));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest()
                     .body(
                             ApiResponse.error(
-                                    HttpStatus.NOT_FOUND.value(),
-                                    "Reservation not found",
+                                    HttpStatus.BAD_REQUEST.value(),
+                                    "Invalid UUID format",
                                     e.getMessage()));
         } catch (SecurityException e) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
@@ -339,16 +353,20 @@ public class EquipmentReservationController {
                     .body(
                             ApiResponse.error(
                                     HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                                    "An unexpected error occurred while rejecting reservation"));
+                                    "An unexpected error occurred while rejecting reservation(s)"));
         }
     }
 
-    @Operation(summary = "Cancel reservation", description = "Cancels an equipment reservation")
+    @Operation(
+            summary = "Cancel reservations",
+            description =
+                    "Cancels one or more equipment reservations. Can be used for both single and"
+                            + " multiple reservations.")
     @ApiResponses(
             value = {
                 @io.swagger.v3.oas.annotations.responses.ApiResponse(
                         responseCode = "200",
-                        description = "Reservation cancelled successfully"),
+                        description = "Reservations processed successfully"),
                 @io.swagger.v3.oas.annotations.responses.ApiResponse(
                         responseCode = "400",
                         description = "Invalid request"),
@@ -356,76 +374,39 @@ public class EquipmentReservationController {
                         responseCode = "403",
                         description = "Access denied"),
                 @io.swagger.v3.oas.annotations.responses.ApiResponse(
-                        responseCode = "404",
-                        description = "Reservation not found"),
-                @io.swagger.v3.oas.annotations.responses.ApiResponse(
                         responseCode = "500",
                         description = "Internal server error")
             })
-    @PatchMapping("/{reservationId}/cancel")
+    @PatchMapping("/cancel")
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<ApiResponse<String>> cancelReservation(@PathVariable UUID reservationId) {
+    public ResponseEntity<ApiResponse<Map<UUID, String>>> cancelReservations(
+            @RequestBody Map<String, Object> payload) {
         try {
-            String responseMessage = equipmentReservationService.cancelReservation(reservationId);
-            if (responseMessage.startsWith("Error:") || responseMessage.startsWith("Warning:")) {
+            @SuppressWarnings("unchecked")
+            List<String> reservationIds = (List<String>) payload.get("reservationIds");
+
+            if (reservationIds == null || reservationIds.isEmpty()) {
                 return ResponseEntity.badRequest()
                         .body(
                                 ApiResponse.error(
                                         HttpStatus.BAD_REQUEST.value(),
                                         "Invalid request",
-                                        responseMessage));
+                                        "Reservation IDs list cannot be null or empty."));
             }
-            return ResponseEntity.ok(
-                    ApiResponse.success("Reservation cancelled successfully", responseMessage));
-        } catch (NoSuchElementException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(
-                            ApiResponse.error(
-                                    HttpStatus.NOT_FOUND.value(),
-                                    "Reservation not found",
-                                    e.getMessage()));
-        } catch (SecurityException e) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                    .body(
-                            ApiResponse.error(
-                                    HttpStatus.FORBIDDEN.value(), "Access denied", e.getMessage()));
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(
-                            ApiResponse.error(
-                                    HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                                    "An unexpected error occurred while cancelling reservation"));
-        }
-    }
 
-    @Operation(summary = "Delete reservation", description = "Deletes an equipment reservation")
-    @ApiResponses(
-            value = {
-                @io.swagger.v3.oas.annotations.responses.ApiResponse(
-                        responseCode = "200",
-                        description = "Reservation deleted successfully"),
-                @io.swagger.v3.oas.annotations.responses.ApiResponse(
-                        responseCode = "403",
-                        description = "Access denied"),
-                @io.swagger.v3.oas.annotations.responses.ApiResponse(
-                        responseCode = "404",
-                        description = "Reservation not found"),
-                @io.swagger.v3.oas.annotations.responses.ApiResponse(
-                        responseCode = "500",
-                        description = "Internal server error")
-            })
-    @DeleteMapping("/{reservationId}")
-    @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<ApiResponse<Void>> deleteReservation(@PathVariable UUID reservationId) {
-        try {
-            equipmentReservationService.deleteReservation(reservationId);
-            return ResponseEntity.ok(ApiResponse.success(null));
-        } catch (NoSuchElementException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+            List<UUID> reservationUuids =
+                    reservationIds.stream().map(UUID::fromString).collect(Collectors.toList());
+            Map<UUID, String> results =
+                    equipmentReservationService.bulkCancelReservations(reservationUuids);
+
+            return ResponseEntity.ok(
+                    ApiResponse.success("Reservation(s) cancelled successfully", results));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest()
                     .body(
                             ApiResponse.error(
-                                    HttpStatus.NOT_FOUND.value(),
-                                    "Reservation not found",
+                                    HttpStatus.BAD_REQUEST.value(),
+                                    "Invalid UUID format",
                                     e.getMessage()));
         } catch (SecurityException e) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
@@ -437,7 +418,8 @@ public class EquipmentReservationController {
                     .body(
                             ApiResponse.error(
                                     HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                                    "An unexpected error occurred while deleting reservation"));
+                                    "An unexpected error occurred while cancelling"
+                                            + " reservation(s)"));
         }
     }
 

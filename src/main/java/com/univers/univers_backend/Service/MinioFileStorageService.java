@@ -7,21 +7,33 @@ import io.minio.PutObjectArgs;
 import io.minio.RemoveObjectArgs;
 import io.minio.errors.MinioException;
 import io.minio.http.Method;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import javax.imageio.ImageIO;
+import net.coobird.thumbnailator.Thumbnails;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+
+// Note: com.luciad.imageio.webp.WebPWriteParam is not directly used
+// but the webp-imageio library is needed for Thumbnailator to output WebP.
 
 @Service
 public class MinioFileStorageService implements FileStorageService {
 
     private static final Logger logger = LoggerFactory.getLogger(MinioFileStorageService.class);
     private final MinioClient minioClient;
+    private static final int MAX_WIDTH = 1920;
+    private static final int MAX_HEIGHT = 1080;
+    private static final float QUALITY = 0.8f; // 80% quality
+    private static final long DEFAULT_PART_SIZE = 5 * 1024 * 1024; // 5MB
 
     public MinioFileStorageService(MinioClient minioClient) {
         this.minioClient = minioClient;
@@ -35,11 +47,25 @@ public class MinioFileStorageService implements FileStorageService {
 
         try {
             String originalFilename = file.getOriginalFilename();
-            String extension = "";
+            String determinedExtension = "";
             if (originalFilename != null && originalFilename.contains(".")) {
-                extension = originalFilename.substring(originalFilename.lastIndexOf("."));
+                determinedExtension = originalFilename.substring(originalFilename.lastIndexOf("."));
             }
-            // Sanitize prefix if provided
+
+            String finalExtension;
+            InputStream processedStream;
+            String contentType;
+
+            if (isImageFile(determinedExtension)) {
+                finalExtension = ".webp";
+                processedStream = processImage(file.getInputStream());
+                contentType = "image/webp";
+            } else {
+                finalExtension = determinedExtension;
+                processedStream = file.getInputStream();
+                contentType = file.getContentType();
+            }
+
             String prefix =
                     (objectNamePrefix != null && !objectNamePrefix.isBlank())
                             ? objectNamePrefix.endsWith("/")
@@ -47,21 +73,73 @@ public class MinioFileStorageService implements FileStorageService {
                                     : objectNamePrefix + "/"
                             : "";
 
-            String uniqueObjectName = prefix + UUID.randomUUID().toString() + extension;
+            String uniqueObjectName = prefix + UUID.randomUUID().toString() + finalExtension;
 
             minioClient.putObject(
                     PutObjectArgs.builder().bucket(bucketName).object(uniqueObjectName).stream(
-                                    file.getInputStream(), file.getSize(), -1)
-                            .contentType(file.getContentType())
+                                    processedStream, -1, DEFAULT_PART_SIZE)
+                            .contentType(contentType)
                             .build());
 
             logger.info("File uploaded successfully to MinIO: {}/{}", bucketName, uniqueObjectName);
-            return uniqueObjectName; // Return only the object name
+            return uniqueObjectName;
 
         } catch (MinioException | IOException | InvalidKeyException | NoSuchAlgorithmException e) {
             logger.error("Error uploading file to MinIO: {}", e.getMessage(), e);
             throw new RuntimeException("Failed to upload file to MinIO. " + e.getMessage(), e);
         }
+    }
+
+    private boolean isImageFile(String extension) {
+        if (extension == null || extension.isEmpty()) return false;
+        String lowerExt = extension.toLowerCase();
+        return lowerExt.equals(".jpg")
+                || lowerExt.equals(".jpeg")
+                || lowerExt.equals(".png")
+                || lowerExt.equals(".gif")
+                || lowerExt.equals(".bmp")
+                || lowerExt.equals(".webp");
+    }
+
+    private InputStream processImage(InputStream inputStream) throws IOException {
+        var originalImage = ImageIO.read(inputStream);
+        if (originalImage == null) {
+            try {
+                inputStream.close();
+            } catch (IOException e) {
+                logger.warn("Failed to close input stream after ImageIO.read returned null", e);
+            }
+            throw new IOException(
+                    "Failed to read image, possibly unsupported format or corrupt file.");
+        }
+
+        int originalWidth = originalImage.getWidth();
+        int originalHeight = originalImage.getHeight();
+        int newWidth = originalWidth;
+        int newHeight = originalHeight;
+
+        if (originalWidth > MAX_WIDTH || originalHeight > MAX_HEIGHT) {
+            double widthRatio = (double) MAX_WIDTH / originalWidth;
+            double heightRatio = (double) MAX_HEIGHT / originalHeight;
+            double ratio = Math.min(widthRatio, heightRatio);
+            newWidth = (int) (originalWidth * ratio);
+            newHeight = (int) (originalHeight * ratio);
+        }
+
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        Thumbnails.of(originalImage)
+                .size(newWidth, newHeight)
+                .outputQuality(QUALITY)
+                .outputFormat("webp")
+                .toOutputStream(outputStream);
+
+        try {
+            inputStream.close();
+        } catch (IOException e) {
+            logger.warn("Failed to close original image input stream after processing", e);
+        }
+
+        return new ByteArrayInputStream(outputStream.toByteArray());
     }
 
     @Override
@@ -71,7 +149,7 @@ public class MinioFileStorageService implements FileStorageService {
                 || bucketName == null
                 || bucketName.isBlank()) {
             logger.warn("Attempted to delete file with null or blank objectName/bucketName.");
-            return; // Or throw exception based on requirements
+            return;
         }
         try {
             minioClient.removeObject(
@@ -84,8 +162,6 @@ public class MinioFileStorageService implements FileStorageService {
                     objectName,
                     e.getMessage(),
                     e);
-            // Decide if you want to re-throw or just log
-            // throw new RuntimeException("Failed to delete file from MinIO. " + e.getMessage(), e);
         }
     }
 
@@ -95,16 +171,15 @@ public class MinioFileStorageService implements FileStorageService {
                 || objectName.isBlank()
                 || bucketName == null
                 || bucketName.isBlank()) {
-            return null; // Or throw exception
+            return null;
         }
         try {
-            // Generate a presigned URL valid for 1 hour (adjust as needed)
             return minioClient.getPresignedObjectUrl(
                     GetPresignedObjectUrlArgs.builder()
                             .method(Method.GET)
                             .bucket(bucketName)
                             .object(objectName)
-                            .expiry(1, TimeUnit.HOURS) // Example: URL valid for 1 hour
+                            .expiry(1, TimeUnit.HOURS)
                             .build());
         } catch (MinioException | IOException | InvalidKeyException | NoSuchAlgorithmException e) {
             logger.error(

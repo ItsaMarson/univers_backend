@@ -27,8 +27,10 @@ import com.univers.univers_backend.Repository.EventRepository;
 import com.univers.univers_backend.Repository.UserRepository;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.UUID;
@@ -697,5 +699,49 @@ public class EquipmentReservationService {
                 equipmentReservationRepository.findAllReservationsForEquipmentOwner(
                         currentUser.getId());
         return reservations.stream().map(this::mapToDTO).collect(Collectors.toList());
+    }
+
+    @Transactional
+    public Map<UUID, String> bulkApproveReservations(
+            List<UUID> reservationPublicIds, String remarks) {
+        Map<UUID, String> results = new HashMap<>();
+        for (UUID reservationId : reservationPublicIds) {
+            try {
+                String result = approveReservation(reservationId, remarks);
+                results.put(reservationId, result);
+            } catch (Exception e) {
+                results.put(reservationId, "Error: " + e.getMessage());
+            }
+        }
+        return results;
+    }
+
+    @Transactional
+    public Map<UUID, String> bulkRejectReservations(
+            List<UUID> reservationPublicIds, String remarks) {
+        Map<UUID, String> results = new HashMap<>();
+        for (UUID reservationId : reservationPublicIds) {
+            try {
+                String result = rejectReservation(reservationId, remarks);
+                results.put(reservationId, result);
+            } catch (Exception e) {
+                results.put(reservationId, "Error: " + e.getMessage());
+            }
+        }
+        return results;
+    }
+
+    @Transactional
+    public Map<UUID, String> bulkCancelReservations(List<UUID> reservationPublicIds) {
+        Map<UUID, String> results = new HashMap<>();
+        for (UUID reservationId : reservationPublicIds) {
+            try {
+                String result = cancelReservation(reservationId);
+                results.put(reservationId, result);
+            } catch (Exception e) {
+                results.put(reservationId, "Error: " + e.getMessage());
+            }
+        }
+        return results;
     }
 }
