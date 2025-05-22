@@ -29,32 +29,42 @@ public class EquipmentReservationController {
     }
 
     @Operation(
-            summary = "Create equipment reservation",
-            description = "Creates a new equipment reservation")
+            summary = "Create equipment reservations",
+            description =
+                    "Creates one or more new equipment reservations. Accepts a list of reservation"
+                            + " requests.")
     @ApiResponses(
             value = {
                 @io.swagger.v3.oas.annotations.responses.ApiResponse(
                         responseCode = "201",
-                        description = "Reservation created successfully"),
+                        description = "Reservations created successfully"),
                 @io.swagger.v3.oas.annotations.responses.ApiResponse(
                         responseCode = "400",
-                        description = "Invalid request"),
+                        description = "Invalid request data"),
                 @io.swagger.v3.oas.annotations.responses.ApiResponse(
                         responseCode = "500",
                         description = "Internal server error")
             })
     @PostMapping
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<ApiResponse<EquipmentReservationDTO>> createEquipmentReservation(
-            @RequestPart("reservation") EquipmentReservationDTO reservationDTO) {
+    public ResponseEntity<ApiResponse<List<EquipmentReservationDTO>>> createEquipmentReservation(
+            @RequestBody List<EquipmentReservationDTO> reservationDTOs) {
         try {
-            EquipmentReservationDTO createdReservation =
-                    equipmentReservationService.createEquipmentReservation(reservationDTO);
+            if (reservationDTOs == null || reservationDTOs.isEmpty()) {
+                return ResponseEntity.badRequest()
+                        .body(
+                                ApiResponse.error(
+                                        HttpStatus.BAD_REQUEST.value(),
+                                        "Invalid request",
+                                        "Reservation list cannot be null or empty."));
+            }
+            List<EquipmentReservationDTO> createdReservations =
+                    equipmentReservationService.createBulkEquipmentReservations(reservationDTOs);
             return ResponseEntity.status(HttpStatus.CREATED)
                     .body(
                             ApiResponse.success(
-                                    "Equipment reservation created successfully",
-                                    createdReservation));
+                                    "Equipment reservations created successfully",
+                                    createdReservations));
         } catch (IllegalArgumentException | NoSuchElementException e) {
             return ResponseEntity.badRequest()
                     .body(
@@ -63,12 +73,16 @@ public class EquipmentReservationController {
                                     "Invalid request",
                                     e.getMessage()));
         } catch (Exception e) {
+            // Log the exception details for server-side debugging
+            // logger.error("Error during bulk equipment reservation: ", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(
                             ApiResponse.error(
                                     HttpStatus.INTERNAL_SERVER_ERROR.value(),
                                     "An unexpected error occurred while creating equipment"
-                                            + " reservation"));
+                                            + " reservations.",
+                                    e.getMessage())); // Optionally include e.getMessage() if
+            // safe to expose
         }
     }
 

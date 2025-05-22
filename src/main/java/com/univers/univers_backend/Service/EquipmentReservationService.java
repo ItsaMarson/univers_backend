@@ -26,6 +26,7 @@ import com.univers.univers_backend.Repository.EquipmentReservationRepository;
 import com.univers.univers_backend.Repository.EventRepository;
 import com.univers.univers_backend.Repository.UserRepository;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -96,11 +97,8 @@ public class EquipmentReservationService {
         this.equipmentMapper = equipmentMapper;
     }
 
-    @Transactional
-    public EquipmentReservationDTO createEquipmentReservation(
-            EquipmentReservationDTO reservationDTO) {
-        User requestingUser = getCurrentUser();
-
+    private EquipmentReservationDTO processSingleReservationCreation(
+            EquipmentReservationDTO reservationDTO, User requestingUser) {
         if (reservationDTO.event() == null || reservationDTO.event().publicId() == null) {
             throw new IllegalArgumentException(
                     "Event with publicId is required in reservation DTO.");
@@ -163,8 +161,7 @@ public class EquipmentReservationService {
             throw new IllegalArgumentException("Requested quantity must be positive.");
         }
 
-        // Check Availability (Simplified: checks total quantity reserved in the
-        // overlapping period)
+        // Check Availability
         int currentlyReserved =
                 equipmentReservationRepository
                         .findOverlappingReservations(equipment.getId(), startTime, endTime)
@@ -172,19 +169,19 @@ public class EquipmentReservationService {
                         .filter(
                                 r ->
                                         r.getStatus() == Status.APPROVED
-                                                || r.getStatus()
-                                                        == Status.PENDING) // Consider pending
-                        // as
-                        // potentially unavailable
+                                                || r.getStatus() == Status.PENDING)
                         .mapToInt(EquipmentReservation::getQuantity)
                         .sum();
 
         if (equipment.getQuantity() < currentlyReserved + requestedQuantity) {
             throw new IllegalArgumentException(
                     String.format(
-                            "Not enough equipment available. Requested: %d, Available during"
-                                    + " period: %d",
-                            requestedQuantity, equipment.getQuantity() - currentlyReserved));
+                            "Not enough %s available. Requested: %d, Available during period: %d,"
+                                    + " Currently Reserved: %d",
+                            equipment.getName(),
+                            requestedQuantity,
+                            equipment.getQuantity() - currentlyReserved,
+                            currentlyReserved));
         }
 
         EquipmentReservation newReservation = new EquipmentReservation();
@@ -195,12 +192,34 @@ public class EquipmentReservationService {
         newReservation.setQuantity(requestedQuantity);
         newReservation.setStartTime(startTime);
         newReservation.setEndTime(endTime);
+        // Status is PENDING by default as per Entity definition
 
         EquipmentReservation savedReservation = equipmentReservationRepository.save(newReservation);
 
         notifyEquipmentOwner(savedReservation);
 
         return mapToDTO(savedReservation);
+    }
+
+    @Transactional
+    public EquipmentReservationDTO createEquipmentReservation(
+            EquipmentReservationDTO reservationDTO) {
+        User requestingUser = getCurrentUser();
+        return processSingleReservationCreation(reservationDTO, requestingUser);
+    }
+
+    @Transactional
+    public List<EquipmentReservationDTO> createBulkEquipmentReservations(
+            List<EquipmentReservationDTO> reservationDTOs) {
+        User requestingUser = getCurrentUser();
+        List<EquipmentReservationDTO> createdReservations = new ArrayList<>();
+        for (EquipmentReservationDTO reservationDTO : reservationDTOs) {
+            // Consider adding try-catch here if one failure shouldn't roll back all,
+            // but @Transactional on the method means all succeed or all fail.
+            createdReservations.add(
+                    processSingleReservationCreation(reservationDTO, requestingUser));
+        }
+        return createdReservations;
     }
 
     public List<EquipmentReservationDTO> getAllReservations() {
