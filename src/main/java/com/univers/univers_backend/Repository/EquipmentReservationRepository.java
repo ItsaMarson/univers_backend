@@ -58,14 +58,33 @@ public interface EquipmentReservationRepository extends JpaRepository<EquipmentR
             Equipment equipment, Status status, Instant startTime, Instant endTime);
 
     @Query(
-            "SELECT er.equipment.name AS equipmentName, COUNT(er) AS reservationCount FROM"
-                + " EquipmentReservation er WHERE er.startTime >= :startDate AND er.startTime <="
-                + " :endDate AND (:equipmentTypeName IS NULL OR LOWER(er.equipment.name) LIKE"
-                + " LOWER(CONCAT('%', :equipmentTypeName, '%'))) GROUP BY er.equipment.name ORDER"
-                + " BY reservationCount DESC")
+            "SELECT er.equipment.name AS equipmentName, er.status AS reservationStatus, COUNT(er)"
+                + " AS statusCount FROM EquipmentReservation er WHERE er.startTime >= :startDate"
+                + " AND er.startTime < :endDatePlusOne AND (:equipmentTypeName IS NULL OR"
+                + " LOWER(er.equipment.name) LIKE LOWER(CONCAT('%', :equipmentTypeName, '%')))"
+                + " GROUP BY er.equipment.name, er.status ORDER BY equipmentName ASC,"
+                + " reservationStatus ASC")
     List<Object[]> findTopEquipmentByReservationCount(
             @Param("startDate") Instant startDate,
-            @Param("endDate") Instant endDate,
+            @Param("endDatePlusOne") Instant endDatePlusOne,
             @Param("equipmentTypeName") String equipmentTypeName,
+            Pageable pageable);
+
+    @Query(
+            "SELECT er.requestingUser.publicId AS userPublicId, er.requestingUser.firstName AS"
+                + " userFirstName, er.requestingUser.lastName AS userLastName, er.status AS"
+                + " reservationStatus, COUNT(er) AS statusCount FROM EquipmentReservation er WHERE"
+                + " er.startTime >= :startDate AND er.startTime < :endDatePlusOne AND (:userFilter"
+                + " IS NULL OR LOWER(er.requestingUser.firstName) LIKE LOWER(CONCAT('%',"
+                + " :userFilter, '%')) OR LOWER(er.requestingUser.lastName) LIKE LOWER(CONCAT('%',"
+                + " :userFilter, '%')) OR LOWER(CONCAT(er.requestingUser.firstName, ' ',"
+                + " er.requestingUser.lastName)) LIKE LOWER(CONCAT('%', :userFilter, '%'))) GROUP"
+                + " BY er.requestingUser.publicId, er.requestingUser.firstName,"
+                + " er.requestingUser.lastName, er.status ORDER BY userLastName ASC, userFirstName"
+                + " ASC, reservationStatus ASC")
+    List<Object[]> findUserReservationActivityByCount(
+            @Param("startDate") Instant startDate,
+            @Param("endDatePlusOne") Instant endDatePlusOne,
+            @Param("userFilter") String userFilter,
             Pageable pageable);
 }

@@ -96,22 +96,20 @@ public interface EventRepository
             @Param("endOfDay") Instant endOfDay);
 
     @Query(
-            "SELECT e.eventVenue.name AS venueName, COUNT(e) AS eventCount "
-                    + "FROM Event e "
-                    + "WHERE e.startTime >= :startDate AND e.startTime <= :endDate "
-                    + "GROUP BY e.eventVenue.name "
-                    + "ORDER BY eventCount DESC")
+            "SELECT e.eventVenue.name AS venueName, e.status AS eventStatus, COUNT(e) AS"
+                + " statusCount FROM Event e WHERE e.startTime >= :startDate AND e.startTime <"
+                + " :endDatePlusOne GROUP BY e.eventVenue.name, e.status ORDER BY venueName ASC,"
+                + " eventStatus ASC")
     List<Object[]> findTopVenuesByEventCount(
             @Param("startDate") Instant startDate,
-            @Param("endDate") Instant endDate,
+            @Param("endDatePlusOne") Instant endDatePlusOne,
             Pageable pageable);
 
     @Query(
-            "SELECT FUNCTION('DATE', e.startTime) AS eventDate, COUNT(e) AS dailyEventCount "
-                    + "FROM Event e "
-                    + "WHERE e.startTime >= :startDate AND e.startTime < :endDatePlusOne "
-                    + "GROUP BY FUNCTION('DATE', e.startTime) "
-                    + "ORDER BY eventDate ASC")
+            "SELECT FUNCTION('DATE', e.startTime) AS eventDate, e.status AS eventStatus, COUNT(e)"
+                + " AS statusCount FROM Event e WHERE e.startTime >= :startDate AND e.startTime <"
+                + " :endDatePlusOne GROUP BY FUNCTION('DATE', e.startTime), e.status ORDER BY"
+                + " eventDate ASC, eventStatus ASC")
     List<Object[]> findEventsOverviewByDate(
             @Param("startDate") Instant startDate, @Param("endDatePlusOne") Instant endDatePlusOne);
 
@@ -149,10 +147,12 @@ public interface EventRepository
     long countByStatusAndStartTimeBetween(Status status, Instant rangeStart, Instant rangeEnd);
 
     @Query(
-            "SELECT e.eventType, COUNT(e) FROM Event e WHERE e.startTime >= :startDate AND"
-                    + " e.startTime < :endDate GROUP BY e.eventType ORDER BY COUNT(e) DESC")
+            "SELECT e.eventType, e.status, COUNT(e) FROM Event e "
+                    + "WHERE e.startTime >= :startDate AND e.startTime < :endDatePlusOne "
+                    + "GROUP BY e.eventType, e.status "
+                    + "ORDER BY e.eventType ASC, e.status ASC")
     List<Object[]> findEventCountsByEventType(
             @Param("startDate") Instant startDate,
-            @Param("endDate") Instant endDate,
+            @Param("endDatePlusOne") Instant endDatePlusOne,
             Pageable pageable);
 }

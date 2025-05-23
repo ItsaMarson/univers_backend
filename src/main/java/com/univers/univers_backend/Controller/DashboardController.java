@@ -10,6 +10,7 @@ import com.univers.univers_backend.DTO.dashboard.RecentActivityItemDTO;
 import com.univers.univers_backend.DTO.dashboard.TopEquipmentDTO;
 import com.univers.univers_backend.DTO.dashboard.TopVenueDTO;
 import com.univers.univers_backend.DTO.dashboard.UserActivityDTO;
+import com.univers.univers_backend.DTO.dashboard.UserReservationActivityDTO;
 import com.univers.univers_backend.Service.DashboardService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -41,8 +42,10 @@ public class DashboardController {
     @Operation(
             summary = "Get top venues by event count",
             description =
-                    "Fetches a list of venues ordered by the number of events held within a"
-                            + " specified date range.",
+                    "Fetches a list of top venues, including their total event counts and a"
+                        + " breakdown of these counts by status (e.g., Approved, Pending,"
+                        + " Canceled), within a specified date range. Venues are ordered by their"
+                        + " total event count in descending order.",
             responses = {
                 @ApiResponse(
                         responseCode = "200",
@@ -82,8 +85,11 @@ public class DashboardController {
     @Operation(
             summary = "Get top equipment by reservation count",
             description =
-                    "Fetches a list of equipment ordered by the number of reservations within a"
-                            + " specified date range, optionally filtered by equipment name/type.",
+                    "Fetches a list of top equipment, including their total reservation counts and"
+                        + " a breakdown of these counts by status (e.g., Pending, Approved,"
+                        + " Canceled, Ongoing, Completed), within a specified date range. Equipment"
+                        + " is ordered by total reservation count in descending order and can be"
+                        + " optionally filtered by name/type.",
             responses = {
                 @ApiResponse(
                         responseCode = "200",
@@ -373,7 +379,9 @@ public class DashboardController {
     @Operation(
             summary = "Get event types summary",
             description =
-                    "Fetches a list of event types and their counts within a specified date range.",
+                    "Fetches a summary of event types, including total counts and a breakdown by"
+                            + " status (e.g., Approved, Pending, Canceled), within a specified date"
+                            + " range. Results are ordered by total count in descending order.",
             responses = {
                 @ApiResponse(
                         responseCode = "200",
@@ -409,5 +417,60 @@ public class DashboardController {
         return ResponseEntity.ok(eventTypesSummary);
     }
 
-    // Other dashboard endpoints will be added here
+    @GetMapping("/user-reservation-activity")
+    @Operation(
+            summary = "Get user reservation activity by count",
+            description =
+                    "Fetches a list of users ordered by their total number of equipment"
+                        + " reservations, including a breakdown of reservation counts by status"
+                        + " (e.g., Pending, Approved, Canceled, Ongoing, Completed), within a"
+                        + " specified date range. Can be optionally filtered by user's first name,"
+                        + " last name, or full name.",
+            responses = {
+                @ApiResponse(
+                        responseCode = "200",
+                        description = "Successfully retrieved user reservation activity",
+                        content =
+                                @Content(
+                                        mediaType = "application/json",
+                                        schema =
+                                                @Schema(
+                                                        implementation =
+                                                                UserReservationActivityDTO.class,
+                                                        type = "array"))),
+                @ApiResponse(
+                        responseCode = "400",
+                        description = "Invalid date range or parameters provided")
+            })
+    public ResponseEntity<List<UserReservationActivityDTO>> getUserReservationActivity(
+            @Parameter(
+                            description = "Start date for the filter (YYYY-MM-DD)",
+                            required = true,
+                            example = "2023-01-01")
+                    @RequestParam
+                    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+                    LocalDate startDate,
+            @Parameter(
+                            description = "End date for the filter (YYYY-MM-DD)",
+                            required = true,
+                            example = "2023-12-31")
+                    @RequestParam
+                    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+                    LocalDate endDate,
+            @Parameter(
+                            description =
+                                    "Optional filter for user's first name, last name, or full name"
+                                            + " (case-insensitive, partial match)",
+                            example = "John Doe")
+                    @RequestParam(required = false)
+                    String userFilter,
+            @Parameter(
+                            description = "Number of top users to return by reservation count",
+                            example = "10")
+                    @RequestParam(defaultValue = "10")
+                    int limit) {
+        List<UserReservationActivityDTO> userActivity =
+                dashboardService.getUserReservationActivity(startDate, endDate, userFilter, limit);
+        return ResponseEntity.ok(userActivity);
+    }
 }
