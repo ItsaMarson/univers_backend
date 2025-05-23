@@ -189,4 +189,12 @@ public class Event {
     public UUID getPublicId() {
         return publicId;
     }
+
+    public List<EventApproval> getApprovals() {
+        return approvals;
+    }
+
+    public void setApprovals(List<EventApproval> approvals) {
+        this.approvals = approvals;
+    }
 }

@@ -2,11 +2,15 @@
 package com.univers.univers_backend.Mapper;
 
 import com.univers.univers_backend.DTO.DepartmentDTO;
+import com.univers.univers_backend.DTO.EventApprovalDTO;
 import com.univers.univers_backend.DTO.EventDTO;
 import com.univers.univers_backend.DTO.UserDTO;
 import com.univers.univers_backend.DTO.VenueDTO;
 import com.univers.univers_backend.Entity.Event;
 import com.univers.univers_backend.Service.FileStorageService;
+import java.util.Collections;
+import java.util.List;
+import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
@@ -17,6 +21,7 @@ public class EventMapper {
     private final UserMapper userMapper;
     private final VenueMapper venueMapper;
     private final DepartmentMapper departmentMapper;
+    private final EventApprovalMapper eventApprovalMapper;
     private final FileStorageService fileStorageService;
     private final String approvedLettersBucketName;
     private final String eventImagesBucketName;
@@ -25,12 +30,14 @@ public class EventMapper {
             @Lazy UserMapper userMapper,
             @Lazy VenueMapper venueMapper,
             @Lazy DepartmentMapper departmentMapper,
+            @Lazy EventApprovalMapper eventApprovalMapper,
             FileStorageService fileStorageService,
             @Value("${minio.bucket.approved_letters}") String approvedLettersBucketName,
             @Value("${minio.bucket.event_images}") String eventImagesBucketName) {
         this.userMapper = userMapper;
         this.venueMapper = venueMapper;
         this.departmentMapper = departmentMapper;
+        this.eventApprovalMapper = eventApprovalMapper;
         this.fileStorageService = fileStorageService;
         this.approvedLettersBucketName = approvedLettersBucketName;
         this.eventImagesBucketName = eventImagesBucketName;
@@ -74,6 +81,14 @@ public class EventMapper {
             }
         }
 
+        List<EventApprovalDTO> approvalDtos = Collections.emptyList();
+        if (event.getApprovals() != null) {
+            approvalDtos =
+                    event.getApprovals().stream()
+                            .map(eventApprovalMapper::toDto)
+                            .collect(Collectors.toList());
+        }
+
         return new EventDTO(
                 event.getPublicId(),
                 event.getEventName(),
@@ -86,6 +101,7 @@ public class EventMapper {
                 event.getStatus() != null ? event.getStatus().name() : null,
                 approvedLetterUrl,
                 imageUrl,
+                approvalDtos,
                 event.getCreatedAt(),
                 event.getUpdatedAt());
     }
