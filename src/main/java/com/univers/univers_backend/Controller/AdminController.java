@@ -142,38 +142,6 @@ public class AdminController {
         }
     }
 
-    @Operation(summary = "Deactivate user", description = "Deactivates a user account")
-    @ApiResponses(
-            value = {
-                @io.swagger.v3.oas.annotations.responses.ApiResponse(
-                        responseCode = "200",
-                        description = "User deactivated successfully"),
-                @io.swagger.v3.oas.annotations.responses.ApiResponse(
-                        responseCode = "400",
-                        description = "User not found"),
-                @io.swagger.v3.oas.annotations.responses.ApiResponse(
-                        responseCode = "500",
-                        description = "Internal server error")
-            })
-    @DeleteMapping("/users/{userId}")
-    public ResponseEntity<ApiResponse<String>> deactivateUser(@PathVariable UUID userId) {
-        try {
-            String responseMessage = userService.deactivateUser(userId);
-            if ("User not found".equals(responseMessage)) {
-                return ResponseEntity.badRequest()
-                        .body(ApiResponse.error(HttpStatus.BAD_REQUEST.value(), "User not found"));
-            }
-            return ResponseEntity.ok(
-                    ApiResponse.success("User deactivated successfully", responseMessage));
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(
-                            ApiResponse.error(
-                                    HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                                    "An unexpected error occurred while deactivating user"));
-        }
-    }
-
     @Operation(
             summary = "Activate user",
             description = "Activates a previously deactivated user account")
@@ -205,6 +173,63 @@ public class AdminController {
                             ApiResponse.error(
                                     HttpStatus.INTERNAL_SERVER_ERROR.value(),
                                     "An unexpected error occurred while activating user"));
+        }
+    }
+
+    @Operation(
+            summary = "Bulk deactivate users",
+            description =
+                    "Deactivates multiple user accounts based on a list of public IDs. Returns a"
+                            + " list of status messages for each user.")
+    @ApiResponses(
+            value = {
+                @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                        responseCode = "200",
+                        description =
+                                "Bulk deactivation process completed. See response body for status"
+                                        + " of each user."),
+                @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                        responseCode = "400",
+                        description = "Invalid input provided (e.g., empty list of user IDs).",
+                        content =
+                                @io.swagger.v3.oas.annotations.media.Content(
+                                        schema =
+                                                @io.swagger.v3.oas.annotations.media.Schema(
+                                                        implementation = ApiResponse.class))),
+                @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                        responseCode = "500",
+                        description = "Internal server error during bulk deactivation.",
+                        content =
+                                @io.swagger.v3.oas.annotations.media.Content(
+                                        schema =
+                                                @io.swagger.v3.oas.annotations.media.Schema(
+                                                        implementation = ApiResponse.class)))
+            })
+    @PatchMapping("/users")
+    public ResponseEntity<ApiResponse<List<String>>> bulkDeactivateUsers(
+            @RequestBody List<UUID> userPublicIds) {
+        try {
+            List<String> results = userService.bulkDeactivateUsers(userPublicIds);
+
+            // If the list of IDs was empty or null, the service returns a list like: ["User ID list
+            // cannot be null or empty."]
+            // In this specific scenario, it's more appropriate to return a 400 Bad Request.
+            if (results.size() == 1
+                    && "User ID list cannot be null or empty.".equals(results.get(0))) {
+                return ResponseEntity.badRequest()
+                        .body(ApiResponse.error(HttpStatus.BAD_REQUEST.value(), results.get(0)));
+            }
+
+            return ResponseEntity.ok(
+                    ApiResponse.success("Bulk deactivation process completed.", results));
+        } catch (Exception e) {
+            // Consider logging the exception here, e.g.:
+            // log.error("Error during bulk user deactivation: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(
+                            ApiResponse.error(
+                                    HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                                    "An unexpected error occurred during bulk deactivation."));
         }
     }
 
@@ -336,39 +361,52 @@ public class AdminController {
         }
     }
 
-    @Operation(summary = "Delete department", description = "Deletes an existing department")
+    @Operation(
+            summary = "Bulk delete departments",
+            description =
+                    "Deletes multiple departments by their public IDs. "
+                            + "Requires a List of UUIDs in the request body.")
     @ApiResponses(
             value = {
                 @io.swagger.v3.oas.annotations.responses.ApiResponse(
                         responseCode = "200",
-                        description = "Department deleted successfully"),
+                        description =
+                                "Bulk delete operation processed. See response body for detailed"
+                                        + " status of each department."),
                 @io.swagger.v3.oas.annotations.responses.ApiResponse(
-                        responseCode = "404",
-                        description = "Department not found"),
+                        responseCode = "400",
+                        description =
+                                "Invalid input, e.g., department ID list cannot be null or empty."),
                 @io.swagger.v3.oas.annotations.responses.ApiResponse(
                         responseCode = "500",
-                        description = "Internal server error")
+                        description = "Internal server error during bulk deletion process.")
             })
-    @DeleteMapping("/department/{id}")
-    public ResponseEntity<ApiResponse<String>> deleteDepartment(@PathVariable UUID id) {
+    @DeleteMapping("/departments")
+    public ResponseEntity<ApiResponse<List<String>>> bulkDeleteDepartments(
+            @RequestBody List<UUID> departmentPublicIds) {
+        if (departmentPublicIds == null || departmentPublicIds.isEmpty()) {
+            return ResponseEntity.badRequest()
+                    .body(
+                            ApiResponse.error(
+                                    HttpStatus.BAD_REQUEST.value(),
+                                    "Department ID list cannot be null or empty."));
+        }
         try {
-            String response = departmentService.deleteDepartment(id);
-            if (response.contains("not found")) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                        .body(
-                                ApiResponse.error(
-                                        HttpStatus.NOT_FOUND.value(),
-                                        "Department not found",
-                                        response));
-            }
+            List<String> results = departmentService.deleteDepartments(departmentPublicIds);
             return ResponseEntity.ok(
-                    ApiResponse.success("Department deleted successfully", response));
+                    ApiResponse.success("Bulk delete operation processed.", results));
         } catch (Exception e) {
+            // Consider logging the exception e.g., using a logger instance
+            // logger.error("Error during bulk department deletion for IDs: {}",
+            // departmentPublicIds, e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(
                             ApiResponse.error(
                                     HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                                    "An unexpected error occurred while deleting department"));
+                                    "An unexpected error occurred during bulk department deletion.",
+                                    e.getMessage() != null
+                                            ? e.getMessage()
+                                            : "Internal error details unavailable."));
         }
     }
 
@@ -533,6 +571,47 @@ public class AdminController {
                                     HttpStatus.CONFLICT.value(),
                                     "Could not delete venue. It might be associated with existing"
                                         + " events or an error occurred during image deletion"));
+        }
+    }
+
+    @Operation(
+            summary = "Bulk delete venues",
+            description = "Deletes multiple venues by their public IDs")
+    @ApiResponses(
+            value = {
+                @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                        responseCode = "200",
+                        description = "Venues deleted successfully"),
+                @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                        responseCode = "404",
+                        description = "Some venues were not found"),
+                @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                        responseCode = "409",
+                        description = "Some venues could not be deleted due to existing events"),
+                @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                        responseCode = "500",
+                        description = "Internal server error")
+            })
+    @DeleteMapping("/venues/bulk")
+    public ResponseEntity<ApiResponse<String>> bulkDeleteVenues(@RequestBody List<UUID> venueIds) {
+        try {
+            venueService.bulkDeleteVenues(venueIds);
+            return ResponseEntity.ok(ApiResponse.success("Venues deleted successfully"));
+        } catch (NoSuchElementException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(
+                            ApiResponse.error(
+                                    HttpStatus.NOT_FOUND.value(),
+                                    "Some venues were not found",
+                                    e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(
+                            ApiResponse.error(
+                                    HttpStatus.CONFLICT.value(),
+                                    "Could not delete some venues. They might be associated with"
+                                            + " existing events or an error occurred during image"
+                                            + " deletion"));
         }
     }
 }

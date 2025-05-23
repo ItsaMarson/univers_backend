@@ -12,8 +12,10 @@ import com.univers.univers_backend.Mapper.EquipmentMapper;
 import com.univers.univers_backend.Repository.EquipmentRepository;
 import com.univers.univers_backend.Repository.UserRepository;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.UUID;
@@ -288,15 +290,8 @@ public class EquipmentService {
     }
 
     @Transactional
-    public void deleteEquipment(String equipmentId, String userId) {
-        Equipment equipment =
-                equipmentRepository
-                        .findByPublicId(UUID.fromString(equipmentId))
-                        .orElseThrow(
-                                () ->
-                                        new NoSuchElementException(
-                                                "Equipment not found with ID: " + equipmentId));
-
+    public Map<String, String> bulkDeleteEquipments(List<UUID> equipmentIds, String userId) {
+        Map<String, String> results = new HashMap<>();
         User requester =
                 userRepository
                         .findByPublicId(UUID.fromString(userId))
@@ -306,28 +301,44 @@ public class EquipmentService {
                                                 "User (requester) not found with ID: " + userId));
 
         Set<Role> equipmentManagerRoles = Set.of(Role.EQUIPMENT_OWNER);
+        boolean isSuperAdmin =
+                requester.getRoles().stream().anyMatch(role -> role == Role.SUPER_ADMIN);
 
-        if (!requester.getRoles().stream().anyMatch(role -> role == Role.SUPER_ADMIN)
-                && !(requester.getRoles().stream().anyMatch(equipmentManagerRoles::contains)
-                        && equipment.getEquipmentOwner() != null // Add null check for owner
-                        && equipment
-                                .getEquipmentOwner()
-                                .getPublicId()
-                                .equals(UUID.fromString(userId)))) {
-            throw new IllegalArgumentException("User is not authorized to delete this equipment.");
+        for (UUID equipmentId : equipmentIds) {
+            try {
+                Equipment equipment =
+                        equipmentRepository
+                                .findByPublicId(equipmentId)
+                                .orElseThrow(
+                                        () ->
+                                                new NoSuchElementException(
+                                                        "Equipment not found with ID: "
+                                                                + equipmentId));
+
+                if (!isSuperAdmin
+                        && !(requester.getRoles().stream().anyMatch(equipmentManagerRoles::contains)
+                                && equipment.getEquipmentOwner() != null
+                                && equipment
+                                        .getEquipmentOwner()
+                                        .getPublicId()
+                                        .equals(UUID.fromString(userId)))) {
+                    throw new SecurityException("User is not authorized to delete this equipment.");
+                }
+
+                // Before deleting equipment, disassociate categories to avoid constraint violations
+                equipment.getCategories().clear();
+                equipmentRepository.save(equipment);
+
+                if (equipment.getImagePath() != null && !equipment.getImagePath().isBlank()) {
+                    fileStorageService.deleteFile(equipment.getImagePath(), equipmentsBucketName);
+                }
+
+                equipmentRepository.delete(equipment);
+                results.put(equipmentId.toString(), "Successfully deleted");
+            } catch (Exception e) {
+                results.put(equipmentId.toString(), "Error: " + e.getMessage());
+            }
         }
-
-        // Before deleting equipment, disassociate categories to avoid constraint violations
-        // if the relationship is managed from the Equipment side with cascade REMOVE or
-        // orphanRemoval.
-        // However, with standard ManyToMany, clearing the collection is enough.
-        equipment.getCategories().clear();
-        equipmentRepository.save(equipment);
-
-        if (equipment.getImagePath() != null && !equipment.getImagePath().isBlank()) {
-            fileStorageService.deleteFile(equipment.getImagePath(), equipmentsBucketName);
-        }
-
-        equipmentRepository.delete(equipment);
+        return results;
     }
 }

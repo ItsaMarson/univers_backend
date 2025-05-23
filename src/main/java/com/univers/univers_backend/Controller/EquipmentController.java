@@ -9,7 +9,10 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.UUID;
+import java.util.stream.Collectors;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -229,12 +232,15 @@ public class EquipmentController {
         }
     }
 
-    @Operation(summary = "Delete equipment", description = "Deletes an existing equipment")
+    @Operation(summary = "Delete equipment", description = "Deletes multiple equipments")
     @ApiResponses(
             value = {
                 @io.swagger.v3.oas.annotations.responses.ApiResponse(
                         responseCode = "200",
-                        description = "Equipment deleted successfully"),
+                        description = "Equipments deleted successfully"),
+                @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                        responseCode = "400",
+                        description = "Invalid input"),
                 @io.swagger.v3.oas.annotations.responses.ApiResponse(
                         responseCode = "403",
                         description = "Operation not allowed"),
@@ -248,33 +254,48 @@ public class EquipmentController {
                         responseCode = "500",
                         description = "Internal server error")
             })
-    @DeleteMapping("/{equipmentId}")
-    public ResponseEntity<ApiResponse<String>> deleteEquipment(
-            @PathVariable String equipmentId, @RequestParam String userId) {
+    @DeleteMapping("/bulk")
+    public ResponseEntity<ApiResponse<Map<String, String>>> deleteEquipments(
+            @RequestBody Map<String, Object> payload, @RequestParam String userId) {
         try {
-            equipmentService.deleteEquipment(equipmentId, userId);
-            return ResponseEntity.ok(ApiResponse.success("Equipment deleted successfully"));
-        } catch (NoSuchElementException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+            @SuppressWarnings("unchecked")
+            List<String> equipmentIds = (List<String>) payload.get("equipmentIds");
+
+            if (equipmentIds == null || equipmentIds.isEmpty()) {
+                return ResponseEntity.badRequest()
+                        .body(
+                                ApiResponse.error(
+                                        HttpStatus.BAD_REQUEST.value(),
+                                        "Invalid request",
+                                        "Equipment IDs list cannot be null or empty."));
+            }
+
+            List<UUID> equipmentUuids =
+                    equipmentIds.stream().map(UUID::fromString).collect(Collectors.toList());
+            Map<String, String> results =
+                    equipmentService.bulkDeleteEquipments(equipmentUuids, userId);
+
+            return ResponseEntity.ok(
+                    ApiResponse.success("Equipment(s) deleted successfully", results));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest()
                     .body(
                             ApiResponse.error(
-                                    HttpStatus.NOT_FOUND.value(),
-                                    "Equipment not found",
+                                    HttpStatus.BAD_REQUEST.value(),
+                                    "Invalid UUID format",
                                     e.getMessage()));
-        } catch (IllegalArgumentException e) {
+        } catch (SecurityException e) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
                     .body(
                             ApiResponse.error(
-                                    HttpStatus.FORBIDDEN.value(),
-                                    "Operation not allowed",
-                                    e.getMessage()));
+                                    HttpStatus.FORBIDDEN.value(), "Access denied", e.getMessage()));
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.CONFLICT)
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(
                             ApiResponse.error(
-                                    HttpStatus.CONFLICT.value(),
-                                    "Could not delete equipment. It might be associated with other"
-                                            + " records"));
+                                    HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                                    "An unexpected error occurred while deleting equipments",
+                                    e.getMessage()));
         }
     }
 }

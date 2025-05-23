@@ -438,16 +438,120 @@ public class UserService {
     }
 
     public String deactivateUser(UUID publicId) {
-        User user =
-                userRepository
-                        .findByPublicId(publicId)
-                        .orElseThrow(
-                                () ->
-                                        new RuntimeException(
-                                                "User not found with Public ID: " + publicId));
+        User user = userRepository.findByPublicId(publicId).orElse(null);
+        if (user == null) {
+            return "User not found with Public ID: " + publicId;
+        }
+
+        // Check if user is a department head
+        if (departmentRepository.existsByDeptHead(user)) {
+            return "Cannot deactivate user " + user.getFullName() + ": User is a department head.";
+        }
+
+        // Check if user is the only active system admin
+        if (user.getRoles().contains(Role.SUPER_ADMIN)) {
+            List<User> activeSystemAdmins =
+                    userRepository.findAllByRolesContains(Role.SUPER_ADMIN).stream()
+                            .filter(User::isActive)
+                            .collect(Collectors.toList());
+            if (activeSystemAdmins.size() == 1
+                    && activeSystemAdmins.get(0).getPublicId().equals(publicId)) {
+                return "Cannot deactivate user "
+                        + user.getFullName()
+                        + ": User is the only active System Admin.";
+            }
+        }
+
         user.setActive(false);
         userRepository.save(user);
-        return "User deactivated successfully.";
+        return "User " + user.getFullName() + " deactivated successfully.";
+    }
+
+    public List<String> bulkDeactivateUsers(List<UUID> userPublicIds) {
+        List<String> results = new ArrayList<>();
+        if (userPublicIds == null || userPublicIds.isEmpty()) {
+            results.add("User ID list cannot be null or empty.");
+            return results;
+        }
+
+        List<User> usersToDeactivate = new ArrayList<>();
+        Map<UUID, User> foundUsersMap =
+                userRepository.findByPublicIdIn(userPublicIds).stream()
+                        .collect(Collectors.toMap(User::getPublicId, user -> user));
+
+        for (UUID publicId : userPublicIds) {
+            User user = foundUsersMap.get(publicId);
+            if (user == null) {
+                results.add("User not found with Public ID: " + publicId);
+                continue;
+            }
+
+            if (!user.isActive()) {
+                results.add(
+                        "User "
+                                + user.getFullName()
+                                + " (ID: "
+                                + publicId
+                                + ") is already inactive.");
+                continue;
+            }
+
+            // Check if user is a department head
+            if (departmentRepository.existsByDeptHead(user)) {
+                results.add(
+                        "Cannot deactivate user "
+                                + user.getFullName()
+                                + " (ID: "
+                                + publicId
+                                + "): User is a department head.");
+                continue;
+            }
+
+            // Check if user is the only active system admin
+            if (user.getRoles().contains(Role.SUPER_ADMIN)) {
+                List<User> activeSystemAdmins =
+                        userRepository.findAllByRolesContains(Role.SUPER_ADMIN).stream()
+                                .filter(User::isActive)
+                                .collect(Collectors.toList());
+                // Temporarily consider the current user as inactive for the check
+                long activeAdminCount =
+                        activeSystemAdmins.stream()
+                                .filter(
+                                        admin ->
+                                                !admin.getPublicId().equals(publicId)
+                                                        && admin.isActive())
+                                .count();
+                if (activeSystemAdmins.stream()
+                                .anyMatch(admin -> admin.getPublicId().equals(publicId))
+                        && activeAdminCount == 0) {
+                    results.add(
+                            "Cannot deactivate user "
+                                    + user.getFullName()
+                                    + " (ID: "
+                                    + publicId
+                                    + "): User is the only active System Admin.");
+                    continue;
+                }
+            }
+            usersToDeactivate.add(user);
+        }
+
+        if (!usersToDeactivate.isEmpty()) {
+            for (User user : usersToDeactivate) {
+                user.setActive(false);
+                results.add(
+                        "User "
+                                + user.getFullName()
+                                + " (ID: "
+                                + user.getPublicId()
+                                + ") deactivated successfully.");
+            }
+            userRepository.saveAll(usersToDeactivate);
+        } else if (results.isEmpty()) {
+            results.add("No users were eligible for deactivation.");
+        }
+
+        return results;
     }
 
     public String activateUser(UUID publicId) {

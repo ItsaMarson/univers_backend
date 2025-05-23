@@ -11,6 +11,7 @@ import com.univers.univers_backend.Repository.VenueRepository;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Value;
@@ -205,6 +206,41 @@ public class VenueService {
 
         // Now delete the venue record
         venueRepository.delete(venue);
+    }
+
+    @Transactional
+    public void bulkDeleteVenues(List<UUID> venueIds) {
+        List<Venue> venues = venueRepository.findAllByPublicIdIn(venueIds);
+
+        // Check if all venues were found
+        if (venues.size() != venueIds.size()) {
+            Set<UUID> foundIds =
+                    venues.stream().map(Venue::getPublicId).collect(Collectors.toSet());
+            Set<UUID> notFoundIds =
+                    venueIds.stream()
+                            .filter(id -> !foundIds.contains(id))
+                            .collect(Collectors.toSet());
+            throw new NoSuchElementException("Some venues were not found: " + notFoundIds);
+        }
+
+        // Delete images from MinIO for all venues
+        for (Venue venue : venues) {
+            if (venue.getImagePath() != null && !venue.getImagePath().isBlank()) {
+                try {
+                    fileStorageService.deleteFile(venue.getImagePath(), venuesBucketName);
+                } catch (Exception e) {
+                    // Log error but continue with deletion
+                    System.err.println(
+                            "Error deleting image for venue "
+                                    + venue.getPublicId()
+                                    + ": "
+                                    + e.getMessage());
+                }
+            }
+        }
+
+        // Delete all venues
+        venueRepository.deleteAll(venues);
     }
 
     // Remove saveImage and deleteImage methods

@@ -11,9 +11,12 @@ import com.univers.univers_backend.Mapper.DepartmentMapper; // Import Department
 import com.univers.univers_backend.Repository.DepartmentRepository;
 import com.univers.univers_backend.Repository.EquipmentReservationRepository; // Added import
 import com.univers.univers_backend.Repository.UserRepository;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID; // Import UUID
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
@@ -190,5 +193,84 @@ public class DepartmentService {
         departmentRepository.delete(department);
         return "Department successfully deleted.";
     }
+
+    public List<String> deleteDepartments(List<UUID> departmentPublicIds) {
+        List<String> results = new ArrayList<>();
+        if (departmentPublicIds == null || departmentPublicIds.isEmpty()) {
+            results.add("No department IDs provided for deletion.");
+            return results;
+        }
+
+        List<Department> foundDepartments =
+                departmentRepository.findByPublicIdIn(departmentPublicIds);
+
+        Map<UUID, Department> departmentMap =
+                foundDepartments.stream()
+                        .collect(Collectors.toMap(Department::getPublicId, Function.identity()));
+
+        List<Department> departmentsEligibleForDeletion = new ArrayList<>();
+
+        for (UUID publicId : departmentPublicIds) {
+            Department department = departmentMap.get(publicId);
+            if (department == null) {
+                results.add("Department not found with Public ID: " + publicId + ".");
+                continue;
+            }
+
+            String departmentName =
+                    department.getName() != null ? department.getName() : "Unnamed Department";
+
+            if (!userRepository.findByDepartment(department).isEmpty()) {
+                results.add(
+                        "Cannot delete department '"
+                                + departmentName
+                                + "' (ID: "
+                                + publicId
+                                + "): Users are still assigned to it.");
+                continue;
+            }
+
+            if (equipmentReservationRepository.existsByDepartment(department)) {
+                results.add(
+                        "Cannot delete department '"
+                                + departmentName
+                                + "' (ID: "
+                                + publicId
+                                + "): Equipment reservations are still associated with it.");
+                continue;
+            }
+            departmentsEligibleForDeletion.add(department);
+        }
+
+        if (!departmentsEligibleForDeletion.isEmpty()) {
+            departmentRepository.deleteAllInBatch(
+                    departmentsEligibleForDeletion); // Use deleteAllInBatch for efficiency
+            for (Department deletedDept : departmentsEligibleForDeletion) {
+                String departmentName =
+                        deletedDept.getName() != null
+                                ? deletedDept.getName()
+                                : "Unnamed Department";
+                results.add(
+                        "Department '"
+                                + departmentName
+                                + "' (ID: "
+                                + deletedDept.getPublicId()
+                                + ") successfully deleted.");
+            }
+        } else if (!departmentPublicIds.isEmpty()
+                && results.stream().noneMatch(s -> s.contains("successfully deleted"))) {
+            // This case handles when IDs were provided, but none were deleted.
+            // 'results' should already contain specific reasons (not found, users assigned, etc.).
+            // Add a general message if 'results' is still empty, meaning no specific issues were
+            // logged for any ID.
+            if (results.isEmpty()) {
+                results.add(
+                        "No departments from the provided list could be processed or deleted (e.g.,"
+                                + " all IDs invalid or other issues).");
+            }
+        }
+        return results;
+    }
+
     // Removed private mapDepartmentToDTO method
 }
