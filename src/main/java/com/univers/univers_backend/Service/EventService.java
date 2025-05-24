@@ -19,6 +19,8 @@ import com.univers.univers_backend.Repository.EventApprovalRepository;
 import com.univers.univers_backend.Repository.EventRepository;
 import com.univers.univers_backend.Repository.UserRepository;
 import com.univers.univers_backend.Repository.VenueRepository;
+import jakarta.persistence.criteria.Root;
+import jakarta.persistence.criteria.Subquery;
 import java.time.Instant;
 import java.time.format.DateTimeParseException;
 import java.util.HashSet;
@@ -253,11 +255,6 @@ public class EventService {
                                         new NoSuchElementException(
                                                 "Event not found with public ID: " + publicId));
         return eventMapper.toDto(event);
-    }
-
-    public List<EventDTO> getApprovedEvents() {
-        List<Event> events = eventRepository.findByStatus(Status.APPROVED);
-        return events.stream().map(eventMapper::toDto).collect(Collectors.toList());
     }
 
     public List<EventDTO> getApprovedEventsByVenue(UUID venuePublicId) {
@@ -563,18 +560,6 @@ public class EventService {
                 .orElseThrow(() -> new UsernameNotFoundException("User not found: " + username));
     }
 
-    public List<EventDTO> getPendingEventsForVenueOwner() {
-        User venueOwner = getCurrentUser();
-        List<Event> events = eventRepository.findPendingEventsForVenueOwner(venueOwner);
-        return events.stream().map(eventMapper::toDto).collect(Collectors.toList());
-    }
-
-    public List<EventDTO> getPendingEventsForDeptHead() {
-        User deptHead = getCurrentUser();
-        List<Event> events = eventRepository.findPendingEventsForDeptHead(deptHead);
-        return events.stream().map(eventMapper::toDto).collect(Collectors.toList());
-    }
-
     public EventDTO mapToDTO(Event event) {
         if (event == null) {
             return null;
@@ -649,33 +634,51 @@ public class EventService {
                 break;
 
             case "related":
-                if (userRole.contains(Role.VENUE_OWNER)) {
+                // Check if user is a designated approver
+                if (userRole.contains(Role.ADMIN)
+                        || userRole.contains(Role.VP_ADMIN)
+                        || userRole.contains(Role.DEPT_HEAD)
+                        || userRole.contains(Role.VENUE_OWNER)
+                        || userRole.contains(Role.EQUIPMENT_OWNER)) {
+                    // Get all events where this user is a designated approver
                     spec =
                             spec.and(
-                                    (root, query, cb) ->
-                                            cb.equal(
-                                                    root.get("eventVenue").get("venueOwner"),
-                                                    currentUser));
-                } else if (userRole.contains(Role.DEPT_HEAD)) {
-                    spec =
-                            spec.and(
-                                    (root, query, cb) ->
-                                            cb.equal(
-                                                    root.get("organizer")
-                                                            .get("department")
-                                                            .get("deptHead"),
-                                                    currentUser));
+                                    (root, query, cb) -> {
+                                        // Join with EventApproval to find events where this user is
+                                        // an approver
+                                        Subquery<Long> subquery = query.subquery(Long.class);
+                                        Root<EventApproval> approvalRoot =
+                                                subquery.from(EventApproval.class);
+
+                                        return cb.exists(
+                                                subquery.select(cb.literal(1L))
+                                                        .where(
+                                                                cb.and(
+                                                                        cb.equal(
+                                                                                approvalRoot.get(
+                                                                                        "event"),
+                                                                                root),
+                                                                        cb.equal(
+                                                                                approvalRoot.get(
+                                                                                        "signedBy"),
+                                                                                currentUser)
+                                                                        // cb.equal(approvalRoot.get("status"), Status.PENDING)
+                                                                        )));
+                                    });
                 } else {
                     logger.info(
                             "User role {} cannot query for scope 'related'. Returning empty list.",
                             userRole);
-                    return List.of(); // Return empty list immediately if scope is invalid for role
+                    return List.of();
                 }
                 break;
 
             case "all":
                 if (!(userRole.contains(Role.SUPER_ADMIN)
                         || userRole.contains(Role.VP_ADMIN)
+                        || userRole.contains(Role.DEPT_HEAD)
+                        || userRole.contains(Role.VENUE_OWNER)
+                        || userRole.contains(Role.EQUIPMENT_OWNER)
                         || userRole.contains(Role.ADMIN))) {
                     logger.warn(
                             "Scope 'all' requested by non-admin role {}, defaulting to 'approved'"
@@ -697,9 +700,7 @@ public class EventService {
         // Apply optional status filter (if scope didn't already enforce a status like 'approved')
         if (finalStatusFilter != null) {
             if (scope.equalsIgnoreCase("all")
-                    && !(userRole.contains(Role.SUPER_ADMIN)
-                            || userRole.contains(Role.VP_ADMIN)
-                            || userRole.contains(Role.ADMIN))) {
+                    && !(userRole.contains(Role.SUPER_ADMIN) || userRole.contains(Role.VP_ADMIN))) {
                 // Non-admin requested 'all' which defaults to 'approved', ignore other status
                 // filters
                 logger.warn(

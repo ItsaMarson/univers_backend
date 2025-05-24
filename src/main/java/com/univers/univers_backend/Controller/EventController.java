@@ -14,7 +14,6 @@ import java.util.NoSuchElementException;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -70,34 +69,6 @@ public class EventController {
                                     HttpStatus.INTERNAL_SERVER_ERROR.value(),
                                     "An unexpected error occurred while creating the event"));
         }
-    }
-
-    @Operation(summary = "Get all events", description = "Retrieves a list of all events")
-    @ApiResponses(
-            value = {
-                @io.swagger.v3.oas.annotations.responses.ApiResponse(
-                        responseCode = "200",
-                        description = "Events retrieved successfully")
-            })
-    @GetMapping
-    public ResponseEntity<ApiResponse<List<EventDTO>>> getAllEvents() {
-        List<EventDTO> allEvents = eventService.getAllEvents();
-        return ResponseEntity.ok(ApiResponse.success(allEvents));
-    }
-
-    @Operation(
-            summary = "Get approved events",
-            description = "Retrieves a list of all approved events")
-    @ApiResponses(
-            value = {
-                @io.swagger.v3.oas.annotations.responses.ApiResponse(
-                        responseCode = "200",
-                        description = "Approved events retrieved successfully")
-            })
-    @GetMapping("/approved")
-    public ResponseEntity<ApiResponse<List<EventDTO>>> getApprovedEvents() {
-        List<EventDTO> approvedEvents = eventService.getApprovedEvents();
-        return ResponseEntity.ok(ApiResponse.success(approvedEvents));
     }
 
     @Operation(
@@ -319,60 +290,6 @@ public class EventController {
                             ApiResponse.error(
                                     HttpStatus.INTERNAL_SERVER_ERROR.value(),
                                     "An unexpected error occurred while deleting the event"));
-        }
-    }
-
-    @Operation(
-            summary = "Get pending venue owner events",
-            description = "Retrieves pending events for venue owners")
-    @ApiResponses(
-            value = {
-                @io.swagger.v3.oas.annotations.responses.ApiResponse(
-                        responseCode = "200",
-                        description = "Events retrieved successfully"),
-                @io.swagger.v3.oas.annotations.responses.ApiResponse(
-                        responseCode = "500",
-                        description = "Internal server error")
-            })
-    @GetMapping("/pending/venue-owner")
-    @PreAuthorize("hasAuthority('VENUE_OWNER')")
-    public ResponseEntity<ApiResponse<List<EventDTO>>> getPendingVenueOwnerEvents() {
-        try {
-            List<EventDTO> pendingEvents = eventService.getPendingEventsForVenueOwner();
-            return ResponseEntity.ok(ApiResponse.success(pendingEvents));
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(
-                            ApiResponse.error(
-                                    HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                                    "Error retrieving pending events"));
-        }
-    }
-
-    @Operation(
-            summary = "Get pending department head events",
-            description = "Retrieves pending events for department heads")
-    @ApiResponses(
-            value = {
-                @io.swagger.v3.oas.annotations.responses.ApiResponse(
-                        responseCode = "200",
-                        description = "Events retrieved successfully"),
-                @io.swagger.v3.oas.annotations.responses.ApiResponse(
-                        responseCode = "500",
-                        description = "Internal server error")
-            })
-    @GetMapping("/pending/department-head")
-    @PreAuthorize("hasAuthority('DEPT_HEAD')")
-    public ResponseEntity<ApiResponse<List<EventDTO>>> getPendingDeptHeadEvents() {
-        try {
-            List<EventDTO> pendingEvents = eventService.getPendingEventsForDeptHead();
-            return ResponseEntity.ok(ApiResponse.success(pendingEvents));
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(
-                            ApiResponse.error(
-                                    HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                                    "Error retrieving pending events"));
         }
     }
 

@@ -7,11 +7,13 @@ import com.univers.univers_backend.Entity.Event;
 import com.univers.univers_backend.Entity.EventApproval;
 import com.univers.univers_backend.Entity.User;
 import com.univers.univers_backend.Enum.Status;
+import com.univers.univers_backend.Mapper.EventMapper;
 import com.univers.univers_backend.Mapper.UserMapper;
 import com.univers.univers_backend.Repository.EventApprovalRepository;
 import com.univers.univers_backend.Repository.EventRepository;
 import com.univers.univers_backend.Repository.UserRepository;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.UUID;
@@ -34,18 +36,21 @@ public class EventApprovalService {
     private final UserRepository userRepository;
     private final NotificationService notificationService;
     private final UserMapper userMapper;
+    private final EventMapper eventMapper;
 
     public EventApprovalService(
             EventApprovalRepository eventApprovalRepository,
             EventRepository eventRepository,
             UserRepository userRepository,
             NotificationService notificationService,
-            UserMapper userMapper) {
+            UserMapper userMapper,
+            EventMapper eventMapper) {
         this.eventApprovalRepository = eventApprovalRepository;
         this.eventRepository = eventRepository;
         this.userRepository = userRepository;
         this.notificationService = notificationService;
         this.userMapper = userMapper;
+        this.eventMapper = eventMapper;
     }
 
     // Helper method to get the current authenticated user
@@ -255,5 +260,62 @@ public class EventApprovalService {
                 approval.getRemarks(),
                 approval.getStatus() != null ? approval.getStatus().name() : null,
                 approval.getDateSigned());
+    }
+
+    @Transactional
+    public List<EventApprovalDTO> processBulkApprovalAction(
+            List<UUID> eventPublicIds, Status newStatus, String remarks) {
+        List<EventApprovalDTO> successfulActions = new ArrayList<>();
+        List<String> errors = new ArrayList<>();
+
+        for (UUID eventPublicId : eventPublicIds) {
+            try {
+                EventApprovalDTO result = processApprovalAction(eventPublicId, newStatus, remarks);
+                successfulActions.add(result);
+            } catch (NoSuchElementException e) {
+                logger.warn(
+                        "Skipping event ID {} in bulk action: Not found - {}",
+                        eventPublicId,
+                        e.getMessage());
+                errors.add(
+                        "Event ID "
+                                + eventPublicId
+                                + ": Not found or no approval record for user.");
+            } catch (SecurityException e) {
+                logger.warn(
+                        "Skipping event ID {} in bulk action: Forbidden - {}",
+                        eventPublicId,
+                        e.getMessage());
+                errors.add("Event ID " + eventPublicId + ": User not authorized.");
+            } catch (IllegalStateException | IllegalArgumentException e) {
+                logger.warn(
+                        "Skipping event ID {} in bulk action: Invalid state/argument - {}",
+                        eventPublicId,
+                        e.getMessage());
+                errors.add("Event ID " + eventPublicId + ": " + e.getMessage());
+            } catch (Exception e) {
+                logger.error(
+                        "Skipping event ID {} in bulk action: Unexpected error - {}",
+                        eventPublicId,
+                        e.getMessage(),
+                        e);
+                errors.add("Event ID " + eventPublicId + ": Unexpected error - " + e.getMessage());
+            }
+        }
+
+        // If there were any errors, we might want to throw a custom exception
+        // to indicate partial success/failure, or handle it as per business requirements.
+        // For now, we'll log errors and return only successful ones.
+        // The @Transactional annotation ensures that if an unhandled RuntimeException occurs
+        // (e.g., database issue not caught above), the whole transaction rolls back.
+        if (!errors.isEmpty()) {
+            // This is a simple way to communicate partial failure.
+            // A more robust solution might involve a custom response DTO with successes and
+            // failures.
+            throw new RuntimeException(
+                    "Bulk action completed with errors: " + String.join("; ", errors));
+        }
+
+        return successfulActions;
     }
 }

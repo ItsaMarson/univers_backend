@@ -3,15 +3,11 @@ package com.univers.univers_backend.Service;
 
 import com.univers.univers_backend.DTO.CreateUserDTO;
 import com.univers.univers_backend.DTO.EditUserDTO;
-import com.univers.univers_backend.DTO.EventDTO;
 import com.univers.univers_backend.DTO.LoginRequest;
 import com.univers.univers_backend.DTO.RegisterDTO;
 import com.univers.univers_backend.DTO.UserDTO;
-import com.univers.univers_backend.DTO.VenueDTO;
 import com.univers.univers_backend.Entity.Department;
-import com.univers.univers_backend.Entity.Event;
 import com.univers.univers_backend.Entity.User;
-import com.univers.univers_backend.Entity.Venue;
 import com.univers.univers_backend.Enum.Role;
 import com.univers.univers_backend.Mapper.UserMapper;
 import com.univers.univers_backend.Mapper.VenueMapper;
@@ -643,40 +639,5 @@ public class UserService {
         userRepository.save(user);
 
         return "Password reset successfully";
-    }
-
-    public VenueDTO getManagedVenue(UUID userPublicId) {
-        User user =
-                userRepository
-                        .findByPublicId(userPublicId)
-                        .orElseThrow(
-                                () ->
-                                        new RuntimeException(
-                                                "User not found with Public ID: " + userPublicId));
-
-        Venue venue =
-                venueRepository
-                        .findByVenueOwner(user)
-                        .orElseThrow(
-                                () ->
-                                        new RuntimeException(
-                                                "No venue managed by user: " + user.getEmail()));
-
-        return venueMapper.toDto(venue);
-    }
-
-    public List<EventDTO> getOwnEvents() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String currentUsername = authentication.getName();
-        User currentUser =
-                userRepository
-                        .findByEmail(currentUsername)
-                        .orElseThrow(
-                                () ->
-                                        new UsernameNotFoundException(
-                                                "User not found: " + currentUsername));
-
-        List<Event> events = eventRepository.findByOrganizer(currentUser);
-        return events.stream().map(eventService::mapToDTO).collect(Collectors.toList());
     }
 }

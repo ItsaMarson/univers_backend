@@ -1,7 +1,7 @@
 /* (C)2025 */
 package com.univers.univers_backend.Controller;
 
-import com.univers.univers_backend.DTO.ApprovalActionRequest;
+import com.univers.univers_backend.DTO.BulkApprovalActionRequest;
 import com.univers.univers_backend.DTO.EventApprovalDTO;
 import com.univers.univers_backend.Enum.Status;
 import com.univers.univers_backend.Service.EventApprovalService;
@@ -9,15 +9,14 @@ import com.univers.univers_backend.config.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import java.util.List;
-import java.util.NoSuchElementException;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -34,25 +33,24 @@ public class EventApprovalController {
     }
 
     @Operation(
-            summary = "Process an approval action (approve/reject) for an event approval item",
+            summary = "Process a bulk approval action (approve/reject) for multiple events",
             description =
-                    "Allows an assigned approver to approve or reject a specific event approval"
-                            + " task.")
+                    "Allows an assigned approver to approve or reject multiple events at once. Can"
+                            + " also be used for single events by providing a list with one ID.")
     @ApiResponses(
             value = {
                 @io.swagger.v3.oas.annotations.responses.ApiResponse(
                         responseCode = "200",
-                        description = "Approval action processed successfully",
+                        description = "Bulk approval action processed successfully",
                         content =
                                 @io.swagger.v3.oas.annotations.media.Content(
                                         mediaType = "application/json",
                                         schema =
                                                 @io.swagger.v3.oas.annotations.media.Schema(
-                                                        implementation = EventApprovalDTO.class))),
+                                                        implementation = List.class))),
                 @io.swagger.v3.oas.annotations.responses.ApiResponse(
                         responseCode = "400",
-                        description =
-                                "Invalid request (e.g., invalid status, item already processed)"),
+                        description = "Invalid request (e.g., invalid status, empty event list)"),
                 @io.swagger.v3.oas.annotations.responses.ApiResponse(
                         responseCode = "401",
                         description = "User not authenticated or not found"),
@@ -60,17 +58,12 @@ public class EventApprovalController {
                         responseCode = "403",
                         description = "User not authorized to perform this action"),
                 @io.swagger.v3.oas.annotations.responses.ApiResponse(
-                        responseCode = "404",
-                        description = "Event approval item not found"),
-                @io.swagger.v3.oas.annotations.responses.ApiResponse(
                         responseCode = "500",
-                        description = "Internal server error")
+                        description = "Internal server error or partial failure")
             })
-    @PutMapping("/{eventPublicId}/action")
-    public ResponseEntity<ApiResponse<EventApprovalDTO>> processEventApprovalAction(
-            @PathVariable UUID eventPublicId,
-            @RequestBody ApprovalActionRequest request,
-            Authentication authentication) {
+    @PostMapping("/action")
+    public ResponseEntity<ApiResponse<List<EventApprovalDTO>>> processBulkEventApprovalAction(
+            @Valid @RequestBody BulkApprovalActionRequest request, Authentication authentication) {
 
         if (authentication == null || !authentication.isAuthenticated()) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
@@ -79,77 +72,39 @@ public class EventApprovalController {
                                     HttpStatus.UNAUTHORIZED.value(), "User not authenticated"));
         }
 
-        try {
-            Status statusEnum;
-            try {
-                statusEnum = Status.valueOf(request.status().toUpperCase());
-                if (statusEnum != Status.APPROVED && statusEnum != Status.REJECTED) {
-                    throw new IllegalArgumentException("Status must be APPROVED or REJECTED.");
-                }
-            } catch (IllegalArgumentException e) {
-                return ResponseEntity.badRequest()
-                        .body(
-                                ApiResponse.error(
-                                        HttpStatus.BAD_REQUEST.value(),
-                                        "Invalid status value. Must be APPROVED or REJECTED."));
-            }
-
-            EventApprovalDTO updatedDto =
-                    eventApprovalService.processApprovalAction(
-                            eventPublicId, statusEnum, request.remarks());
-            return ResponseEntity.ok(ApiResponse.success(updatedDto));
-
-        } catch (NoSuchElementException e) {
-            logger.warn(
-                    "Attempted to process non-existent event or approval for event {}: {}",
-                    eventPublicId,
-                    e.getMessage());
-            return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(
-                            ApiResponse.error(
-                                    HttpStatus.NOT_FOUND.value(),
-                                    "Resource not found",
-                                    e.getMessage()));
-        } catch (SecurityException e) {
-            logger.warn(
-                    "Authorization failed for user {} on event {}: {}",
-                    authentication.getName(),
-                    eventPublicId,
-                    e.getMessage());
-            return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                    .body(
-                            ApiResponse.error(
-                                    HttpStatus.FORBIDDEN.value(), "Forbidden", e.getMessage()));
-        } catch (IllegalStateException | IllegalArgumentException e) {
-            logger.warn("Invalid request for event {}: {}", eventPublicId, e.getMessage());
+        if (request.status() != Status.APPROVED && request.status() != Status.REJECTED) {
             return ResponseEntity.badRequest()
                     .body(
                             ApiResponse.error(
                                     HttpStatus.BAD_REQUEST.value(),
-                                    "Invalid request",
-                                    e.getMessage()));
-        } catch (UsernameNotFoundException e) {
-            logger.warn(
-                    "Authenticated user {} could not be resolved by the service: {}",
-                    authentication.getName(),
-                    e.getMessage());
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                                    "Invalid status value. Must be APPROVED or REJECTED."));
+        }
+
+        if (request.eventPublicIds() == null || request.eventPublicIds().isEmpty()) {
+            return ResponseEntity.badRequest()
                     .body(
                             ApiResponse.error(
-                                    HttpStatus.UNAUTHORIZED.value(),
-                                    "User validation failed",
-                                    e.getMessage()));
+                                    HttpStatus.BAD_REQUEST.value(),
+                                    "Event ID list cannot be empty."));
+        }
+
+        try {
+            List<EventApprovalDTO> results =
+                    eventApprovalService.processBulkApprovalAction(
+                            request.eventPublicIds(), request.status(), request.remarks());
+            return ResponseEntity.ok(ApiResponse.success(results));
         } catch (Exception e) {
             logger.error(
-                    "Unexpected error processing approval action for event {}: {}",
-                    eventPublicId,
+                    "Error processing bulk approval action for user {}: {}",
+                    authentication.getName(),
                     e.getMessage(),
                     e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(
                             ApiResponse.error(
                                     HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                                    "An unexpected error occurred. Please try again later."));
+                                    "Error processing bulk action",
+                                    e.getMessage()));
         }
     }
 
@@ -182,7 +137,7 @@ public class EventApprovalController {
             List<EventApprovalDTO> approvals =
                     eventApprovalService.getAllApprovalsOfEvent(eventPublicId);
             return ResponseEntity.ok(ApiResponse.success(approvals));
-        } catch (NoSuchElementException e) {
+        } catch (java.util.NoSuchElementException e) {
             logger.warn(
                     "Attempted to get approvals for non-existent event {}: {}",
                     eventPublicId,
