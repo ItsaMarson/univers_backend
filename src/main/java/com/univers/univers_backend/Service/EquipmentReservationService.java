@@ -12,6 +12,7 @@ import com.univers.univers_backend.Entity.Equipment;
 import com.univers.univers_backend.Entity.EquipmentApproval;
 import com.univers.univers_backend.Entity.EquipmentReservation;
 import com.univers.univers_backend.Entity.Event;
+import com.univers.univers_backend.Entity.EventApproval;
 import com.univers.univers_backend.Entity.User;
 import com.univers.univers_backend.Enum.Role;
 import com.univers.univers_backend.Enum.Status;
@@ -23,6 +24,7 @@ import com.univers.univers_backend.Repository.DepartmentRepository;
 import com.univers.univers_backend.Repository.EquipmentApprovalRepository;
 import com.univers.univers_backend.Repository.EquipmentRepository;
 import com.univers.univers_backend.Repository.EquipmentReservationRepository;
+import com.univers.univers_backend.Repository.EventApprovalRepository;
 import com.univers.univers_backend.Repository.EventRepository;
 import com.univers.univers_backend.Repository.UserRepository;
 import java.time.Instant;
@@ -55,6 +57,7 @@ public class EquipmentReservationService {
     private final DepartmentRepository departmentRepository;
     private final NotificationService notificationService;
     private final FileStorageService fileStorageService;
+    private final EventApprovalRepository eventApprovalRepository;
     // Mappers
     private final EventMapper eventMapper;
     private final DepartmentMapper departmentMapper;
@@ -82,6 +85,7 @@ public class EquipmentReservationService {
             DepartmentRepository departmentRepository,
             FileStorageService fileStorageService,
             NotificationService notificationService,
+            EventApprovalRepository eventApprovalRepository,
             @Lazy EventMapper eventMapper,
             @Lazy DepartmentMapper departmentMapper,
             @Lazy EquipmentMapper equipmentMapper,
@@ -94,6 +98,7 @@ public class EquipmentReservationService {
         this.departmentRepository = departmentRepository;
         this.fileStorageService = fileStorageService;
         this.notificationService = notificationService;
+        this.eventApprovalRepository = eventApprovalRepository;
         this.eventMapper = eventMapper;
         this.departmentMapper = departmentMapper;
         this.equipmentMapper = equipmentMapper;
@@ -197,6 +202,36 @@ public class EquipmentReservationService {
         // Status is PENDING by default as per Entity definition
 
         EquipmentReservation savedReservation = equipmentReservationRepository.save(newReservation);
+
+        // Add equipment owner to event approvals if they don't already have one
+        User equipmentOwner = equipment.getEquipmentOwner();
+        if (equipmentOwner != null) {
+            boolean hasExistingApproval =
+                    eventApprovalRepository
+                            .findByEventAndSignedBy(event, equipmentOwner)
+                            .isPresent();
+            if (!hasExistingApproval) {
+                EventApproval equipmentOwnerApproval = new EventApproval();
+                equipmentOwnerApproval.setEvent(event);
+                equipmentOwnerApproval.setSignedBy(equipmentOwner);
+                equipmentOwnerApproval.setStatus(Status.PENDING);
+                eventApprovalRepository.save(equipmentOwnerApproval);
+
+                // Notify equipment owner about the event approval requirement
+                if (!equipmentOwner.getPublicId().equals(requestingUser.getPublicId())) {
+                    notificationService.createNotification(
+                            equipmentOwner,
+                            "A new event '"
+                                    + event.getEventName()
+                                    + "' has requested your equipment '"
+                                    + equipment.getName()
+                                    + "' and requires your approval.",
+                            event.getPublicId(),
+                            event.getPublicId(),
+                            "EVENT_EQUIPMENT_APPROVAL");
+                }
+            }
+        }
 
         notifyEquipmentOwner(savedReservation);
 

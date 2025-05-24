@@ -1,11 +1,13 @@
 /* (C)2025 */
 package com.univers.univers_backend.Service;
 
+import com.univers.univers_backend.DTO.EquipmentReservationDTO;
 import com.univers.univers_backend.DTO.EventApprovalDTO;
 import com.univers.univers_backend.DTO.UserDTO;
 import com.univers.univers_backend.Entity.Event;
 import com.univers.univers_backend.Entity.EventApproval;
 import com.univers.univers_backend.Entity.User;
+import com.univers.univers_backend.Enum.Role;
 import com.univers.univers_backend.Enum.Status;
 import com.univers.univers_backend.Mapper.EventMapper;
 import com.univers.univers_backend.Mapper.UserMapper;
@@ -37,6 +39,7 @@ public class EventApprovalService {
     private final NotificationService notificationService;
     private final UserMapper userMapper;
     private final EventMapper eventMapper;
+    private final EquipmentReservationService equipmentReservationService;
 
     public EventApprovalService(
             EventApprovalRepository eventApprovalRepository,
@@ -44,13 +47,15 @@ public class EventApprovalService {
             UserRepository userRepository,
             NotificationService notificationService,
             UserMapper userMapper,
-            EventMapper eventMapper) {
+            EventMapper eventMapper,
+            EquipmentReservationService equipmentReservationService) {
         this.eventApprovalRepository = eventApprovalRepository;
         this.eventRepository = eventRepository;
         this.userRepository = userRepository;
         this.notificationService = notificationService;
         this.userMapper = userMapper;
         this.eventMapper = eventMapper;
+        this.equipmentReservationService = equipmentReservationService;
     }
 
     // Helper method to get the current authenticated user
@@ -138,6 +143,47 @@ public class EventApprovalService {
         eventApproval.setRemarks(remarks);
         eventApproval.setDateSigned(Instant.now());
         EventApproval updatedApproval = eventApprovalRepository.save(eventApproval);
+
+        // If this is an equipment owner approving the event, automatically approve their equipment
+        // reservations
+        if (newStatus == Status.APPROVED && currentUser.getRoles().contains(Role.EQUIPMENT_OWNER)) {
+            try {
+                // Get all equipment reservations for this event that are owned by the current user
+                List<EquipmentReservationDTO> reservations =
+                        equipmentReservationService.getReservationsByEventPublicId(eventPublicId);
+                List<UUID> pendingReservationIds =
+                        reservations.stream()
+                                .filter(r -> r.status().equals("PENDING"))
+                                .filter(
+                                        r ->
+                                                r.equipment()
+                                                        .equipmentOwner()
+                                                        .publicId()
+                                                        .equals(currentUser.getPublicId()))
+                                .map(EquipmentReservationDTO::publicId)
+                                .collect(Collectors.toList());
+
+                if (!pendingReservationIds.isEmpty()) {
+                    logger.info(
+                            "Equipment owner {} is approving event {}. Automatically approving {}"
+                                    + " equipment reservations.",
+                            currentUser.getPublicId(),
+                            eventPublicId,
+                            pendingReservationIds.size());
+                    equipmentReservationService.bulkApproveReservations(
+                            pendingReservationIds,
+                            "Automatically approved as part of event approval");
+                }
+            } catch (Exception e) {
+                // Log the error but don't fail the event approval
+                logger.error(
+                        "Error while automatically approving equipment reservations for event {}:"
+                                + " {}",
+                        eventPublicId,
+                        e.getMessage(),
+                        e);
+            }
+        }
 
         checkAndUpdateEventStatus(updatedApproval.getEvent());
 
