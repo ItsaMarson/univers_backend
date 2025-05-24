@@ -535,15 +535,24 @@ public class DashboardService {
                     Instant eventCreatedAt = event.getCreatedAt();
                     Instant activityTimestamp;
                     String description;
+                    String venueName =
+                            event.getEventVenue() != null ? event.getEventVenue().getName() : "N/A";
 
                     if (eventUpdatedAt == null || eventUpdatedAt.equals(eventCreatedAt)) {
-                        description = "Event '" + event.getEventName() + "' created.";
+                        description =
+                                "Event '"
+                                        + event.getEventName()
+                                        + "' created for venue '"
+                                        + venueName
+                                        + "'.";
                         activityTimestamp = eventCreatedAt;
                     } else {
                         description =
                                 "Event '"
                                         + event.getEventName()
-                                        + "' status is "
+                                        + "' at venue '"
+                                        + venueName
+                                        + "' status is now "
                                         + event.getStatus().toString().toLowerCase()
                                         + ".";
                         activityTimestamp = eventUpdatedAt;
@@ -562,7 +571,7 @@ public class DashboardService {
                                             + " "
                                             + event.getOrganizer().getLastname()
                                     : "System";
-                    String entityPath = "/app/events/" + event.getPublicId().toString();
+                    String entityPath = event.getPublicId().toString();
 
                     activityItems.add(
                             new RecentActivityItemDTO(
@@ -581,19 +590,31 @@ public class DashboardService {
                     Instant reservationCreatedAt = reservation.getCreatedAt();
                     Instant activityTimestamp;
                     String description;
+                    String eventNameForReservation =
+                            reservation.getEvent() != null
+                                    ? reservation.getEvent().getEventName()
+                                    : "N/A";
+                    String equipmentName =
+                            reservation.getEquipment() != null
+                                    ? reservation.getEquipment().getName()
+                                    : "N/A";
 
                     if (reservationUpdatedAt == null
                             || reservationUpdatedAt.equals(reservationCreatedAt)) {
                         description =
                                 "Reservation for '"
-                                        + reservation.getEquipment().getName()
+                                        + equipmentName
+                                        + "' for event '"
+                                        + eventNameForReservation
                                         + "' created.";
                         activityTimestamp = reservationCreatedAt;
                     } else {
                         description =
                                 "Reservation for '"
-                                        + reservation.getEquipment().getName()
-                                        + "' status is "
+                                        + equipmentName
+                                        + "' for event '"
+                                        + eventNameForReservation
+                                        + "' status is now "
                                         + reservation.getStatus().toString().toLowerCase()
                                         + ".";
                         activityTimestamp = reservationUpdatedAt;
@@ -612,7 +633,7 @@ public class DashboardService {
                                             + " "
                                             + reservation.getRequestingUser().getLastname()
                                     : "System";
-                    String entityPath = reservation.getPublicId().toString();
+                    String entityPath = reservation.getEvent().getPublicId().toString();
 
                     activityItems.add(
                             new RecentActivityItemDTO(

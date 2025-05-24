@@ -592,6 +592,8 @@ public class EventService {
         Sort sort;
         if ("recency".equalsIgnoreCase(sortBy)) {
             sort = Sort.by(Sort.Direction.DESC, "createdAt");
+        } else if ("date".equalsIgnoreCase(sortBy)) {
+            sort = Sort.by(Sort.Direction.ASC, "startTime");
         } else {
             // Default sort, e.g., by start time ascending
             sort = Sort.by(Sort.Direction.ASC, "startTime");
