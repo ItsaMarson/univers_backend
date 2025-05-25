@@ -144,6 +144,32 @@ public class EventApprovalService {
         eventApproval.setDateSigned(Instant.now());
         EventApproval updatedApproval = eventApprovalRepository.save(eventApproval);
 
+        // Notify the event organizer about the approval action
+        User organizer = event.getOrganizer();
+        if (organizer != null) {
+            String approverRole =
+                    currentUser.getRoles().stream()
+                            .findFirst()
+                            .map(role -> role.name())
+                            .orElse("Approver");
+
+            String message =
+                    String.format(
+                            "Your event '%s' has been %s by %s (%s).%s",
+                            event.getEventName(),
+                            newStatus == Status.APPROVED ? "approved" : "rejected",
+                            currentUser.getFullName(),
+                            approverRole,
+                            remarks != null && !remarks.isBlank() ? " Remarks: " + remarks : "");
+
+            notificationService.createNotification(
+                    organizer,
+                    message,
+                    event.getPublicId(),
+                    event.getPublicId(),
+                    "EVENT_APPROVAL_ACTION");
+        }
+
         // If this is an equipment owner approving the event, automatically approve their equipment
         // reservations
         if (newStatus == Status.APPROVED && currentUser.getRoles().contains(Role.EQUIPMENT_OWNER)) {
