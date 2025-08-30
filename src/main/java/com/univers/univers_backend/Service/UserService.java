@@ -166,6 +166,9 @@ public class UserService {
         if (userRepository.existsByEmail(request.email())) {
             return "Email already in use";
         }
+        if(userRepository.existsByIdNumber(request.idNumber())){
+            return "Id number already in use";
+        }
         String verificationCode = String.format("%06d", new Random().nextInt(1000000));
 
         User user = new User();

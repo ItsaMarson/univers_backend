@@ -7,6 +7,7 @@ import java.time.Instant;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import jakarta.validation.constraints.Email;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -23,10 +24,13 @@ public class User implements UserDetails {
     @Column(unique = true, nullable = false, updatable = false)
     private UUID publicId;
 
+    @Email(message = "Invalid Email format")
+    @Column(unique = true, nullable = false)
     private String email;
     private String password;
     private String firstName;
     private String lastName;
+    @Column(unique = true, nullable = false)
     private String idNumber;
 
     @ManyToOne
