@@ -103,7 +103,8 @@ public class EventMapper {
                 imageUrl,
                 approvalDtos,
                 event.getCreatedAt(),
-                event.getUpdatedAt());
+                event.getUpdatedAt(),
+                event.getAssignedPersonnel());
     }
 
     // public Event toEntity(EventDTO dto) { ... } // If needed later

@@ -44,6 +44,8 @@ public class Event {
 
     private Instant updatedAt;
 
+    private List<String> assignedPersonnel;
+
     @PrePersist
     protected void OnCreate() {
         this.createdAt = Instant.now();
@@ -76,7 +78,8 @@ public class Event {
             String approvedLetterPath,
             String imagePath,
             Instant createdAt,
-            Instant updatedAt) {
+            Instant updatedAt,
+            List<String> assignedPersonnel) {
         this.id = id;
         this.eventName = eventName;
         this.eventType = eventType;
@@ -88,6 +91,8 @@ public class Event {
         this.approvedLetterPath = approvedLetterPath;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
+        this.assignedPersonnel = assignedPersonnel;
+
     }
 
     public Long getId() {
@@ -194,7 +199,15 @@ public class Event {
         return approvals;
     }
 
-    public void setApprovals(List<EventApproval> approvals) {
+    public void setApprovals(List<EventApproval> approvals) { //Subject to deletion, due to unused
         this.approvals = approvals;
+    }
+
+    public List<String> getAssignedPersonnel() {
+        return assignedPersonnel;
+    }
+
+    public void setAssignedPersonnel(List<String> assignedPersonnel) {
+        this.assignedPersonnel = assignedPersonnel;
     }
 }

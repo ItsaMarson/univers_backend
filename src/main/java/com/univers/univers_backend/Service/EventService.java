@@ -310,6 +310,9 @@ public class EventService {
         if (requestDTO.endTime() != null) {
             event.setEndTime(requestDTO.endTime());
         }
+        if(requestDTO.assignedPersonnel() != null && !requestDTO.assignedPersonnel().isEmpty()){
+            event.setAssignedPersonnel(requestDTO.assignedPersonnel());
+        }
 
         if (requestDTO.organizerPublicId() != null
                 && !event.getOrganizer().getPublicId().equals(requestDTO.organizerPublicId())) {
