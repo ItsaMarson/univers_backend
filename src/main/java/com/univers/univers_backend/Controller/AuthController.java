@@ -18,10 +18,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import java.time.Instant;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -59,6 +57,10 @@ public class AuthController {
         this.emailService = emailService;
         this.userDetailsService = userDetailsService;
     }
+    List<String> duplicateMessages = List.of(
+            "Email already in use",
+            "Id number already in use"
+    );
 
     @Operation(
             summary = "Register a new user",
@@ -72,10 +74,10 @@ public class AuthController {
                         responseCode = "400",
                         description = "Email already in use")
             })
-    @PostMapping("/register")
+
     public ResponseEntity<ApiResponse<String>> register(@Valid @RequestBody RegisterDTO request) {
         String responseMessage = userService.register(request);
-        if ("Email already in use".equals(responseMessage)) {
+        if (duplicateMessages.contains(responseMessage)) {
             return ResponseEntity.badRequest()
                     .body(
                             ApiResponse.error(
