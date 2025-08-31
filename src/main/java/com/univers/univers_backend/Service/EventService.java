@@ -644,7 +644,8 @@ public class EventService {
                         || userRole.contains(Role.VP_ADMIN)
                         || userRole.contains(Role.DEPT_HEAD)
                         || userRole.contains(Role.VENUE_OWNER)
-                        || userRole.contains(Role.EQUIPMENT_OWNER)) {
+                        || userRole.contains(Role.EQUIPMENT_OWNER)
+                        || userRole.contains(Role.VPAA)) {
                     // Get all events where this user is a designated approver
                     spec =
                             spec.and(
@@ -684,7 +685,8 @@ public class EventService {
                         || userRole.contains(Role.DEPT_HEAD)
                         || userRole.contains(Role.VENUE_OWNER)
                         || userRole.contains(Role.EQUIPMENT_OWNER)
-                        || userRole.contains(Role.ADMIN))) {
+                        || userRole.contains(Role.ADMIN)
+                        || userRole.contains(Role.VPAA))) {
                     logger.warn(
                             "Scope 'all' requested by non-admin role {}, defaulting to 'approved'"
                                     + " events only.",

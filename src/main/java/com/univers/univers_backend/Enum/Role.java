@@ -9,4 +9,5 @@ public enum Role {
     DEPT_HEAD,
     VENUE_OWNER,
     EQUIPMENT_OWNER,
+    VPAA,
 }
