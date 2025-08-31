@@ -43,6 +43,10 @@ public class AuthController {
 
     private final EmailService emailService;
 
+    List<String> duplicateMessages = List.of(
+            "Email already in use",
+            "Id number already in use"
+    );
     public AuthController(
             AuthenticationManager authManager,
             JwtUtil jwtUtil,
@@ -57,10 +61,6 @@ public class AuthController {
         this.emailService = emailService;
         this.userDetailsService = userDetailsService;
     }
-    List<String> duplicateMessages = List.of(
-            "Email already in use",
-            "Id number already in use"
-    );
 
     @Operation(
             summary = "Register a new user",
@@ -74,7 +74,7 @@ public class AuthController {
                         responseCode = "400",
                         description = "Email already in use")
             })
-
+    @PostMapping("/register")
     public ResponseEntity<ApiResponse<String>> register(@Valid @RequestBody RegisterDTO request) {
         String responseMessage = userService.register(request);
         if (duplicateMessages.contains(responseMessage)) {
