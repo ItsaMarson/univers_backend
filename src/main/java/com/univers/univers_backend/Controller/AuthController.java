@@ -5,6 +5,7 @@ import com.univers.univers_backend.DTO.LoginRequest;
 import com.univers.univers_backend.DTO.RegisterDTO;
 import com.univers.univers_backend.DTO.UserDTO;
 import com.univers.univers_backend.Entity.User;
+import com.univers.univers_backend.Enum.ErrorMessage;
 import com.univers.univers_backend.Repository.UserRepository;
 import com.univers.univers_backend.Service.EmailService;
 import com.univers.univers_backend.Service.UserService;
@@ -43,10 +44,6 @@ public class AuthController {
 
     private final EmailService emailService;
 
-    List<String> duplicateMessages = List.of(
-            "Email already in use",
-            "Id number already in use"
-    );
     public AuthController(
             AuthenticationManager authManager,
             JwtUtil jwtUtil,
@@ -77,7 +74,7 @@ public class AuthController {
     @PostMapping("/register")
     public ResponseEntity<ApiResponse<String>> register(@Valid @RequestBody RegisterDTO request) {
         String responseMessage = userService.register(request);
-        if (duplicateMessages.contains(responseMessage)) {
+        if (ErrorMessage.fromString(responseMessage) == ErrorMessage.EMAIL_IN_USE || ErrorMessage.fromString(responseMessage) == ErrorMessage.ID_NUMBER_IN_USE) {
             return ResponseEntity.badRequest()
                     .body(
                             ApiResponse.error(

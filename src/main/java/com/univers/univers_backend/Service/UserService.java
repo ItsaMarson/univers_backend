@@ -8,6 +8,7 @@ import com.univers.univers_backend.DTO.RegisterDTO;
 import com.univers.univers_backend.DTO.UserDTO;
 import com.univers.univers_backend.Entity.Department;
 import com.univers.univers_backend.Entity.User;
+import com.univers.univers_backend.Enum.ErrorMessage;
 import com.univers.univers_backend.Enum.Role;
 import com.univers.univers_backend.Mapper.UserMapper;
 import com.univers.univers_backend.Mapper.VenueMapper;
@@ -164,10 +165,10 @@ public class UserService {
 
     public String register(RegisterDTO request) {
         if (userRepository.existsByEmail(request.email())) {
-            return "Email already in use";
+            return ErrorMessage.EMAIL_IN_USE.getMessage();
         }
         if(userRepository.existsByIdNumber(request.idNumber())){
-            return "Id number already in use";
+            return ErrorMessage.ID_NUMBER_IN_USE.getMessage();
         }
         String verificationCode = String.format("%06d", new Random().nextInt(1000000));
 
