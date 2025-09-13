@@ -97,14 +97,6 @@ public class EventService {
 
         User organizer = getCurrentUser();
 
-        Instant now = Instant.now();
-        Instant fiveDaysFromNow = now.plus(5, java.time.temporal.ChronoUnit.DAYS);
-        if (requestDTO.startTime().isBefore(fiveDaysFromNow)
-                || requestDTO.startTime().equals(fiveDaysFromNow)) {
-            throw new IllegalArgumentException(
-                    "Event start time must be more than 5 days from now.");
-        }
-
         Venue venue =
                 venueRepository
                         .findByPublicId(requestDTO.venuePublicId())
