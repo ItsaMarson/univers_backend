@@ -74,7 +74,9 @@ public class AuthController {
     @PostMapping("/register")
     public ResponseEntity<ApiResponse<String>> register(@Valid @RequestBody RegisterDTO request) {
         String responseMessage = userService.register(request);
-        if (ErrorMessage.fromString(responseMessage) == ErrorMessage.EMAIL_IN_USE || ErrorMessage.fromString(responseMessage) == ErrorMessage.ID_NUMBER_IN_USE) {
+        if (ErrorMessage.fromString(responseMessage) == ErrorMessage.EMAIL_IN_USE ||
+                ErrorMessage.fromString(responseMessage) == ErrorMessage.ID_NUMBER_IN_USE ||
+                ErrorMessage.fromString(responseMessage) == ErrorMessage.INVALID_EMAIL_DOMAIN) {
             return ResponseEntity.badRequest()
                     .body(
                             ApiResponse.error(

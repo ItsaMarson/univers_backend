@@ -2,9 +2,11 @@ package com.univers.univers_backend.Enum;
 
 public enum ErrorMessage {
 
-    EMAIL_IN_USE("Email already in use"),
-    ID_NUMBER_IN_USE("Id number already in use"),
-    UNKNOWN_ERROR("An unknown error occurred");
+    EMAIL_IN_USE("Email already in use."),
+    ID_NUMBER_IN_USE("Id number already in use."),
+    UNKNOWN_ERROR("An unknown error occurred."),
+
+    INVALID_EMAIL_DOMAIN("Invalid email! Use your institutional email.");
 
     private final String message;
 
