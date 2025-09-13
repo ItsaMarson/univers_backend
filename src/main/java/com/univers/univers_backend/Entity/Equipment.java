@@ -19,7 +19,7 @@ public class Equipment {
     @Column(unique = true, nullable = false, updatable = false)
     private UUID publicId;
 
-    @Column(name = "serial_no", unique = true, nullable = false)
+    @Column(name = "serial_no", unique = true)
     private String serialNo;
 
     private String name;
