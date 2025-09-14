@@ -48,7 +48,7 @@ public class EquipmentController {
     public ResponseEntity<ApiResponse<EquipmentDTO>> addEquipment(
             @RequestParam("userId") String userId,
             @RequestPart("equipment") EquipmentInputDTO equipmentInputDTO,
-            @RequestPart(name = "image", required = true) MultipartFile imageFile) {
+            @RequestPart(name = "image", required = false) MultipartFile imageFile) {
 
         try {
             EquipmentDTO newEquipment =

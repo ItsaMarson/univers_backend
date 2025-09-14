@@ -126,7 +126,11 @@ public class EquipmentService {
         newEquipment.setQuantity(request.quantity());
         newEquipment.setStatus(request.status() != null ? request.status() : Status.NEW);
         newEquipment.setEquipmentOwner(owner);
-        newEquipment.setSerialNo(request.serialNo());
+        String serial = request.serialNo();
+        if (serial != null && serial.isBlank()) {
+            serial = null;
+        }
+        newEquipment.setSerialNo(serial);
 
         Set<EquipmentCategory> resolvedCategories = resolveCategoriesByIds(request.categoryIds());
         newEquipment.setCategories(resolvedCategories);

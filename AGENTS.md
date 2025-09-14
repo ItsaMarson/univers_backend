@@ -1,0 +1,20 @@
+AGENTS Guide — Univers Backend
+- Language: Java 21 (per pom.xml), Spring Boot 3.3, Maven.
+- Build: `mvn clean package`
+- Run app: `mvn spring-boot:run`
+- Tests (all): `mvn test`
+- Single test class: `mvn -Dtest=MyClassTests test`
+- Single test method: `mvn -Dtest=MyClassTests#myMethod test`
+- Lint check: `mvn spotless:check` (also runs during `mvn package`).
+- Auto-format: `mvn spotless:apply` (google-java-format, AOSP style).
+- Imports: no wildcard imports; formatter orders/sorts; one class per file.
+- License header: add `/* (C)$YEAR */` at top of Java files.
+- Naming: Classes PascalCase; methods/fields lowerCamelCase; constants UPPER_SNAKE.
+- Types: Prefer DTO `record`s for simple payloads; validate with `jakarta.validation` annotations.
+- Errors: Return `ResponseEntity<ApiResponse<T>>`; use `ApiResponse.success/error` and `ErrorDetails`.
+- Security: Update `SecurityConfig` for new endpoints; JWT via `JwtAuthenticationFilter`; stateless.
+- OpenAPI: Annotate controllers with `@Operation` and `@ApiResponses` where applicable.
+- Env: Start MySQL/MinIO: `docker-compose up -d`; configure `src/main/resources/application.properties`.
+- Tests: Use JUnit 5; place under `src/test/java`; name classes `…Tests`.
+- Repo layout: follow Controller/Service/Repository/Mapper/DTO/Entity/Enum/config packages.
+- Cursor/Copilot rules: none found (`.cursor/`, `.cursorrules`, `.github/copilot-instructions.md` absent).
