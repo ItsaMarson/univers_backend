@@ -302,7 +302,7 @@ public class EventService {
         if (requestDTO.endTime() != null) {
             event.setEndTime(requestDTO.endTime());
         }
-        if(requestDTO.assignedPersonnel() != null && !requestDTO.assignedPersonnel().isEmpty()){
+        if (requestDTO.assignedPersonnel() != null && !requestDTO.assignedPersonnel().isEmpty()) {
             event.setAssignedPersonnel(requestDTO.assignedPersonnel());
         }
 
@@ -672,22 +672,9 @@ public class EventService {
                 break;
 
             case "all":
-                if (!(userRole.contains(Role.SUPER_ADMIN)
-                        || userRole.contains(Role.VP_ADMIN)
-                        || userRole.contains(Role.DEPT_HEAD)
-                        || userRole.contains(Role.VENUE_OWNER)
-                        || userRole.contains(Role.EQUIPMENT_OWNER)
-                        || userRole.contains(Role.ADMIN)
-                        || userRole.contains(Role.VPAA))) {
-                    logger.warn(
-                            "Scope 'all' requested by non-admin role {}, defaulting to 'approved'"
-                                    + " events only.",
-                            userRole);
-                    spec =
-                            spec.and(
-                                    (root, query, cb) ->
-                                            cb.equal(root.get("status"), Status.APPROVED));
-                } // Admins implicitly see all, no additional spec needed here for them
+                List<Status> allowedStatuses =
+                        List.of(Status.APPROVED, Status.ONGOING, Status.PENDING);
+                spec = spec.and((root, query, cb) -> root.get("status").in(allowedStatuses));
                 break;
 
             case "approved":
@@ -698,18 +685,23 @@ public class EventService {
 
         // Apply optional status filter (if scope didn't already enforce a status like 'approved')
         if (finalStatusFilter != null) {
-            if (scope.equalsIgnoreCase("all")
-                    && !(userRole.contains(Role.SUPER_ADMIN) || userRole.contains(Role.VP_ADMIN))) {
-                // Non-admin requested 'all' which defaults to 'approved', ignore other status
-                // filters
-                logger.warn(
-                        "Status filter {} ignored for non-admin 'all' scope (shows only APPROVED).",
-                        statusString);
-            } else if (scope.equalsIgnoreCase("approved") && finalStatusFilter != Status.APPROVED) {
-                // 'approved' scope requested with a non-approved status filter, ignore
+            if (scope.equalsIgnoreCase("approved") && finalStatusFilter != Status.APPROVED) {
                 logger.warn(
                         "Status filter {} ignored for 'approved' scope (shows only APPROVED).",
                         statusString);
+            } else if (scope.equalsIgnoreCase("all")) {
+                Set<Status> allowedInAll = Set.of(Status.APPROVED, Status.ONGOING, Status.PENDING);
+                if (allowedInAll.contains(finalStatusFilter)) {
+                    spec =
+                            spec.and(
+                                    (root, query, cb) ->
+                                            cb.equal(root.get("status"), finalStatusFilter));
+                } else {
+                    logger.warn(
+                            "Status filter {} ignored for 'all' scope (allowed: APPROVED, ONGOING,"
+                                    + " PENDING).",
+                            statusString);
+                }
             } else {
                 spec =
                         spec.and(
