@@ -383,6 +383,14 @@ public class UserService {
                                         new RuntimeException(
                                                 "User not found with public ID: " + publicId));
 
+        if (editUserDTO.password() != null && !editUserDTO.password().isEmpty()) {
+            user.setPassword(passwordEncoder.encode(editUserDTO.password()));
+        }
+
+        if (editUserDTO.password() != null && !editUserDTO.password().isEmpty()) {
+            user.setPassword(passwordEncoder.encode(editUserDTO.password()));
+        }
+
         if (editUserDTO.email() != null && !editUserDTO.email().equals(user.getEmail())) {
             if (userRepository.existsByEmail(editUserDTO.email())) {
                 throw new RuntimeException("Error: Email already in use by another account.");
