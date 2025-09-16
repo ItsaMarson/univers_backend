@@ -278,7 +278,10 @@ public class UserService {
 
     public String createUser(CreateUserDTO request) {
         if (userRepository.existsByEmail(request.email())) {
-            return "Email already in use";
+            return ErrorMessage.EMAIL_IN_USE.getMessage();
+        }
+        if (!isInstitutionalEmail(request.email())) {
+            return ErrorMessage.INVALID_EMAIL_DOMAIN.getMessage();
         }
         String verificationCode = String.format("%06d", new Random().nextInt(1000000));
 
@@ -394,6 +397,9 @@ public class UserService {
         if (editUserDTO.email() != null && !editUserDTO.email().equals(user.getEmail())) {
             if (userRepository.existsByEmail(editUserDTO.email())) {
                 throw new RuntimeException("Error: Email already in use by another account.");
+            }
+            if (!isInstitutionalEmail(editUserDTO.email())) {
+                throw new RuntimeException(ErrorMessage.INVALID_EMAIL_DOMAIN.getMessage());
             }
             user.setEmail(editUserDTO.email());
         }
