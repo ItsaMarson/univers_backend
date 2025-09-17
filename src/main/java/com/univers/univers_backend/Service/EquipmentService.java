@@ -130,6 +130,20 @@ public class EquipmentService {
         if (serial != null && serial.isBlank()) {
             serial = null;
         }
+
+        equipmentRepository
+                .findBySerialNo(serial)
+                .ifPresent(
+                        existingEquipment -> {
+                            if (!existingEquipment
+                                    .getPublicId()
+                                    .equals(requester.getPublicId())) {
+                                throw new IllegalArgumentException(
+                                        "Another equipment with serial number '"
+                                                + request.serialNo()
+                                                + "' already exists.");
+                            }
+                        });
         newEquipment.setSerialNo(serial);
 
         Set<EquipmentCategory> resolvedCategories = resolveCategoriesByIds(request.categoryIds());
