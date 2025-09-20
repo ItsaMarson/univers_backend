@@ -383,7 +383,7 @@ public class EventController {
             value = {
                     @io.swagger.v3.oas.annotations.responses.ApiResponse(
                             responseCode = "201",
-                            description = "Event created successfully"),
+                            description = "Personnel added successfully"),
                     @io.swagger.v3.oas.annotations.responses.ApiResponse(
                             responseCode = "400",
                             description = "Invalid input"),
@@ -411,13 +411,13 @@ public class EventController {
     }
 
     @Operation(
-            summary = "Add new personnel",
-            description = "Adds a new assigned personnel")
+            summary = "Delete personnel",
+            description = "delete assigned personnel")
     @ApiResponses(
             value = {
                     @io.swagger.v3.oas.annotations.responses.ApiResponse(
-                            responseCode = "201",
-                            description = "Event created successfully"),
+                            responseCode = "200",
+                            description = "Personnel deleted successfully"),
                     @io.swagger.v3.oas.annotations.responses.ApiResponse(
                             responseCode = "400",
                             description = "Invalid input"),
