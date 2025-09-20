@@ -38,13 +38,14 @@ public class Event {
     @ManyToOne
     @JoinColumn(name = "department_id")
     private Department department;
+    @OneToMany(mappedBy = "event", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<EventPersonnel> assignedPersonnel;
 
     @Column(updatable = false)
     private Instant createdAt;
 
     private Instant updatedAt;
 
-    private List<String> assignedPersonnel;
 
     @PrePersist
     protected void OnCreate() {
@@ -79,7 +80,7 @@ public class Event {
             String imagePath,
             Instant createdAt,
             Instant updatedAt,
-            List<String> assignedPersonnel) {
+            List<EventPersonnel> assignedPersonnel) {
         this.id = id;
         this.eventName = eventName;
         this.eventType = eventType;
@@ -203,11 +204,11 @@ public class Event {
         this.approvals = approvals;
     }
 
-    public List<String> getAssignedPersonnel() {
+    public List<EventPersonnel> getAssignedPersonnel() {
         return assignedPersonnel;
     }
 
-    public void setAssignedPersonnel(List<String> assignedPersonnel) {
+    public void setAssignedPersonnel(List<EventPersonnel> assignedPersonnel) {
         this.assignedPersonnel = assignedPersonnel;
     }
 }

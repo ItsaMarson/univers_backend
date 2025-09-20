@@ -1,13 +1,12 @@
 /* (C)2025 */
 package com.univers.univers_backend.Mapper;
 
-import com.univers.univers_backend.DTO.DepartmentDTO;
-import com.univers.univers_backend.DTO.EventApprovalDTO;
-import com.univers.univers_backend.DTO.EventDTO;
-import com.univers.univers_backend.DTO.UserDTO;
-import com.univers.univers_backend.DTO.VenueDTO;
+import com.univers.univers_backend.DTO.*;
 import com.univers.univers_backend.Entity.Event;
+import com.univers.univers_backend.Entity.EventPersonnel;
 import com.univers.univers_backend.Service.FileStorageService;
+
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -103,9 +102,19 @@ public class EventMapper {
                 imageUrl,
                 approvalDtos,
                 event.getCreatedAt(),
-                event.getUpdatedAt(),
-                event.getAssignedPersonnel());
+                event.getUpdatedAt());
     }
 
     // public Event toEntity(EventDTO dto) { ... } // If needed later
+
+    public EventPersonnelDTO toPersonnelDto(EventPersonnel newPersonnel){
+
+        if(newPersonnel == null){
+            return null;
+        }
+        return new EventPersonnelDTO(
+                newPersonnel.getPublicId(),
+                newPersonnel.getName()
+        );
+    }
 }

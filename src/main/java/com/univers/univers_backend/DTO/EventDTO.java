@@ -19,5 +19,4 @@ public record EventDTO(
         String imageUrl,
         List<EventApprovalDTO> approvals,
         Instant createdAt,
-        Instant updatedAt,
-        List<String> assignedPersonnel) {}
+        Instant updatedAt) {}

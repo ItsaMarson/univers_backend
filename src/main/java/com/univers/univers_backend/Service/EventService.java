@@ -1,14 +1,9 @@
 /* (C)2025 */
 package com.univers.univers_backend.Service;
 
-import com.univers.univers_backend.DTO.CreateEventRequestDTO;
-import com.univers.univers_backend.DTO.EventDTO;
-import com.univers.univers_backend.DTO.UpdateEventRequestDTO;
-import com.univers.univers_backend.Entity.Department;
-import com.univers.univers_backend.Entity.Event;
-import com.univers.univers_backend.Entity.EventApproval;
-import com.univers.univers_backend.Entity.User;
-import com.univers.univers_backend.Entity.Venue;
+import com.univers.univers_backend.DTO.*;
+import com.univers.univers_backend.Entity.*;
+import com.univers.univers_backend.Enum.ErrorMessage;
 import com.univers.univers_backend.Enum.Role;
 import com.univers.univers_backend.Enum.Status;
 import com.univers.univers_backend.Mapper.DepartmentMapper;
@@ -23,11 +18,7 @@ import jakarta.persistence.criteria.Root;
 import jakarta.persistence.criteria.Subquery;
 import java.time.Instant;
 import java.time.format.DateTimeParseException;
-import java.util.HashSet;
-import java.util.List;
-import java.util.NoSuchElementException;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -35,7 +26,9 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.parameters.P;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
@@ -302,9 +295,7 @@ public class EventService {
         if (requestDTO.endTime() != null) {
             event.setEndTime(requestDTO.endTime());
         }
-        if (requestDTO.assignedPersonnel() != null && !requestDTO.assignedPersonnel().isEmpty()) {
-            event.setAssignedPersonnel(requestDTO.assignedPersonnel());
-        }
+
 
         if (requestDTO.organizerPublicId() != null
                 && !event.getOrganizer().getPublicId().equals(requestDTO.organizerPublicId())) {
@@ -814,5 +805,61 @@ public class EventService {
 
         List<Event> events = eventRepository.findAll(spec, sort);
         return events.stream().map(eventMapper::toDto).collect(Collectors.toList());
+    }
+
+    public List<EventPersonnelDTO> addPersonnel(UUID eventPublicId, EventPersonnelDTO requestDTO){
+        User currentUser = getCurrentUser();
+
+        Event event = eventRepository.findByPublicId(eventPublicId).orElseThrow(()-> new NoSuchElementException("Event not found with UUID" + eventPublicId));
+
+        if(!(currentUser.getRoles().contains(Role.EQUIPMENT_OWNER) || currentUser.getRoles().contains(Role.SUPER_ADMIN))){
+            throw new AccessDeniedException("User not authorized to add personnel");
+        }
+        if(requestDTO == null){
+            throw new IllegalArgumentException("Request body cannot be null");
+        }
+
+        EventPersonnel newPersonnel = new EventPersonnel();
+        newPersonnel.setName(requestDTO.name());
+
+        if(event.getAssignedPersonnel() == null){
+            event.setAssignedPersonnel(new ArrayList<>());
+        }
+        event.getAssignedPersonnel().add(newPersonnel);
+        Event updatedEvent = eventRepository.save(event);
+
+        return updatedEvent.getAssignedPersonnel().stream()
+                .map(eventMapper::toPersonnelDto)
+                .collect(Collectors.toList());
+
+    }
+    public void deletePersonnel(UUID eventPublicId, UUID personnelPublicId){
+        User currentUser = getCurrentUser();
+
+        Event event = eventRepository.findByPublicId(eventPublicId).orElseThrow(()-> new NoSuchElementException("Event not found with UUID" + eventPublicId));
+
+        if(!(currentUser.getRoles().contains(Role.EQUIPMENT_OWNER) || currentUser.getRoles().contains(Role.SUPER_ADMIN))){
+            throw new SecurityException("User not authorized to add personnel");
+        }
+        List<EventPersonnel> assignedPersonnel = event.getAssignedPersonnel();
+        if (assignedPersonnel == null || assignedPersonnel.isEmpty()) {
+            throw new NoSuchElementException("Personnel not found with UUID " + personnelPublicId);
+        }
+
+        Iterator<EventPersonnel> iterator = assignedPersonnel.iterator();
+        boolean foundAndRemoved = false;
+
+        while (iterator.hasNext()){
+            EventPersonnel personnel = iterator.next();
+            if(personnel.getPublicId().equals(personnelPublicId)){
+                iterator.remove();
+                foundAndRemoved = true;
+                break;
+            }
+        }
+        if(!foundAndRemoved){
+            throw new NoSuchElementException("Personnel not found with UUID" + personnelPublicId);
+        }
+        eventRepository.save(event);
     }
 }
