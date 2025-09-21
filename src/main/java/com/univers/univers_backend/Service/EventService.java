@@ -3,13 +3,9 @@ package com.univers.univers_backend.Service;
 
 import com.univers.univers_backend.DTO.*;
 import com.univers.univers_backend.Entity.*;
-import com.univers.univers_backend.Enum.ErrorMessage;
 import com.univers.univers_backend.Enum.Role;
 import com.univers.univers_backend.Enum.Status;
-import com.univers.univers_backend.Mapper.DepartmentMapper;
 import com.univers.univers_backend.Mapper.EventMapper;
-import com.univers.univers_backend.Mapper.UserMapper;
-import com.univers.univers_backend.Mapper.VenueMapper;
 import com.univers.univers_backend.Repository.EventApprovalRepository;
 import com.univers.univers_backend.Repository.EventRepository;
 import com.univers.univers_backend.Repository.UserRepository;
@@ -28,7 +24,6 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.parameters.P;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
@@ -67,10 +62,7 @@ public class EventService {
             NotificationService notificationService,
             EventApprovalRepository eventApprovalRepository,
             EquipmentReservationService equipmentReservationService,
-            @Lazy EventMapper eventMapper,
-            @Lazy UserMapper userMapper,
-            @Lazy VenueMapper venueMapper,
-            @Lazy DepartmentMapper departmentMapper) {
+            @Lazy EventMapper eventMapper) {
         this.eventRepository = eventRepository;
         this.userRepository = userRepository;
         this.venueRepository = venueRepository;
