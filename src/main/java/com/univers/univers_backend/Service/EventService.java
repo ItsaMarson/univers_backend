@@ -628,7 +628,8 @@ public class EventService {
                         || userRole.contains(Role.DEPT_HEAD)
                         || userRole.contains(Role.VENUE_OWNER)
                         || userRole.contains(Role.EQUIPMENT_OWNER)
-                        || userRole.contains(Role.VPAA)) {
+                        || userRole.contains(Role.VPAA)
+                        || userRole.contains(Role.ACCOUNTING)) {
                     // Get all events where this user is a designated approver
                     spec =
                             spec.and(

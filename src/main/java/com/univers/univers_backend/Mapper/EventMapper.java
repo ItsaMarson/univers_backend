@@ -6,7 +6,6 @@ import com.univers.univers_backend.Entity.Event;
 import com.univers.univers_backend.Entity.EventPersonnel;
 import com.univers.univers_backend.Service.FileStorageService;
 
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;

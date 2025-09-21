@@ -11,11 +11,8 @@ import com.univers.univers_backend.Entity.User;
 import com.univers.univers_backend.Enum.ErrorMessage;
 import com.univers.univers_backend.Enum.Role;
 import com.univers.univers_backend.Mapper.UserMapper;
-import com.univers.univers_backend.Mapper.VenueMapper;
 import com.univers.univers_backend.Repository.DepartmentRepository;
-import com.univers.univers_backend.Repository.EventRepository;
 import com.univers.univers_backend.Repository.UserRepository;
-import com.univers.univers_backend.Repository.VenueRepository;
 import com.univers.univers_backend.config.JwtUtil;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletResponse;
@@ -51,16 +48,9 @@ public class UserService {
 
     private final AuthenticationManager authenticationManager;
     private final EmailService emailService;
-    private final VenueRepository venueRepository;
-
-    private final EventRepository eventRepository;
-    private final EventService eventService;
-
     private final FileStorageService fileStorageService;
 
     private final UserMapper userMapper;
-    private final VenueMapper venueMapper;
-
     @Value("${minio.bucket.users}")
     private String usersBucketName;
 
@@ -77,24 +67,16 @@ public class UserService {
             DepartmentRepository departmentRepository,
             PasswordEncoder passwordEncoder,
             EmailService emailService,
-            VenueRepository venueRepository,
             FileStorageService fileStorageService,
-            EventRepository eventRepository,
-            EventService eventService,
-            UserMapper userMapper,
-            VenueMapper venueMapper) {
+        UserMapper userMapper) {
         this.authenticationManager = authenticationManager;
         this.jwtUtil = jwtUtil;
         this.userRepository = userRepository;
         this.departmentRepository = departmentRepository;
         this.passwordEncoder = passwordEncoder;
         this.emailService = emailService;
-        this.venueRepository = venueRepository;
         this.fileStorageService = fileStorageService;
-        this.eventRepository = eventRepository;
-        this.eventService = eventService;
         this.userMapper = userMapper;
-        this.venueMapper = venueMapper;
     }
 
     public ResponseEntity<Map<String, Object>> login(

@@ -19,7 +19,6 @@ import com.univers.univers_backend.Enum.Status;
 import com.univers.univers_backend.Mapper.DepartmentMapper;
 import com.univers.univers_backend.Mapper.EquipmentMapper;
 import com.univers.univers_backend.Mapper.EventMapper;
-import com.univers.univers_backend.Mapper.UserMapper;
 import com.univers.univers_backend.Repository.DepartmentRepository;
 import com.univers.univers_backend.Repository.EquipmentApprovalRepository;
 import com.univers.univers_backend.Repository.EquipmentRepository;
@@ -88,8 +87,7 @@ public class EquipmentReservationService {
             EventApprovalRepository eventApprovalRepository,
             @Lazy EventMapper eventMapper,
             @Lazy DepartmentMapper departmentMapper,
-            @Lazy EquipmentMapper equipmentMapper,
-            @Lazy UserMapper userMapper) {
+            @Lazy EquipmentMapper equipmentMapper) {
         this.equipmentReservationRepository = equipmentReservationRepository;
         this.equipmentApprovalRepository = equipmentApprovalRepository;
         this.eventRepository = eventRepository;

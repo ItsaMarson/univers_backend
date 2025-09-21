@@ -84,26 +84,14 @@ public class DashboardService {
             long newCompletedCount = dto.completedCount();
 
             switch (eventStatus) {
-                case APPROVED:
-                    newApprovedCount += count;
-                    break;
-                case PENDING:
-                    newPendingCount += count;
-                    break;
-                case CANCELED:
-                    newCanceledCount += count;
-                    break;
-                case REJECTED:
-                    newRejectedCount += count;
-                    break;
-                case ONGOING:
-                    newOngoingCount += count;
-                    break;
-                case COMPLETED:
-                    newCompletedCount += count;
-                    break;
-                default:
-                    break;
+                case APPROVED -> newApprovedCount += count;
+                case PENDING -> newPendingCount += count;
+                case CANCELED -> newCanceledCount += count;
+                case REJECTED -> newRejectedCount += count;
+                case ONGOING -> newOngoingCount += count;
+                case COMPLETED -> newCompletedCount += count;
+                default -> {
+                }
             }
             topVenuesMap.put(
                     venueName,
@@ -167,26 +155,14 @@ public class DashboardService {
             long newCompletedCount = dto.completedCount();
 
             switch (reservationStatus) {
-                case PENDING:
-                    newPendingCount += count;
-                    break;
-                case APPROVED:
-                    newApprovedCount += count;
-                    break;
-                case REJECTED:
-                    newRejectedCount += count;
-                    break;
-                case CANCELED:
-                    newCanceledCount += count;
-                    break;
-                case ONGOING:
-                    newOngoingCount += count;
-                    break;
-                case COMPLETED:
-                    newCompletedCount += count;
-                    break;
-                default:
-                    break;
+                case PENDING -> newPendingCount += count;
+                case APPROVED -> newApprovedCount += count;
+                case REJECTED -> newRejectedCount += count;
+                case CANCELED -> newCanceledCount += count;
+                case ONGOING -> newOngoingCount += count;
+                case COMPLETED -> newCompletedCount += count;
+                default -> {
+                }
             }
             topEquipmentMap.put(
                     equipmentName,
@@ -256,26 +232,14 @@ public class DashboardService {
             long newCompletedCount = dto.completedCount();
 
             switch (reservationStatus) {
-                case PENDING:
-                    newPendingCount += count;
-                    break;
-                case APPROVED:
-                    newApprovedCount += count;
-                    break;
-                case REJECTED:
-                    newRejectedCount += count;
-                    break;
-                case CANCELED:
-                    newCanceledCount += count;
-                    break;
-                case ONGOING:
-                    newOngoingCount += count;
-                    break;
-                case COMPLETED:
-                    newCompletedCount += count;
-                    break;
-                default:
-                    break;
+                case PENDING -> newPendingCount += count;
+                case APPROVED -> newApprovedCount += count;
+                case REJECTED -> newRejectedCount += count;
+                case CANCELED -> newCanceledCount += count;
+                case ONGOING -> newOngoingCount += count;
+                case COMPLETED -> newCompletedCount += count;
+                default -> {
+                }
             }
             userActivityMap.put(
                     userPublicId,
@@ -709,26 +673,14 @@ public class DashboardService {
             long newCompletedCount = dto.completedCount();
 
             switch (eventStatus) {
-                case APPROVED:
-                    newApprovedCount += count;
-                    break;
-                case PENDING:
-                    newPendingCount += count;
-                    break;
-                case CANCELED:
-                    newCanceledCount += count;
-                    break;
-                case REJECTED:
-                    newRejectedCount += count;
-                    break;
-                case ONGOING:
-                    newOngoingCount += count;
-                    break;
-                case COMPLETED:
-                    newCompletedCount += count;
-                    break;
-                default:
-                    break;
+                case APPROVED -> newApprovedCount += count;
+                case PENDING -> newPendingCount += count;
+                case CANCELED -> newCanceledCount += count;
+                case REJECTED -> newRejectedCount += count;
+                case ONGOING -> newOngoingCount += count;
+                case COMPLETED -> newCompletedCount += count;
+                default -> {
+                }
             }
             summariesByType.put(
                     eventType,

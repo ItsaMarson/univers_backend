@@ -28,9 +28,6 @@ public class VenueService {
     private final UserRepository userRepository;
     private final FileStorageService fileStorageService; // Inject FileStorageService
 
-    // Remove @Value for uploadDir
-    // @Value("${upload.venue.dir}")
-    // private String uploadDir;
 
     @Value("${minio.bucket.venues}") // Inject MinIO bucket name
     private String venuesBucketName;

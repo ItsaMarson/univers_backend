@@ -84,7 +84,7 @@ public class EquipmentService {
                                                 "User not found with Public ID: " + userId));
 
         Set<Role> authorizedRoles = Set.of(Role.EQUIPMENT_OWNER, Role.SUPER_ADMIN);
-        if (!requester.getRoles().stream().anyMatch(authorizedRoles::contains)) {
+        if (requester.getRoles().stream().noneMatch(authorizedRoles::contains)) {
             throw new IllegalArgumentException("User is not authorized to add equipment.");
         }
 
@@ -108,7 +108,7 @@ public class EquipmentService {
                                                     "Specified Equipment Owner not found with"
                                                             + " Public ID: "
                                                             + ownerPublicIdFromRequest));
-            if (!owner.getRoles().stream().anyMatch(authorizedRoles::contains)) {
+            if (owner.getRoles().stream().noneMatch(authorizedRoles::contains)) {
                 throw new IllegalArgumentException(
                         "Specified user (Public ID: "
                                 + owner.getPublicId()
@@ -212,7 +212,7 @@ public class EquipmentService {
 
         Set<Role> equipmentManagerRoles = Set.of(Role.EQUIPMENT_OWNER);
 
-        if (!requester.getRoles().stream().anyMatch(role -> role == Role.SUPER_ADMIN)
+        if (requester.getRoles().stream().noneMatch(role -> role == Role.SUPER_ADMIN)
                 && !(requester.getRoles().stream().anyMatch(equipmentManagerRoles::contains)
                         && equipment.getEquipmentOwner() != null
                         && equipment
@@ -282,8 +282,8 @@ public class EquipmentService {
                                                             + " Public ID: "
                                                             + newOwnerPublicIdFromRequest));
 
-            if (!newOwner.getRoles().stream().anyMatch(equipmentManagerRoles::contains)
-                    && !newOwner.getRoles().stream().anyMatch(role -> role == Role.SUPER_ADMIN)) {
+            if (newOwner.getRoles().stream().noneMatch(equipmentManagerRoles::contains)
+                    && newOwner.getRoles().stream().noneMatch(role -> role == Role.SUPER_ADMIN)) {
                 throw new IllegalArgumentException(
                         "Specified new owner (Public ID: "
                                 + newOwner.getPublicId()

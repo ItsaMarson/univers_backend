@@ -9,7 +9,6 @@ import com.univers.univers_backend.Entity.EventApproval;
 import com.univers.univers_backend.Entity.User;
 import com.univers.univers_backend.Enum.Role;
 import com.univers.univers_backend.Enum.Status;
-import com.univers.univers_backend.Mapper.EventMapper;
 import com.univers.univers_backend.Mapper.UserMapper;
 import com.univers.univers_backend.Repository.EventApprovalRepository;
 import com.univers.univers_backend.Repository.EventRepository;
@@ -38,7 +37,6 @@ public class EventApprovalService {
     private final UserRepository userRepository;
     private final NotificationService notificationService;
     private final UserMapper userMapper;
-    private final EventMapper eventMapper;
     private final EquipmentReservationService equipmentReservationService;
 
     public EventApprovalService(
@@ -47,14 +45,12 @@ public class EventApprovalService {
             UserRepository userRepository,
             NotificationService notificationService,
             UserMapper userMapper,
-            EventMapper eventMapper,
             EquipmentReservationService equipmentReservationService) {
         this.eventApprovalRepository = eventApprovalRepository;
         this.eventRepository = eventRepository;
         this.userRepository = userRepository;
         this.notificationService = notificationService;
         this.userMapper = userMapper;
-        this.eventMapper = eventMapper;
         this.equipmentReservationService = equipmentReservationService;
     }
 
