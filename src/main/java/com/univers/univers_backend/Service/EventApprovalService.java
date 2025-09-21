@@ -130,9 +130,14 @@ public class EventApprovalService {
                             + eventApproval.getStatus());
         }
 
-        if (newStatus != Status.APPROVED && newStatus != Status.REJECTED) {
+        if (newStatus != Status.APPROVED &&
+                newStatus != Status.REJECTED &&
+                newStatus != Status.RESERVED &&
+                newStatus != Status.DENIED_RESERVATION &&
+                newStatus != Status.PAID &&
+                newStatus != Status.UNPAID) {
             throw new IllegalArgumentException(
-                    "Invalid target status for approval action. Must be APPROVED or REJECTED.");
+                    "Invalid target status for approval action.");
         }
 
         eventApproval.setStatus(newStatus);
@@ -168,7 +173,7 @@ public class EventApprovalService {
 
         // If this is an equipment owner approving the event, automatically approve their equipment
         // reservations
-        if (newStatus == Status.APPROVED && currentUser.getRoles().contains(Role.EQUIPMENT_OWNER)) {
+        if (newStatus == Status.RESERVED && currentUser.getRoles().contains(Role.EQUIPMENT_OWNER)) {
             try {
                 // Get all equipment reservations for this event that are owned by the current user
                 List<EquipmentReservationDTO> reservations =
@@ -232,11 +237,12 @@ public class EventApprovalService {
         boolean anyRejected = false;
 
         for (EventApproval approval : approvals) {
-            if (approval.getStatus() == Status.REJECTED) {
+            if (approval.getStatus() == Status.REJECTED || approval.getStatus() == Status.DENIED_RESERVATION) {
                 anyRejected = true;
                 break;
             }
-            if (approval.getStatus() != Status.APPROVED) {
+
+            if (approval.getStatus() != Status.APPROVED || approval.getStatus() == Status.RESERVED) {
                 // Any non-approved (and not rejected) means not all are approved yet
                 allApproved = false;
             }

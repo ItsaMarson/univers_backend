@@ -14,6 +14,8 @@ public enum Status {
     NEED_REPLACEMENT,
     NEW,
     AVAILABLE,
-    BUSY,
-    UNAVAILABLE
+    RESERVED,
+    DENIED_RESERVATION,
+    PAID,
+    UNPAID
 }
