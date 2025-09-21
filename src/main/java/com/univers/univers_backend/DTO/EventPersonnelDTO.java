@@ -8,6 +8,5 @@ public record EventPersonnelDTO (
 
         UUID publicId,
         String name,
-        String phoneNumber,
-        Status status
+        String phoneNumber
 ){}

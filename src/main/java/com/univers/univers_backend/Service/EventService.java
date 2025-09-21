@@ -815,7 +815,7 @@ public class EventService {
         EventPersonnel newPersonnel = new EventPersonnel();
         newPersonnel.setName(requestDTO.name());
         newPersonnel.setPhoneNumber(requestDTO.phoneNumber());
-        newPersonnel.setStatus(requestDTO.status() != null ? requestDTO.status() : Status.AVAILABLE);
+        newPersonnel.setStatus(Status.AVAILABLE);
 
         if(event.getAssignedPersonnel() == null){
             event.setAssignedPersonnel(new ArrayList<>());

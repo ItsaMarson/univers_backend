@@ -111,8 +111,7 @@ public class EventMapper {
         return new EventPersonnelDTO(
                 newPersonnel.getPublicId(),
                 newPersonnel.getName(),
-                newPersonnel.getPhoneNumber(),
-                newPersonnel.getStatus()
+                newPersonnel.getPhoneNumber()
         );
     }
 }
