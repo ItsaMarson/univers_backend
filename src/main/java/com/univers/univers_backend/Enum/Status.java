@@ -13,4 +13,7 @@ public enum Status {
     MAINTENANCE,
     NEED_REPLACEMENT,
     NEW,
+    AVAILABLE,
+    BUSY,
+    UNAVAILABLE
 }

@@ -1,6 +1,7 @@
 package com.univers.univers_backend.Entity;
 
 
+import com.univers.univers_backend.Enum.Status;
 import jakarta.persistence.*;
 
 import java.util.UUID;
@@ -18,6 +19,10 @@ public class EventPersonnel {
 
     private String name;
 
+    private String phoneNumber;
+
+    private Status status;
+
     @ManyToOne
     @JoinColumn(name = "event_id")
     private Event event;
@@ -32,10 +37,12 @@ public class EventPersonnel {
     public EventPersonnel() {
     }
 
-    public EventPersonnel(Long id, UUID publicId, String name) {
+    public EventPersonnel(Long id, UUID publicId, String name, String phoneNumber, Status status) {
         this.id = id;
         this.publicId = publicId;
         this.name = name;
+        this.phoneNumber = phoneNumber;
+        this.status = status;
     }
 
     public Long getId() {
@@ -60,5 +67,21 @@ public class EventPersonnel {
 
     public void setName(String name) {
         this.name = name;
+    }
+
+    public String getPhoneNumber() {
+        return phoneNumber;
+    }
+
+    public void setPhoneNumber(String phoneNumber) {
+        this.phoneNumber = phoneNumber;
+    }
+
+    public Status getStatus() {
+        return status;
+    }
+
+    public void setStatus(Status status) {
+        this.status = status;
     }
 }

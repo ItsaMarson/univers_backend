@@ -109,12 +109,11 @@ public class EventMapper {
 
     public EventPersonnelDTO toPersonnelDto(EventPersonnel newPersonnel){
 
-        if(newPersonnel == null){
-            return null;
-        }
         return new EventPersonnelDTO(
                 newPersonnel.getPublicId(),
-                newPersonnel.getName()
+                newPersonnel.getName(),
+                newPersonnel.getPhoneNumber(),
+                newPersonnel.getStatus()
         );
     }
 }
