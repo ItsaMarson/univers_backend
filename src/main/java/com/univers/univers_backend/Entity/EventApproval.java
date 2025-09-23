@@ -36,9 +36,6 @@ public class EventApproval {
 
     @PrePersist
     protected void onCreate() {
-        if (this.dateSigned == null) {
-            this.dateSigned = Instant.now();
-        }
         if (this.publicId == null) {
             this.publicId = UUID.randomUUID();
         }
