@@ -2,6 +2,7 @@
 package com.univers.univers_backend.config;
 
 import java.util.List;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -25,6 +26,9 @@ public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtFilter;
 
+    @Value("${cors.allowed.origin}")
+    private String allowedOrigin;
+
     public SecurityConfig(
             JwtAuthenticationFilter jwtFilter, UserDetailsService userDetailsService) {
         this.jwtFilter = jwtFilter;
@@ -38,7 +42,7 @@ public class SecurityConfig {
                                         request -> {
                                             CorsConfiguration config = new CorsConfiguration();
                                             config.setAllowedOrigins(
-                                                    List.of("http://localhost:5173"));
+                                                    List.of(allowedOrigin));
                                             config.setAllowedMethods(
                                                     List.of(
                                                             "GET", "POST", "PATCH", "DELETE", "PUT",
