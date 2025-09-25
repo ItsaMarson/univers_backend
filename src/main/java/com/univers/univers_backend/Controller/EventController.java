@@ -7,8 +7,6 @@ import com.univers.univers_backend.config.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
-
-import java.nio.file.AccessDeniedException;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.UUID;
@@ -376,61 +374,58 @@ public class EventController {
                                     "An unexpected error occurred while fetching timeline events"));
         }
     }
-    @Operation(
-            summary = "Add new personnel",
-            description = "Adds a new assigned personnel")
+
+    @Operation(summary = "Add new personnel", description = "Adds a new assigned personnel")
     @ApiResponses(
             value = {
-                    @io.swagger.v3.oas.annotations.responses.ApiResponse(
-                            responseCode = "201",
-                            description = "Personnel added successfully"),
-                    @io.swagger.v3.oas.annotations.responses.ApiResponse(
-                            responseCode = "400",
-                            description = "Invalid input"),
-                    @io.swagger.v3.oas.annotations.responses.ApiResponse(
-                            responseCode = "500",
-                            description = "Internal server error")
+                @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                        responseCode = "201",
+                        description = "Personnel added successfully"),
+                @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                        responseCode = "400",
+                        description = "Invalid input"),
+                @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                        responseCode = "500",
+                        description = "Internal server error")
             })
     @PostMapping("/{eventId}/personnel")
     public ResponseEntity<ApiResponse<List<EventPersonnelDTO>>> addPersonnel(
-            @PathVariable UUID eventId,
-            @RequestBody EventPersonnelDTO requestDTO){
+            @PathVariable UUID eventId, @RequestBody EventPersonnelDTO requestDTO) {
 
-        try{
-            List<EventPersonnelDTO> listOfPersonnel = eventService.addPersonnel(eventId, requestDTO);
+        try {
+            List<EventPersonnelDTO> listOfPersonnel =
+                    eventService.addPersonnel(eventId, requestDTO);
             return ResponseEntity.status(HttpStatus.CREATED)
-                    .body(ApiResponse.success("Successfully assigned person-in-charge", listOfPersonnel));
-        }catch (Exception e){
+                    .body(
+                            ApiResponse.success(
+                                    "Successfully assigned person-in-charge", listOfPersonnel));
+        } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(
                             ApiResponse.error(
                                     HttpStatus.INTERNAL_SERVER_ERROR.value(),
                                     "An unexpected error occurred while creating the event"));
-
         }
     }
 
-    @Operation(
-            summary = "Delete personnel",
-            description = "delete assigned personnel")
+    @Operation(summary = "Delete personnel", description = "delete assigned personnel")
     @ApiResponses(
             value = {
-                    @io.swagger.v3.oas.annotations.responses.ApiResponse(
-                            responseCode = "200",
-                            description = "Personnel deleted successfully"),
-                    @io.swagger.v3.oas.annotations.responses.ApiResponse(
-                            responseCode = "400",
-                            description = "Invalid input"),
-                    @io.swagger.v3.oas.annotations.responses.ApiResponse(
-                            responseCode = "500",
-                            description = "Internal server error")
+                @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                        responseCode = "200",
+                        description = "Personnel deleted successfully"),
+                @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                        responseCode = "400",
+                        description = "Invalid input"),
+                @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                        responseCode = "500",
+                        description = "Internal server error")
             })
     @DeleteMapping("{eventId}/personnel/{publicId}")
     public ResponseEntity<ApiResponse<String>> deletePersonnel(
-            @PathVariable UUID eventId, @PathVariable UUID publicId
-    ){
+            @PathVariable UUID eventId, @PathVariable UUID publicId) {
         try {
-            if(eventId == null || publicId == null){
+            if (eventId == null || publicId == null) {
                 return ResponseEntity.badRequest()
                         .body(
                                 ApiResponse.error(
@@ -439,23 +434,20 @@ public class EventController {
                                         "Event Id or Personnel Id cannot be null"));
             }
             eventService.deletePersonnel(eventId, publicId);
-            return ResponseEntity.ok(
-                    ApiResponse.success("Personnel(s) deleted successfully"));
-        }catch (NoSuchElementException e){
+            return ResponseEntity.ok(ApiResponse.success("Personnel(s) deleted successfully"));
+        } catch (NoSuchElementException e) {
             return ResponseEntity.badRequest()
                     .body(
                             ApiResponse.error(
                                     HttpStatus.BAD_REQUEST.value(),
                                     "Invalid UUID format",
                                     e.getMessage()));
-        }catch (SecurityException e){
+        } catch (SecurityException e) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
                     .body(
                             ApiResponse.error(
-                                    HttpStatus.FORBIDDEN.value(),
-                                    "Access denied",
-                                    e.getMessage()));
-        }catch (Exception e){
+                                    HttpStatus.FORBIDDEN.value(), "Access denied", e.getMessage()));
+        } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(
                             ApiResponse.error(

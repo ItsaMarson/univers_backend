@@ -288,7 +288,6 @@ public class EventService {
             event.setEndTime(requestDTO.endTime());
         }
 
-
         if (requestDTO.organizerPublicId() != null
                 && !event.getOrganizer().getPublicId().equals(requestDTO.organizerPublicId())) {
             User newOrganizer =
@@ -800,15 +799,22 @@ public class EventService {
         return events.stream().map(eventMapper::toDto).collect(Collectors.toList());
     }
 
-    public List<EventPersonnelDTO> addPersonnel(UUID eventPublicId, EventPersonnelDTO requestDTO){
+    public List<EventPersonnelDTO> addPersonnel(UUID eventPublicId, EventPersonnelDTO requestDTO) {
         User currentUser = getCurrentUser();
 
-        Event event = eventRepository.findByPublicId(eventPublicId).orElseThrow(()-> new NoSuchElementException("Event not found with UUID" + eventPublicId));
+        Event event =
+                eventRepository
+                        .findByPublicId(eventPublicId)
+                        .orElseThrow(
+                                () ->
+                                        new NoSuchElementException(
+                                                "Event not found with UUID" + eventPublicId));
 
-        if(!(currentUser.getRoles().contains(Role.EQUIPMENT_OWNER) || currentUser.getRoles().contains(Role.SUPER_ADMIN))){
+        if (!(currentUser.getRoles().contains(Role.EQUIPMENT_OWNER)
+                || currentUser.getRoles().contains(Role.SUPER_ADMIN))) {
             throw new AccessDeniedException("User not authorized to add personnel");
         }
-        if(requestDTO == null){
+        if (requestDTO == null) {
             throw new IllegalArgumentException("Request body cannot be null");
         }
 
@@ -816,8 +822,9 @@ public class EventService {
         newPersonnel.setName(requestDTO.name());
         newPersonnel.setPhoneNumber(requestDTO.phoneNumber());
         newPersonnel.setStatus(Status.AVAILABLE);
+        newPersonnel.setEvent(event);
 
-        if(event.getAssignedPersonnel() == null){
+        if (event.getAssignedPersonnel() == null) {
             event.setAssignedPersonnel(new ArrayList<>());
         }
         event.getAssignedPersonnel().add(newPersonnel);
@@ -826,14 +833,21 @@ public class EventService {
         return updatedEvent.getAssignedPersonnel().stream()
                 .map(eventMapper::toPersonnelDto)
                 .collect(Collectors.toList());
-
     }
-    public void deletePersonnel(UUID eventPublicId, UUID personnelPublicId){
+
+    public void deletePersonnel(UUID eventPublicId, UUID personnelPublicId) {
         User currentUser = getCurrentUser();
 
-        Event event = eventRepository.findByPublicId(eventPublicId).orElseThrow(()-> new NoSuchElementException("Event not found with UUID" + eventPublicId));
+        Event event =
+                eventRepository
+                        .findByPublicId(eventPublicId)
+                        .orElseThrow(
+                                () ->
+                                        new NoSuchElementException(
+                                                "Event not found with UUID" + eventPublicId));
 
-        if(!(currentUser.getRoles().contains(Role.EQUIPMENT_OWNER) || currentUser.getRoles().contains(Role.SUPER_ADMIN))){
+        if (!(currentUser.getRoles().contains(Role.EQUIPMENT_OWNER)
+                || currentUser.getRoles().contains(Role.SUPER_ADMIN))) {
             throw new SecurityException("User not authorized to add personnel");
         }
         List<EventPersonnel> assignedPersonnel = event.getAssignedPersonnel();
@@ -844,15 +858,15 @@ public class EventService {
         Iterator<EventPersonnel> iterator = assignedPersonnel.iterator();
         boolean foundAndRemoved = false;
 
-        while (iterator.hasNext()){
+        while (iterator.hasNext()) {
             EventPersonnel personnel = iterator.next();
-            if(personnel.getPublicId().equals(personnelPublicId)){
+            if (personnel.getPublicId().equals(personnelPublicId)) {
                 iterator.remove();
                 foundAndRemoved = true;
                 break;
             }
         }
-        if(!foundAndRemoved){
+        if (!foundAndRemoved) {
             throw new NoSuchElementException("Personnel not found with UUID" + personnelPublicId);
         }
         eventRepository.save(event);

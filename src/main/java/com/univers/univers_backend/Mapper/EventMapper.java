@@ -5,7 +5,6 @@ import com.univers.univers_backend.DTO.*;
 import com.univers.univers_backend.Entity.Event;
 import com.univers.univers_backend.Entity.EventPersonnel;
 import com.univers.univers_backend.Service.FileStorageService;
-
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -87,6 +86,14 @@ public class EventMapper {
                             .collect(Collectors.toList());
         }
 
+        List<EventPersonnelDTO> personnelDtos = Collections.emptyList();
+        if (event.getAssignedPersonnel() != null) {
+            personnelDtos =
+                    event.getAssignedPersonnel().stream()
+                            .map(this::toPersonnelDto)
+                            .collect(Collectors.toList());
+        }
+
         return new EventDTO(
                 event.getPublicId(),
                 event.getEventName(),
@@ -100,18 +107,16 @@ public class EventMapper {
                 approvedLetterUrl,
                 imageUrl,
                 approvalDtos,
+                personnelDtos,
                 event.getCreatedAt(),
                 event.getUpdatedAt());
     }
 
     // public Event toEntity(EventDTO dto) { ... } // If needed later
 
-    public EventPersonnelDTO toPersonnelDto(EventPersonnel newPersonnel){
+    public EventPersonnelDTO toPersonnelDto(EventPersonnel newPersonnel) {
 
         return new EventPersonnelDTO(
-                newPersonnel.getPublicId(),
-                newPersonnel.getName(),
-                newPersonnel.getPhoneNumber()
-        );
+                newPersonnel.getPublicId(), newPersonnel.getName(), newPersonnel.getPhoneNumber());
     }
 }

@@ -1,9 +1,8 @@
+/* (C)2025 */
 package com.univers.univers_backend.Entity;
-
 
 import com.univers.univers_backend.Enum.Status;
 import jakarta.persistence.*;
-
 import java.util.UUID;
 
 @Entity
@@ -34,8 +33,7 @@ public class EventPersonnel {
         }
     }
 
-    public EventPersonnel() {
-    }
+    public EventPersonnel() {}
 
     public EventPersonnel(Long id, UUID publicId, String name, String phoneNumber, Status status) {
         this.id = id;
@@ -83,5 +81,13 @@ public class EventPersonnel {
 
     public void setStatus(Status status) {
         this.status = status;
+    }
+
+    public Event getEvent() {
+        return event;
+    }
+
+    public void setEvent(Event event) {
+        this.event = event;
     }
 }

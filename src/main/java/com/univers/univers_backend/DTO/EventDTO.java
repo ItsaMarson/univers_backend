@@ -18,5 +18,6 @@ public record EventDTO(
         String approvedLetterUrl,
         String imageUrl,
         List<EventApprovalDTO> approvals,
+        List<EventPersonnelDTO> assignedPersonnel,
         Instant createdAt,
         Instant updatedAt) {}
