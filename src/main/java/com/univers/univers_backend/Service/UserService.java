@@ -51,6 +51,7 @@ public class UserService {
     private final FileStorageService fileStorageService;
 
     private final UserMapper userMapper;
+
     @Value("${minio.bucket.users}")
     private String usersBucketName;
 
@@ -68,7 +69,7 @@ public class UserService {
             PasswordEncoder passwordEncoder,
             EmailService emailService,
             FileStorageService fileStorageService,
-        UserMapper userMapper) {
+            UserMapper userMapper) {
         this.authenticationManager = authenticationManager;
         this.jwtUtil = jwtUtil;
         this.userRepository = userRepository;
@@ -144,22 +145,24 @@ public class UserService {
                                             + e.getMessage()));
         }
     }
-    //Checks if the email is cit email
-    public boolean isInstitutionalEmail(String email){
-        //Define the email regex pattern for @cit.edu domain
+
+    // Checks if the email is cit email
+    public boolean isInstitutionalEmail(String email) {
+        // Define the email regex pattern for @cit.edu domain
         String regex = "^[A-Za-z0-9._%+-]+@cit\\.edu$";
         return email.matches(regex);
     }
+
     public String register(RegisterDTO request) {
 
         if (userRepository.existsByEmail(request.email())) {
             return ErrorMessage.EMAIL_IN_USE.getMessage();
         }
-        if(userRepository.existsByIdNumber(request.idNumber())){
+        if (userRepository.existsByIdNumber(request.idNumber())) {
             return ErrorMessage.ID_NUMBER_IN_USE.getMessage();
         }
-        //Comment this for if you want to use other email for testing purposes
-        if(!isInstitutionalEmail(request.email())){
+        // Comment this for if you want to use other email for testing purposes
+        if (!isInstitutionalEmail(request.email())) {
             return ErrorMessage.INVALID_EMAIL_DOMAIN.getMessage();
         }
         String verificationCode = String.format("%06d", new Random().nextInt(1000000));
@@ -332,8 +335,6 @@ public class UserService {
                                                     "Department not found with public ID: "
                                                             + updatedUserDto.departmentPublicId()));
             user.setDepartment(department);
-        } else {
-            user.setDepartment(null);
         }
 
         if (imageFile != null && !imageFile.isEmpty()) {
@@ -403,8 +404,6 @@ public class UserService {
                                                     "Department not found with Public ID: "
                                                             + editUserDTO.departmentPublicId()));
             user.setDepartment(department);
-        } else {
-            user.setDepartment(null);
         }
 
         if (editUserDTO.roles() != null) {
