@@ -960,7 +960,7 @@ public class EquipmentReservationService {
                 equipmentRepository.save(equipment);
 
                 // Update reservation status to COMPLETED to avoid double restoration
-                reservation.setStatus(Status.COMPLETED);
+                reservation.setStatus(Status.CANCELED);
                 equipmentReservationRepository.save(reservation);
 
                 logger.info(

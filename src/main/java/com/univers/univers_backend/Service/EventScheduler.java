@@ -106,7 +106,7 @@ public class EventScheduler {
                 eventsToComplete.size());
     }
 
-    @Scheduled(cron = "0 */5 * * * ?") // Runs every 5 minutes
+    @Scheduled(cron = "0 */1 * * * ?") // Runs every 1 minutes
     @Transactional
     public void restoreEquipmentForExpiredReservations() {
         Instant now = Instant.now();
@@ -120,5 +120,45 @@ public class EventScheduler {
         }
 
         logger.info("Scheduler: Finished checking for equipment reservations to restore.");
+    }
+
+    @Scheduled(cron = "0 */1 * * * ?") // Runs every 1 minutes
+    @Transactional
+    public void cancelExpiredPendingEvents() {
+        Instant now = Instant.now();
+        logger.info("Scheduler: Checking for pending events past end time to cancel at {}", now);
+        List<Event> expiredPendingEvents =
+                eventRepository.findByStatusAndEndTimeBefore(Status.PENDING, now);
+
+        if (expiredPendingEvents.isEmpty()) {
+            logger.info("Scheduler: No pending events past end time found.");
+            return;
+        }
+
+        for (Event event : expiredPendingEvents) {
+            event.setStatus(Status.CANCELED);
+            eventRepository.save(event);
+            logger.info(
+                    "Event {} (Public ID: {}) status updated from PENDING to CANCELED (past end"
+                            + " time).",
+                    event.getEventName(),
+                    event.getPublicId());
+
+            // Notify organizer
+            if (event.getOrganizer() != null) {
+                notificationService.createNotification(
+                        event.getOrganizer(),
+                        "Your event '"
+                                + event.getEventName()
+                                + "' has been automatically canceled because it passed the end time"
+                                + " while still pending approval.",
+                        event.getPublicId(),
+                        event.getPublicId(),
+                        "EVENT_AUTO_CANCELED");
+            }
+        }
+        logger.info(
+                "Scheduler: Finished checking for expired pending events. {} events canceled.",
+                expiredPendingEvents.size());
     }
 }
