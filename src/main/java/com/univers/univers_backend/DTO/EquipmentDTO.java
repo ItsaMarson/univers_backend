@@ -11,7 +11,9 @@ public record EquipmentDTO(
         String name,
         Boolean availability,
         String brand,
-        Integer quantity,
+        Integer totalQuantity,
+        Integer availableQuantity,
+        @Deprecated Integer quantity, // Keep for backward compatibility
         UserDTO equipmentOwner,
         String imagePath,
         Status status,

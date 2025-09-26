@@ -166,8 +166,8 @@ public class EquipmentReservationService {
             throw new IllegalArgumentException("Requested quantity must be positive.");
         }
 
-        // Check Availability
-        int currentlyReserved =
+        // Check Availability using time-based overlapping reservations
+        int currentlyReservedInPeriod =
                 equipmentReservationRepository
                         .findOverlappingReservations(equipment.getId(), startTime, endTime)
                         .stream()
@@ -178,15 +178,25 @@ public class EquipmentReservationService {
                         .mapToInt(EquipmentReservation::getQuantity)
                         .sum();
 
-        if (equipment.getQuantity() < currentlyReserved + requestedQuantity) {
+        if (equipment.getAvailableQuantity() < requestedQuantity) {
             throw new IllegalArgumentException(
                     String.format(
-                            "Not enough %s available. Requested: %d, Available during period: %d,"
-                                    + " Currently Reserved: %d",
+                            "Not enough %s available in inventory. Requested: %d, Available: %d",
                             equipment.getName(),
                             requestedQuantity,
-                            equipment.getQuantity() - currentlyReserved,
-                            currentlyReserved));
+                            equipment.getAvailableQuantity()));
+        }
+
+        if (equipment.getTotalQuantity() < currentlyReservedInPeriod + requestedQuantity) {
+            throw new IllegalArgumentException(
+                    String.format(
+                            "Not enough %s available during the requested time period. Requested:"
+                                + " %d, Available during period: %d, Currently Reserved in period:"
+                                + " %d",
+                            equipment.getName(),
+                            requestedQuantity,
+                            equipment.getTotalQuantity() - currentlyReservedInPeriod,
+                            currentlyReservedInPeriod));
         }
 
         EquipmentReservation newReservation = new EquipmentReservation();
@@ -198,6 +208,11 @@ public class EquipmentReservationService {
         newReservation.setStartTime(startTime);
         newReservation.setEndTime(endTime);
         // Status is PENDING by default as per Entity definition
+
+        // Decrease available quantity immediately when reservation is created (PENDING status)
+        Integer currentAvailable = equipment.getAvailableQuantity();
+        equipment.setAvailableQuantity(currentAvailable - requestedQuantity);
+        equipmentRepository.save(equipment);
 
         EquipmentReservation savedReservation = equipmentReservationRepository.save(newReservation);
 
@@ -381,6 +396,13 @@ public class EquipmentReservationService {
         rejectionRecord.setRemarks(remarks);
         equipmentApprovalRepository.save(rejectionRecord);
 
+        // Restore equipment quantity that was reserved during PENDING status
+        Equipment equipment = reservation.getEquipment();
+        Integer currentAvailable = equipment.getAvailableQuantity();
+        Integer reservedQuantity = reservation.getQuantity();
+        equipment.setAvailableQuantity(currentAvailable + reservedQuantity);
+        equipmentRepository.save(equipment);
+
         reservation.setStatus(Status.REJECTED);
         equipmentReservationRepository.save(reservation);
 
@@ -409,6 +431,10 @@ public class EquipmentReservationService {
 
         if (allRequiredApproved) {
             reservation.setStatus(Status.APPROVED);
+
+            // Note: Equipment quantity was already decreased when reservation was created (PENDING)
+            // No additional quantity adjustment needed during approval
+
             equipmentReservationRepository.save(reservation);
             notifyRequester(
                     reservation, "fully approved", null, "EQUIPMENT_RESERVATION_FULLY_APPROVED");
@@ -439,6 +465,18 @@ public class EquipmentReservationService {
             return "Warning: Reservation is already canceled.";
         }
 
+        // Restore the inventory for both PENDING and APPROVED reservations
+        // (since quantity was decreased when reservation was created)
+        if (reservation.getStatus() == Status.APPROVED
+                || reservation.getStatus() == Status.PENDING) {
+            Equipment equipment = reservation.getEquipment();
+            Integer currentAvailable = equipment.getAvailableQuantity();
+            Integer reservedQuantity = reservation.getQuantity();
+
+            equipment.setAvailableQuantity(currentAvailable + reservedQuantity);
+            equipmentRepository.save(equipment);
+        }
+
         reservation.setStatus(Status.CANCELED);
         equipmentReservationRepository.save(reservation);
         notifyEquipmentOwnerOfCancellation(reservation, currentUser);
@@ -452,6 +490,16 @@ public class EquipmentReservationService {
         List<EquipmentReservation> reservations =
                 equipmentReservationRepository.findByEvent_PublicId(eventPublicId);
         for (EquipmentReservation reservation : reservations) {
+            // If reservation was approved, restore the inventory
+            if (reservation.getStatus() == Status.APPROVED) {
+                Equipment equipment = reservation.getEquipment();
+                Integer currentAvailable = equipment.getAvailableQuantity();
+                Integer reservedQuantity = reservation.getQuantity();
+
+                equipment.setAvailableQuantity(currentAvailable + reservedQuantity);
+                equipmentRepository.save(equipment);
+            }
+
             reservation.setStatus(Status.CANCELED);
             equipmentReservationRepository.save(reservation);
         }
@@ -480,6 +528,16 @@ public class EquipmentReservationService {
             throw new SecurityException("Cannot delete this reservation.");
         }
 
+        // If SUPER_ADMIN is deleting an approved reservation, restore inventory
+        if (isSuperAdmin && reservation.getStatus() == Status.APPROVED) {
+            Equipment equipment = reservation.getEquipment();
+            Integer currentAvailable = equipment.getAvailableQuantity();
+            Integer reservedQuantity = reservation.getQuantity();
+
+            equipment.setAvailableQuantity(currentAvailable + reservedQuantity);
+            equipmentRepository.save(equipment);
+        }
+
         equipmentReservationRepository.delete(reservation);
         logger.info("Deleted equipment reservation with public ID: {}", reservationPublicId);
     }
@@ -490,6 +548,17 @@ public class EquipmentReservationService {
         List<EquipmentReservation> reservations =
                 equipmentReservationRepository.findByEvent_PublicId(eventPublicId);
         if (!reservations.isEmpty()) {
+            // Restore inventory for any approved reservations before deleting
+            for (EquipmentReservation reservation : reservations) {
+                if (reservation.getStatus() == Status.APPROVED) {
+                    Equipment equipment = reservation.getEquipment();
+                    Integer currentAvailable = equipment.getAvailableQuantity();
+                    Integer reservedQuantity = reservation.getQuantity();
+
+                    equipment.setAvailableQuantity(currentAvailable + reservedQuantity);
+                    equipmentRepository.save(equipment);
+                }
+            }
             // If reservations are found, delete them
             equipmentReservationRepository.deleteAll(reservations);
             logger.info(
@@ -776,5 +845,161 @@ public class EquipmentReservationService {
             }
         }
         return results;
+    }
+
+    @Deprecated
+    @Transactional
+    public void returnEquipmentForCompletedEvent(UUID eventPublicId) {
+        logger.info("Returning equipment for completed event: {}", eventPublicId);
+
+        Event event =
+                eventRepository
+                        .findByPublicId(eventPublicId)
+                        .orElseThrow(
+                                () ->
+                                        new NoSuchElementException(
+                                                "Event not found with public ID: "
+                                                        + eventPublicId));
+
+        // Check if event has actually ended, regardless of status
+        Instant now = Instant.now();
+        if (event.getEndTime().isAfter(now)) {
+            logger.warn(
+                    "Event {} has not ended yet (End time: {}), skipping equipment return. Current"
+                            + " time: {}",
+                    eventPublicId,
+                    event.getEndTime(),
+                    now);
+            return;
+        }
+
+        // Find all active reservations (APPROVED or ONGOING) for this event
+        List<EquipmentReservation> activeReservations =
+                equipmentReservationRepository.findByEvent_PublicId(eventPublicId).stream()
+                        .filter(
+                                reservation ->
+                                        reservation.getStatus() == Status.APPROVED
+                                                || reservation.getStatus() == Status.ONGOING)
+                        .collect(Collectors.toList());
+
+        if (activeReservations.isEmpty()) {
+            logger.info("No active equipment reservations found for event: {}", eventPublicId);
+            return;
+        }
+
+        int returnedItems = 0;
+        for (EquipmentReservation reservation : activeReservations) {
+            Equipment equipment = reservation.getEquipment();
+            Integer reservedQuantity = reservation.getQuantity();
+            Integer currentAvailable = equipment.getAvailableQuantity();
+
+            // Restore the reserved quantity back to available inventory
+            equipment.setAvailableQuantity(currentAvailable + reservedQuantity);
+            equipmentRepository.save(equipment);
+
+            // Update reservation status to COMPLETED to avoid double restoration
+            reservation.setStatus(Status.COMPLETED);
+            equipmentReservationRepository.save(reservation);
+
+            logger.info(
+                    "Returned {} units of equipment '{}' (ID: {}) from event '{}' (Event end time:"
+                            + " {})",
+                    reservedQuantity,
+                    equipment.getName(),
+                    equipment.getPublicId(),
+                    event.getEventName(),
+                    event.getEndTime());
+
+            returnedItems++;
+        }
+
+        logger.info(
+                "Successfully returned {} equipment items for completed event: {}",
+                returnedItems,
+                eventPublicId);
+
+        // Optional: Notify the event organizer about equipment return
+        if (event.getOrganizer() != null) {
+            notificationService.createNotification(
+                    event.getOrganizer(),
+                    "Equipment for your completed event '"
+                            + event.getEventName()
+                            + "' has been automatically returned to inventory ("
+                            + returnedItems
+                            + " items).",
+                    event.getPublicId(),
+                    event.getPublicId(),
+                    "EQUIPMENT_RETURNED");
+        }
+    }
+
+    @Transactional
+    public void restoreEquipmentForExpiredReservations(Instant currentTime) {
+        logger.info(
+                "Checking for equipment reservations to restore based on end time: {}",
+                currentTime);
+
+        // Find all active reservations (APPROVED or ONGOING) that have ended using database query
+        List<EquipmentReservation> expiredReservations =
+                equipmentReservationRepository.findExpiredActiveReservations(currentTime);
+
+        if (expiredReservations.isEmpty()) {
+            logger.info("No expired equipment reservations found to restore.");
+            return;
+        }
+
+        int restoredItems = 0;
+        for (EquipmentReservation reservation : expiredReservations) {
+            try {
+                Equipment equipment = reservation.getEquipment();
+                Integer reservedQuantity = reservation.getQuantity();
+                Integer currentAvailable = equipment.getAvailableQuantity();
+
+                // Restore the reserved quantity back to available inventory
+                equipment.setAvailableQuantity(currentAvailable + reservedQuantity);
+                equipmentRepository.save(equipment);
+
+                // Update reservation status to COMPLETED to avoid double restoration
+                reservation.setStatus(Status.COMPLETED);
+                equipmentReservationRepository.save(reservation);
+
+                logger.info(
+                        "Restored {} units of equipment '{}' (ID: {}) from expired reservation (End"
+                                + " time: {})",
+                        reservedQuantity,
+                        equipment.getName(),
+                        equipment.getPublicId(),
+                        reservation.getEndTime());
+
+                restoredItems++;
+
+                // Notify the requesting user about automatic equipment return
+                if (reservation.getRequestingUser() != null) {
+                    notificationService.createNotification(
+                            reservation.getRequestingUser(),
+                            "Equipment '"
+                                    + equipment.getName()
+                                    + "' ("
+                                    + reservedQuantity
+                                    + " units) has been automatically "
+                                    + "returned to inventory as your reservation period has ended.",
+                            reservation.getPublicId(),
+                            reservation.getEvent().getPublicId(),
+                            "EQUIPMENT_AUTO_RETURNED");
+                }
+
+            } catch (Exception e) {
+                logger.error(
+                        "Error restoring equipment for reservation {}: {}",
+                        reservation.getPublicId(),
+                        e.getMessage(),
+                        e);
+            }
+        }
+
+        logger.info(
+                "Successfully restored {} equipment items from {} expired reservations.",
+                restoredItems,
+                expiredReservations.size());
     }
 }

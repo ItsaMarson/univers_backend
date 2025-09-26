@@ -65,7 +65,9 @@ public class EquipmentMapper {
                 equipment.getName(),
                 equipment.getAvailability(),
                 equipment.getBrand(),
-                equipment.getQuantity(),
+                equipment.getTotalQuantity(),
+                equipment.getAvailableQuantity(),
+                equipment.getQuantity(), // deprecated backward compatibility
                 ownerDto,
                 imageUrl,
                 equipment.getStatus(),

@@ -87,4 +87,10 @@ public interface EquipmentReservationRepository extends JpaRepository<EquipmentR
             @Param("endDatePlusOne") Instant endDatePlusOne,
             @Param("userFilter") String userFilter,
             Pageable pageable);
+
+    @Query(
+            "SELECT er FROM EquipmentReservation er WHERE er.endTime <= :currentTime "
+                    + "AND er.status IN ('PENDING', 'APPROVED', 'ONGOING')")
+    List<EquipmentReservation> findExpiredActiveReservations(
+            @Param("currentTime") Instant currentTime);
 }

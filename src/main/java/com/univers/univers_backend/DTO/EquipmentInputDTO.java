@@ -10,7 +10,9 @@ public record EquipmentInputDTO(
         String name,
         Boolean availability,
         String brand,
-        Integer quantity,
+        @Deprecated Integer quantity, // Deprecated - use totalQuantity instead
+        Integer totalQuantity,
+        Integer availableQuantity,
         UserDTO equipmentOwner, // Frontend sends ownerId, which maps to UserDTO with publicId
         // imagePath is handled by MultipartFile, not in this DTO
         Status status,

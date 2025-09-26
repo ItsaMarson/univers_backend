@@ -871,4 +871,85 @@ public class EventService {
         }
         eventRepository.save(event);
     }
+
+    @Transactional
+    public String returnEquipmentForEvent(UUID publicId) {
+        User currentUser = getCurrentUser();
+        Event event =
+                eventRepository
+                        .findByPublicId(publicId)
+                        .orElseThrow(
+                                () ->
+                                        new NoSuchElementException(
+                                                "Event not found with public ID: " + publicId));
+
+        boolean isAdmin = currentUser.getRoles().contains(Role.SUPER_ADMIN);
+        boolean isOrganizer = event.getOrganizer().getPublicId().equals(currentUser.getPublicId());
+
+        if (!isAdmin && !isOrganizer) {
+            throw new SecurityException("User not authorized to return equipment for this event.");
+        }
+
+        if (event.getStatus() != Status.COMPLETED) {
+            throw new IllegalStateException(
+                    "Equipment can only be returned for COMPLETED events. Current status: "
+                            + event.getStatus());
+        }
+
+        // Note: Equipment restoration is now handled automatically by time-based scheduler
+        // that checks reservation end times every 5 minutes
+        return "Event completed. Equipment will be automatically returned to inventory when"
+                + " reservations expire.";
+    }
+
+    @Transactional
+    public String completeEventAndReturnEquipment(UUID publicId) {
+        User currentUser = getCurrentUser();
+        Event event =
+                eventRepository
+                        .findByPublicId(publicId)
+                        .orElseThrow(
+                                () ->
+                                        new NoSuchElementException(
+                                                "Event not found with public ID: " + publicId));
+
+        boolean isAdmin = currentUser.getRoles().contains(Role.SUPER_ADMIN);
+        boolean isOrganizer = event.getOrganizer().getPublicId().equals(currentUser.getPublicId());
+
+        if (!isAdmin && !isOrganizer) {
+            throw new SecurityException("User not authorized to complete this event.");
+        }
+
+        if (event.getStatus() == Status.COMPLETED) {
+            return "Event is already completed.";
+        }
+
+        if (event.getStatus() != Status.ONGOING && event.getStatus() != Status.APPROVED) {
+            throw new IllegalStateException(
+                    "Event can only be completed from ONGOING or APPROVED status. Current status: "
+                            + event.getStatus());
+        }
+
+        // Mark event as completed
+        event.setStatus(Status.COMPLETED);
+        Event completedEvent = eventRepository.save(event);
+
+        // Note: Equipment restoration is now handled automatically by time-based scheduler
+        // that checks reservation end times every 5 minutes
+
+        // Notify organizer if completed by admin
+        if (isAdmin && !isOrganizer && event.getOrganizer() != null) {
+            notificationService.createNotification(
+                    event.getOrganizer(),
+                    "Your event '"
+                            + event.getEventName()
+                            + "' has been manually completed by an administrator.",
+                    event.getPublicId(),
+                    event.getPublicId(),
+                    "EVENT_COMPLETED_MANUAL");
+        }
+
+        return "Event completed successfully. Equipment will be automatically returned when"
+                + " reservations expire.";
+    }
 }

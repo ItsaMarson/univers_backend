@@ -19,11 +19,15 @@ public class EventScheduler {
 
     private final EventRepository eventRepository;
     private final NotificationService notificationService;
+    private final EquipmentReservationService equipmentReservationService;
 
     public EventScheduler(
-            EventRepository eventRepository, NotificationService notificationService) {
+            EventRepository eventRepository,
+            NotificationService notificationService,
+            EquipmentReservationService equipmentReservationService) {
         this.eventRepository = eventRepository;
         this.notificationService = notificationService;
+        this.equipmentReservationService = equipmentReservationService;
     }
 
     @Scheduled(cron = "0 */1 * * * ?") // Runs every 1 minute
@@ -83,6 +87,10 @@ public class EventScheduler {
                     "Event {} (Public ID: {}) status updated to COMPLETED.",
                     event.getEventName(),
                     event.getPublicId());
+
+            // Note: Equipment restoration is now handled by time-based scheduler
+            // that runs every 5 minutes and checks reservation end times directly
+
             // Optional: Notify organizer
             if (event.getOrganizer() != null) {
                 notificationService.createNotification(
@@ -96,5 +104,21 @@ public class EventScheduler {
         logger.info(
                 "Scheduler: Finished checking for events to set to COMPLETED. {} events updated.",
                 eventsToComplete.size());
+    }
+
+    @Scheduled(cron = "0 */5 * * * ?") // Runs every 5 minutes
+    @Transactional
+    public void restoreEquipmentForExpiredReservations() {
+        Instant now = Instant.now();
+        logger.info("Scheduler: Checking for equipment reservations to restore at {}", now);
+
+        try {
+            equipmentReservationService.restoreEquipmentForExpiredReservations(now);
+        } catch (Exception e) {
+            logger.error(
+                    "Error restoring equipment for expired reservations: {}", e.getMessage(), e);
+        }
+
+        logger.info("Scheduler: Finished checking for equipment reservations to restore.");
     }
 }

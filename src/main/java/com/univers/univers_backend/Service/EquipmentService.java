@@ -123,7 +123,25 @@ public class EquipmentService {
         newEquipment.setName(request.name());
         newEquipment.setBrand(request.brand());
         newEquipment.setAvailability(request.availability());
-        newEquipment.setQuantity(request.quantity());
+
+        // Handle quantity fields - prioritize new fields over deprecated one
+        Integer totalQty =
+                request.totalQuantity() != null ? request.totalQuantity() : request.quantity();
+        Integer availableQty =
+                request.availableQuantity() != null ? request.availableQuantity() : totalQty;
+
+        if (totalQty != null && totalQty < 0) {
+            throw new IllegalArgumentException("Equipment total quantity cannot be negative.");
+        }
+        if (availableQty != null && availableQty < 0) {
+            throw new IllegalArgumentException("Equipment available quantity cannot be negative.");
+        }
+        if (totalQty != null && availableQty != null && availableQty > totalQty) {
+            throw new IllegalArgumentException("Available quantity cannot exceed total quantity.");
+        }
+
+        newEquipment.setTotalQuantity(totalQty);
+        newEquipment.setAvailableQuantity(availableQty);
         newEquipment.setStatus(request.status() != null ? request.status() : Status.NEW);
         newEquipment.setEquipmentOwner(owner);
         String serial = request.serialNo();
@@ -135,9 +153,7 @@ public class EquipmentService {
                 .findBySerialNo(serial)
                 .ifPresent(
                         existingEquipment -> {
-                            if (!existingEquipment
-                                    .getPublicId()
-                                    .equals(requester.getPublicId())) {
+                            if (!existingEquipment.getPublicId().equals(requester.getPublicId())) {
                                 throw new IllegalArgumentException(
                                         "Another equipment with serial number '"
                                                 + request.serialNo()
@@ -231,8 +247,50 @@ public class EquipmentService {
         if (request.availability() != null) {
             equipment.setAvailability(request.availability());
         }
-        if (request.quantity() != null) {
-            equipment.setQuantity(request.quantity());
+        // Handle quantity updates - prioritize new fields over deprecated one
+        Integer newTotalQty =
+                request.totalQuantity() != null ? request.totalQuantity() : request.quantity();
+        Integer newAvailableQty = request.availableQuantity();
+
+        if (newTotalQty != null) {
+            if (newTotalQty < 0) {
+                throw new IllegalArgumentException("Equipment total quantity cannot be negative.");
+            }
+
+            Integer currentReserved =
+                    equipment.getTotalQuantity() != null && equipment.getAvailableQuantity() != null
+                            ? equipment.getTotalQuantity() - equipment.getAvailableQuantity()
+                            : 0;
+
+            if (newTotalQty < currentReserved) {
+                throw new IllegalArgumentException(
+                        String.format(
+                                "Cannot reduce total quantity below currently reserved amount. "
+                                        + "Requested: %d, Currently reserved: %d",
+                                newTotalQty, currentReserved));
+            }
+
+            equipment.setTotalQuantity(newTotalQty);
+
+            // If availableQuantity is not explicitly set, calculate it
+            if (newAvailableQty == null) {
+                equipment.setAvailableQuantity(newTotalQty - currentReserved);
+            }
+        }
+
+        if (newAvailableQty != null) {
+            if (newAvailableQty < 0) {
+                throw new IllegalArgumentException(
+                        "Equipment available quantity cannot be negative.");
+            }
+
+            Integer currentTotalQty = equipment.getTotalQuantity();
+            if (currentTotalQty != null && newAvailableQty > currentTotalQty) {
+                throw new IllegalArgumentException(
+                        "Available quantity cannot exceed total quantity.");
+            }
+
+            equipment.setAvailableQuantity(newAvailableQty);
         }
         if (request.status() != null) {
             equipment.setStatus(request.status());

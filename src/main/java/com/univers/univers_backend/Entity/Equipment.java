@@ -3,6 +3,7 @@ package com.univers.univers_backend.Entity;
 
 import com.univers.univers_backend.Enum.Status;
 import jakarta.persistence.*;
+import jakarta.validation.constraints.Min;
 import java.time.Instant;
 import java.util.HashSet;
 import java.util.Set;
@@ -30,7 +31,11 @@ public class Equipment {
     @JoinColumn(name = "equipment_owner")
     private User equipmentOwner;
 
-    private Integer quantity;
+    @Min(value = 0, message = "Total quantity cannot be negative")
+    private Integer totalQuantity;
+
+    @Min(value = 0, message = "Available quantity cannot be negative")
+    private Integer availableQuantity;
 
     private String brand;
 
@@ -74,7 +79,8 @@ public class Equipment {
             String name,
             Boolean availability,
             User equipmentOwner,
-            Integer quantity,
+            Integer totalQuantity,
+            Integer availableQuantity,
             String brand,
             String imagePath,
             Status status,
@@ -86,7 +92,8 @@ public class Equipment {
         this.name = name;
         this.availability = availability;
         this.equipmentOwner = equipmentOwner;
-        this.quantity = quantity;
+        this.totalQuantity = totalQuantity;
+        this.availableQuantity = availableQuantity;
         this.brand = brand;
         this.imagePath = imagePath;
         this.status = status;
@@ -95,73 +102,120 @@ public class Equipment {
         this.updatedAt = updatedAt;
     }
 
-    public Long getId() {return id;
+    public Long getId() {
+        return id;
     }
 
-    public void setId(Long id) {this.id = id;
+    public void setId(Long id) {
+        this.id = id;
     }
 
-    public String getSerialNo() {return serialNo;
+    public String getSerialNo() {
+        return serialNo;
     }
 
-    public void setSerialNo(String serialNo) {this.serialNo = serialNo;
+    public void setSerialNo(String serialNo) {
+        this.serialNo = serialNo;
     }
 
-    public String getName() {return name;
+    public String getName() {
+        return name;
     }
 
-    public void setName(String name) {this.name = name;
+    public void setName(String name) {
+        this.name = name;
     }
 
-    public Boolean getAvailability() {return availability;
+    public Boolean getAvailability() {
+        return availability;
     }
 
-    public void setAvailability(Boolean availability) {this.availability = availability;
+    public void setAvailability(Boolean availability) {
+        this.availability = availability;
     }
 
-    public User getEquipmentOwner() {return equipmentOwner;
+    public User getEquipmentOwner() {
+        return equipmentOwner;
     }
 
-    public void setEquipmentOwner(User equipmentOwner) {this.equipmentOwner = equipmentOwner;
+    public void setEquipmentOwner(User equipmentOwner) {
+        this.equipmentOwner = equipmentOwner;
     }
 
-    public Integer getQuantity() {return quantity;
+    public Integer getTotalQuantity() {
+        return totalQuantity;
     }
 
-    public void setQuantity(Integer quantity) {this.quantity = quantity;
+    public void setTotalQuantity(Integer totalQuantity) {
+        this.totalQuantity = totalQuantity;
+        if (this.availableQuantity == null || this.availableQuantity > totalQuantity) {
+            this.availableQuantity = totalQuantity;
+        }
     }
 
-    public String getBrand() {return brand;
+    public Integer getAvailableQuantity() {
+        return availableQuantity;
     }
 
-    public void setBrand(String brand) {this.brand = brand;
+    public void setAvailableQuantity(Integer availableQuantity) {
+        if (this.totalQuantity != null && availableQuantity > this.totalQuantity) {
+            throw new IllegalArgumentException("Available quantity cannot exceed total quantity");
+        }
+        this.availableQuantity = availableQuantity;
     }
 
-    public Status getStatus() {return status;
+    @Deprecated
+    public Integer getQuantity() {
+        return totalQuantity;
     }
 
-    public void setStatus(Status status) {this.status = status;
+    @Deprecated
+    public void setQuantity(Integer quantity) {
+        setTotalQuantity(quantity);
     }
 
-    public String getImagePath() {return imagePath;
+    public String getBrand() {
+        return brand;
     }
 
-    public void setImagePath(String imagePath) {this.imagePath = imagePath;
+    public void setBrand(String brand) {
+        this.brand = brand;
     }
 
-    public Instant getCreatedAt() {return createdAt;
+    public Status getStatus() {
+        return status;
     }
 
-    public void setCreatedAt(Instant createdAt) {this.createdAt = createdAt;
+    public void setStatus(Status status) {
+        this.status = status;
     }
 
-    public Instant getUpdatedAt() {return updatedAt;
+    public String getImagePath() {
+        return imagePath;
     }
 
-    public void setUpdatedAt(Instant updatedAt) {this.updatedAt = updatedAt;
+    public void setImagePath(String imagePath) {
+        this.imagePath = imagePath;
     }
 
-    public UUID getPublicId() {return publicId;
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(Instant createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public Instant getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setUpdatedAt(Instant updatedAt) {
+        this.updatedAt = updatedAt;
+    }
+
+    public UUID getPublicId() {
+        return publicId;
     }
 
     public Set<EquipmentCategory> getCategories() {
