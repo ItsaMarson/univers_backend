@@ -135,7 +135,8 @@ public class EventApprovalService {
                 newStatus != Status.RESERVED &&
                 newStatus != Status.DENIED_RESERVATION &&
                 newStatus != Status.PAID &&
-                newStatus != Status.UNPAID) {
+                newStatus != Status.UNPAID &&
+                newStatus != Status.RECOMMENDED) {
             throw new IllegalArgumentException(
                     "Invalid target status for approval action.");
         }
@@ -237,12 +238,12 @@ public class EventApprovalService {
         boolean anyRejected = false;
 
         for (EventApproval approval : approvals) {
-            if (approval.getStatus() == Status.REJECTED || approval.getStatus() == Status.DENIED_RESERVATION) {
+            if (approval.getStatus() == Status.REJECTED || approval.getStatus() == Status.DENIED_RESERVATION || approval.getStatus() == Status.NOT_RECOMMENDED) {
                 anyRejected = true;
                 break;
             }
 
-            if (approval.getStatus() != Status.APPROVED || approval.getStatus() == Status.RESERVED) {
+            if (approval.getStatus() != Status.APPROVED || approval.getStatus() == Status.RESERVED || approval.getStatus() == Status.RECOMMENDED) {
                 // Any non-approved (and not rejected) means not all are approved yet
                 allApproved = false;
             }

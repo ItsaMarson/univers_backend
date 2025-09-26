@@ -15,6 +15,8 @@ public enum Status {
     NEW,
     AVAILABLE,
     RESERVED,
+    RECOMMENDED,
+    NOT_RECOMMENDED,
     DENIED_RESERVATION,
     PAID,
     UNPAID
