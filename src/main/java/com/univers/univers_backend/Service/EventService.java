@@ -350,6 +350,24 @@ public class EventService {
             event.setImagePath(imageObjectName);
         }
 
+        // Check for scheduling conflicts if time or venue changed
+        boolean timeChanged = requestDTO.startTime() != null || requestDTO.endTime() != null;
+        boolean venueChanged = requestDTO.venuePublicId() != null 
+                && (event.getEventVenue() == null 
+                    || !event.getEventVenue().getPublicId().equals(requestDTO.venuePublicId()));
+        
+        if (timeChanged || venueChanged) {
+            List<Event> conflictingEvents = eventRepository.findConflictingEventsExcludingCurrent(
+                    event.getEventVenue().getId(), 
+                    event.getStartTime(), 
+                    event.getEndTime(),
+                    event.getId());
+            if (!conflictingEvents.isEmpty()) {
+                throw new IllegalArgumentException(
+                        "There is a scheduling conflict with another event at this venue and time.");
+            }
+        }
+
         if (requestDTO.status() != null) {
             event.setStatus(requestDTO.status());
         }
