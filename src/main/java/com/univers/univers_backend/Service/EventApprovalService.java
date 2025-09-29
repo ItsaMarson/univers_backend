@@ -173,7 +173,7 @@ public class EventApprovalService {
 
         // If this is an equipment owner approving the event, automatically approve their equipment
         // reservations
-        if (newStatus == Status.RESERVED && currentUser.getRoles().contains(Role.EQUIPMENT_OWNER)) {
+        if (newStatus == Status.APPROVED && currentUser.getRoles().contains(Role.EQUIPMENT_OWNER)) {
             try {
                 // Get all equipment reservations for this event that are owned by the current user
                 List<EquipmentReservationDTO> reservations =
