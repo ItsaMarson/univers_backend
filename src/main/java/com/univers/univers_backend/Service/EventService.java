@@ -80,6 +80,15 @@ public class EventService {
             MultipartFile approvedLetterFile,
             MultipartFile eventImageFile) {
 
+        // Validate that event times are not in the past
+        Instant now = Instant.now();
+        if (requestDTO.startTime().isBefore(now)) {
+            throw new IllegalArgumentException("Event start time cannot be in the past.");
+        }
+        if (requestDTO.endTime().isBefore(now)) {
+            throw new IllegalArgumentException("Event end time cannot be in the past.");
+        }
+
         User organizer = getCurrentUser();
 
         Venue venue =
@@ -282,9 +291,20 @@ public class EventService {
             event.setEventType(requestDTO.eventType());
         }
         if (requestDTO.startTime() != null) {
+            Instant now = Instant.now();
+            if (requestDTO.startTime().isBefore(now)) {
+                throw new IllegalArgumentException(
+                        "Event start time cannot be in the past. Start time: "
+                                + requestDTO.startTime());
+            }
             event.setStartTime(requestDTO.startTime());
         }
         if (requestDTO.endTime() != null) {
+            Instant now = Instant.now();
+            if (requestDTO.endTime().isBefore(now)) {
+                throw new IllegalArgumentException(
+                        "Event end time cannot be in the past. End time: " + requestDTO.endTime());
+            }
             event.setEndTime(requestDTO.endTime());
         }
 
@@ -352,19 +372,24 @@ public class EventService {
 
         // Check for scheduling conflicts if time or venue changed
         boolean timeChanged = requestDTO.startTime() != null || requestDTO.endTime() != null;
-        boolean venueChanged = requestDTO.venuePublicId() != null 
-                && (event.getEventVenue() == null 
-                    || !event.getEventVenue().getPublicId().equals(requestDTO.venuePublicId()));
-        
+        boolean venueChanged =
+                requestDTO.venuePublicId() != null
+                        && (event.getEventVenue() == null
+                                || !event.getEventVenue()
+                                        .getPublicId()
+                                        .equals(requestDTO.venuePublicId()));
+
         if (timeChanged || venueChanged) {
-            List<Event> conflictingEvents = eventRepository.findConflictingEventsExcludingCurrent(
-                    event.getEventVenue().getId(), 
-                    event.getStartTime(), 
-                    event.getEndTime(),
-                    event.getId());
+            List<Event> conflictingEvents =
+                    eventRepository.findConflictingEventsExcludingCurrent(
+                            event.getEventVenue().getId(),
+                            event.getStartTime(),
+                            event.getEndTime(),
+                            event.getId());
             if (!conflictingEvents.isEmpty()) {
                 throw new IllegalArgumentException(
-                        "There is a scheduling conflict with another event at this venue and time.");
+                        "There is a scheduling conflict with another event at this venue and"
+                                + " time.");
             }
         }
 
