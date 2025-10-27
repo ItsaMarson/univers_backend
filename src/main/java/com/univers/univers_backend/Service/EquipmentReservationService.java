@@ -371,8 +371,9 @@ public class EquipmentReservationService {
                                                 "Equipment Reservation not found with Public ID: "
                                                         + reservationPublicId));
 
-        if (reservation.getStatus() != Status.PENDING) {
-            return "Error: Reservation is not PENDING.";
+        if (reservation.getStatus() == Status.REJECTED
+                || reservation.getStatus() == Status.CANCELED) {
+            return "Error: Reservation is already rejected or canceled.";
         }
 
         Role currentUserRole = currentUser.getRoles().iterator().next();
@@ -396,7 +397,7 @@ public class EquipmentReservationService {
         rejectionRecord.setRemarks(remarks);
         equipmentApprovalRepository.save(rejectionRecord);
 
-        // Restore equipment quantity that was reserved during PENDING status
+        // Restore equipment quantity that was reserved (works for both PENDING and APPROVED status)
         Equipment equipment = reservation.getEquipment();
         Integer currentAvailable = equipment.getAvailableQuantity();
         Integer reservedQuantity = reservation.getQuantity();

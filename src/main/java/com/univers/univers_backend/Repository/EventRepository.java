@@ -27,12 +27,23 @@ public interface EventRepository
 
     @Query(
             "SELECT e FROM Event e WHERE e.eventVenue.id = :venueId "
-                    + "AND e.status <> 'CANCELED' "
+                    + "AND e.status IN ('PENDING', 'APPROVED', 'ONGOING') "
                     + "AND e.startTime <= :endTime AND e.endTime >= :startTime")
     List<Event> findConflictingEvents(
             @Param("venueId") Long venueId,
             @Param("startTime") Instant startTime,
             @Param("endTime") Instant endTime);
+
+    @Query(
+            "SELECT e FROM Event e WHERE e.eventVenue.id = :venueId "
+                    + "AND e.status IN ('PENDING', 'APPROVED', 'ONGOING') "
+                    + "AND e.id <> :excludeEventId "
+                    + "AND e.startTime <= :endTime AND e.endTime >= :startTime")
+    List<Event> findConflictingEventsExcludingCurrent(
+            @Param("venueId") Long venueId,
+            @Param("startTime") Instant startTime,
+            @Param("endTime") Instant endTime,
+            @Param("excludeEventId") Long excludeEventId);
 
     List<Event> findByOrganizer(User organizer);
 

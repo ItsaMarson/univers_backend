@@ -130,15 +130,14 @@ public class EventApprovalService {
                             + eventApproval.getStatus());
         }
 
-        if (newStatus != Status.APPROVED &&
-                newStatus != Status.REJECTED &&
-                newStatus != Status.RESERVED &&
-                newStatus != Status.DENIED_RESERVATION &&
-                newStatus != Status.PAID &&
-                newStatus != Status.UNPAID &&
-                newStatus != Status.RECOMMENDED) {
-            throw new IllegalArgumentException(
-                    "Invalid target status for approval action.");
+        if (newStatus != Status.APPROVED
+                && newStatus != Status.REJECTED
+                && newStatus != Status.RESERVED
+                && newStatus != Status.DENIED_RESERVATION
+                && newStatus != Status.PAID
+                && newStatus != Status.UNPAID
+                && newStatus != Status.RECOMMENDED) {
+            throw new IllegalArgumentException("Invalid target status for approval action.");
         }
 
         eventApproval.setStatus(newStatus);
@@ -174,7 +173,7 @@ public class EventApprovalService {
 
         // If this is an equipment owner approving the event, automatically approve their equipment
         // reservations
-        if (newStatus == Status.RESERVED && currentUser.getRoles().contains(Role.EQUIPMENT_OWNER)) {
+        if (newStatus == Status.APPROVED && currentUser.getRoles().contains(Role.EQUIPMENT_OWNER)) {
             try {
                 // Get all equipment reservations for this event that are owned by the current user
                 List<EquipmentReservationDTO> reservations =
@@ -213,6 +212,54 @@ public class EventApprovalService {
             }
         }
 
+        // If this is an equipment owner rejecting the event, automatically reject their equipment
+        // reservations
+        if (newStatus == Status.REJECTED && currentUser.getRoles().contains(Role.EQUIPMENT_OWNER)) {
+            try {
+                // Get all equipment reservations for this event that are owned by the current user
+                List<EquipmentReservationDTO> reservations =
+                        equipmentReservationService.getReservationsByEventPublicId(eventPublicId);
+                List<UUID> reservationIdsToReject =
+                        reservations.stream()
+                                .filter(
+                                        r ->
+                                                !r.status().equals("REJECTED")
+                                                        && !r.status().equals("CANCELED"))
+                                .filter(
+                                        r ->
+                                                r.equipment()
+                                                        .equipmentOwner()
+                                                        .publicId()
+                                                        .equals(currentUser.getPublicId()))
+                                .map(EquipmentReservationDTO::publicId)
+                                .collect(Collectors.toList());
+
+                if (!reservationIdsToReject.isEmpty()) {
+                    logger.info(
+                            "Equipment owner {} is rejecting event {}. Automatically rejecting {}"
+                                    + " equipment reservations (including approved/reserved ones).",
+                            currentUser.getPublicId(),
+                            eventPublicId,
+                            reservationIdsToReject.size());
+                    String rejectionReason =
+                            remarks != null && !remarks.isBlank()
+                                    ? "Automatically rejected as part of event rejection: "
+                                            + remarks
+                                    : "Automatically rejected as part of event rejection";
+                    equipmentReservationService.bulkRejectReservations(
+                            reservationIdsToReject, rejectionReason);
+                }
+            } catch (Exception e) {
+                // Log the error but don't fail the event approval
+                logger.error(
+                        "Error while automatically rejecting equipment reservations for event {}:"
+                                + " {}",
+                        eventPublicId,
+                        e.getMessage(),
+                        e);
+            }
+        }
+
         checkAndUpdateEventStatus(updatedApproval.getEvent());
 
         return mapToDTO(updatedApproval);
@@ -238,12 +285,16 @@ public class EventApprovalService {
         boolean anyRejected = false;
 
         for (EventApproval approval : approvals) {
-            if (approval.getStatus() == Status.REJECTED || approval.getStatus() == Status.DENIED_RESERVATION || approval.getStatus() == Status.NOT_RECOMMENDED) {
+            if (approval.getStatus() == Status.REJECTED
+                    || approval.getStatus() == Status.DENIED_RESERVATION
+                    || approval.getStatus() == Status.NOT_RECOMMENDED) {
                 anyRejected = true;
                 break;
             }
 
-            if (approval.getStatus() != Status.APPROVED || approval.getStatus() == Status.RESERVED || approval.getStatus() == Status.RECOMMENDED) {
+            if (approval.getStatus() != Status.APPROVED
+                    || approval.getStatus() == Status.RESERVED
+                    || approval.getStatus() == Status.RECOMMENDED) {
                 // Any non-approved (and not rejected) means not all are approved yet
                 allApproved = false;
             }
