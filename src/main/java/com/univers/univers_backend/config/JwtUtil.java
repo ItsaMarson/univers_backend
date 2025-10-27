@@ -5,32 +5,58 @@ import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
 import java.security.Key;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.function.Function;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 
 @Component
 public class JwtUtil {
-    private final String SECRET_KEY =
-            "02d07dfeee83f54d3f9624178a7c0ba54e8b33eca43ce9a049188f83218613a81263dc344ef7dcc89e7aaf35ad597d6c9c9cc9ccee0cbf2f1024a0c71dc846f9a7d7537fd010da8928f9c7bdc6d36436cb5c8091fd5f078e18498d5793f2a2d11252f1d238584b3a6e098fe075e7653d115a0535cacd9fd4e5989c931558de6f3efbcbbcce29fc86eefab807735d6e9e096505323269da855c33b7d6e08acbfa5321ec16e446588243baced8e181b79016a20187ae69b20402d677642edb36a4fecb9bd3fcdd0113f473ce7cc4abc7418c51de119cf87b9f92b9cbcb9cce27ee399a1fe101f659dd3352aa3e22190c396429c18dacef62ae396cfd0b0ac703ff";
+
+    @Value("${jwt.secretKey}")
+    private String SECRET_KEY;
     public final long ACCESS_TOKEN_EXPIRATION = 3600000;
     public final long REFRESH_TOKEN_EXPIRATION = 2592000000L;
+
 
     private Key getSigningKey() {
         return Keys.hmacShaKeyFor(SECRET_KEY.getBytes());
     }
 
-    public String generateAccessToken(String email) {
+    public String generateAccessToken(UserDetails userDetails) {
+
+        List<String> roles = userDetails.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .toList();
+
+        Map<String,Object> claims = new HashMap<>();
+        claims.put("roles", roles);
+
         return Jwts.builder()
-                .setSubject(email)
+                .setClaims(claims)
+                .setSubject(userDetails.getUsername())
                 .setIssuedAt(new Date())
                 .setExpiration(new Date(System.currentTimeMillis() + ACCESS_TOKEN_EXPIRATION))
                 .signWith(getSigningKey(), SignatureAlgorithm.HS256)
                 .compact();
     }
 
-    public String generateRefreshToken(String email) {
+    public String generateRefreshToken(UserDetails userDetails) {
+
+        List<String> roles = userDetails.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .toList();
+
+        Map<String,Object> claims = new HashMap<>();
+        claims.put("roles", roles);
         return Jwts.builder()
-                .setSubject(email)
+                .setClaims(claims)
+                .setSubject(userDetails.getUsername())
                 .setIssuedAt(new Date())
                 .setExpiration(new Date(System.currentTimeMillis() + REFRESH_TOKEN_EXPIRATION))
                 .signWith(getSigningKey(), SignatureAlgorithm.HS256)

@@ -88,6 +88,8 @@ public class UserService {
                             new UsernamePasswordAuthenticationToken(
                                     request.email(), request.password()));
 
+            UserDetails userDetails = (UserDetails) authentication.getPrincipal();
+
             User user =
                     userRepository
                             .findByEmail(request.email())
@@ -102,8 +104,8 @@ public class UserService {
                                                 + " logging in."));
             }
 
-            String accessToken = jwtUtil.generateAccessToken(authentication.getName());
-            String refreshToken = jwtUtil.generateRefreshToken(authentication.getName());
+            String accessToken = jwtUtil.generateAccessToken(userDetails);
+            String refreshToken = jwtUtil.generateRefreshToken(userDetails);    
 
             Cookie accessCookie = new Cookie("access_token", accessToken);
             accessCookie.setHttpOnly(true);

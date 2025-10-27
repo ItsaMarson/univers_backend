@@ -133,8 +133,8 @@ public class AuthController {
                                             + " in."));
         }
 
-        final String accessToken = jwtUtil.generateAccessToken(userDetails.getUsername());
-        final String refreshToken = jwtUtil.generateRefreshToken(userDetails.getUsername());
+        final String accessToken = jwtUtil.generateAccessToken(userDetails);
+        final String refreshToken = jwtUtil.generateRefreshToken(userDetails);
 
         Cookie accessTokenCookie = new Cookie("access_token", accessToken);
         accessTokenCookie.setHttpOnly(true);
@@ -192,7 +192,7 @@ public class AuthController {
         String username = jwtUtil.extractUsername(refreshToken);
         UserDetails userDetails = userDetailsService.loadUserByUsername(username);
 
-        String newAccessToken = jwtUtil.generateAccessToken(userDetails.getUsername());
+        String newAccessToken = jwtUtil.generateAccessToken(userDetails);
         Cookie newAccessTokenCookie = new Cookie("access_token", newAccessToken);
         newAccessTokenCookie.setHttpOnly(true);
         newAccessTokenCookie.setPath("/");

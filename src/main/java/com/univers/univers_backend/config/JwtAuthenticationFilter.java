@@ -88,7 +88,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                         }
 
                         String newAccessToken =
-                                jwtUtil.generateAccessToken(userDetails.getUsername());
+                                jwtUtil.generateAccessToken(userDetails);
                         Cookie newAccessTokenCookie = new Cookie("access_token", newAccessToken);
                         newAccessTokenCookie.setHttpOnly(true);
                         newAccessTokenCookie.setPath("/");
@@ -116,14 +116,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     return;
                 }
 
-                String newAccessToken = jwtUtil.generateAccessToken(userDetails.getUsername());
+                String newAccessToken = jwtUtil.generateAccessToken(userDetails);
                 Cookie newAccessTokenCookie = new Cookie("access_token", newAccessToken);
                 newAccessTokenCookie.setHttpOnly(true);
                 newAccessTokenCookie.setPath("/");
                 newAccessTokenCookie.setMaxAge((int) (jwtUtil.ACCESS_TOKEN_EXPIRATION / 1000));
                 response.addCookie(newAccessTokenCookie);
 
-                String newRefreshToken = jwtUtil.generateRefreshToken(userDetails.getUsername());
+                String newRefreshToken = jwtUtil.generateRefreshToken(userDetails);
                 Cookie newRefreshTokenCookie = new Cookie("refresh_token", newRefreshToken);
                 newRefreshTokenCookie.setHttpOnly(true);
                 newRefreshTokenCookie.setPath("/");
