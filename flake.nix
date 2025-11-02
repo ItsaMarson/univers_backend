@@ -17,6 +17,7 @@
       ];
       shellHook = ''
         echo "Welcome to the devShell!"
+        exec zsh
       '';
     };
   };

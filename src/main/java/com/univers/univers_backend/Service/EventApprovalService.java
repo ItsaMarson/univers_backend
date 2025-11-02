@@ -87,39 +87,68 @@ public class EventApprovalService {
                                         new NoSuchElementException(
                                                 "Event not found with ID: " + eventPublicId));
 
-        // Find the EventApproval record for this event and the current user
-        EventApproval eventApproval =
-                eventApprovalRepository
-                        .findByEventAndSignedBy(event, currentUser)
-                        .orElseThrow(
-                                () ->
-                                        new NoSuchElementException(
-                                                "No pending approval found for user "
-                                                        + currentUser.getPublicId()
-                                                        + " on event "
-                                                        + eventPublicId));
+        // Check if user is SUPER_ADMIN - they can approve/deny any event without needing an
+        // approval record
+        boolean isSuperAdmin = currentUser.getRoles().contains(Role.SUPER_ADMIN);
 
-        // The check for ownership is implicitly handled by finding the approval signed by the
-        // current user.
-        // If no record is found for the current user and this event, the above orElseThrow is
-        // triggered.
-        // We still need to check if an approval record exists but might belong to a different user
-        // if the query `findByEventAndSignedBy` was broader. However, given its name, it should be
-        // specific.
-        // For safety, let's ensure the found approval indeed matches the current user, though it
-        // should be redundant
-        // if `findByEventAndSignedBy` is correctly implemented and used.
-        if (!eventApproval.getSignedBy().getId().equals(currentUser.getId())) {
-            // This case should ideally not be reached if findByEventAndSignedBy is specific.
-            logger.warn(
-                    "Mismatch: Found approval {} for event {} but it is signed by {} instead of"
-                            + " current user {}.",
-                    eventApproval.getPublicId(),
-                    eventPublicId,
-                    eventApproval.getSignedBy().getPublicId(),
-                    currentUser.getPublicId());
-            throw new SecurityException(
-                    "Approval record does not belong to the current user for this event.");
+        EventApproval eventApproval;
+        if (isSuperAdmin) {
+            // For SUPER_ADMIN, find or create an approval record if it doesn't exist
+            eventApproval =
+                    eventApprovalRepository
+                            .findByEventAndSignedBy(event, currentUser)
+                            .orElseGet(
+                                    () -> {
+                                        // Create a new approval record for SUPER_ADMIN
+                                        EventApproval newApproval = new EventApproval();
+                                        newApproval.setEvent(event);
+                                        newApproval.setSignedBy(currentUser);
+                                        newApproval.setStatus(Status.PENDING);
+                                        logger.info(
+                                                "SUPER_ADMIN {} is creating new approval record for"
+                                                        + " event {}",
+                                                currentUser.getPublicId(),
+                                                eventPublicId);
+                                        return newApproval;
+                                    });
+        } else {
+            // Find the EventApproval record for this event and the current user
+            eventApproval =
+                    eventApprovalRepository
+                            .findByEventAndSignedBy(event, currentUser)
+                            .orElseThrow(
+                                    () ->
+                                            new NoSuchElementException(
+                                                    "No pending approval found for user "
+                                                            + currentUser.getPublicId()
+                                                            + " on event "
+                                                            + eventPublicId));
+
+            // The check for ownership is implicitly handled by finding the approval signed by the
+            // current user.
+            // If no record is found for the current user and this event, the above orElseThrow is
+            // triggered.
+            // We still need to check if an approval record exists but might belong to a different
+            // user
+            // if the query `findByEventAndSignedBy` was broader. However, given its name, it
+            // should be
+            // specific.
+            // For safety, let's ensure the found approval indeed matches the current user, though
+            // it
+            // should be redundant
+            // if `findByEventAndSignedBy` is correctly implemented and used.
+            if (!eventApproval.getSignedBy().getId().equals(currentUser.getId())) {
+                // This case should ideally not be reached if findByEventAndSignedBy is specific.
+                logger.warn(
+                        "Mismatch: Found approval {} for event {} but it is signed by {} instead"
+                                + " of current user {}.",
+                        eventApproval.getPublicId(),
+                        eventPublicId,
+                        eventApproval.getSignedBy().getPublicId(),
+                        currentUser.getPublicId());
+                throw new SecurityException(
+                        "Approval record does not belong to the current user for this event.");
+            }
         }
 
         if (eventApproval.getStatus() == Status.ONGOING
@@ -144,6 +173,17 @@ public class EventApprovalService {
         eventApproval.setRemarks(remarks);
         eventApproval.setDateSigned(Instant.now());
         EventApproval updatedApproval = eventApprovalRepository.save(eventApproval);
+
+        // If SUPER_ADMIN approves the event, automatically approve the entire event
+        if (isSuperAdmin && newStatus == Status.APPROVED) {
+            event.setStatus(Status.APPROVED);
+            eventRepository.save(event);
+            logger.info(
+                    "SUPER_ADMIN {} automatically approved event {} (entire event set to APPROVED"
+                            + " status)",
+                    currentUser.getPublicId(),
+                    eventPublicId);
+        }
 
         // Notify the event organizer about the approval action
         User organizer = event.getOrganizer();
@@ -260,7 +300,11 @@ public class EventApprovalService {
             }
         }
 
-        checkAndUpdateEventStatus(updatedApproval.getEvent());
+        // Only call checkAndUpdateEventStatus if not SUPER_ADMIN approving (since SUPER_ADMIN
+        // directly sets the event to APPROVED)
+        if (!(isSuperAdmin && newStatus == Status.APPROVED)) {
+            checkAndUpdateEventStatus(updatedApproval.getEvent());
+        }
 
         return mapToDTO(updatedApproval);
     }
