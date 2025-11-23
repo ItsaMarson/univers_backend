@@ -1,7 +1,9 @@
 /* (C)2025 */
 package com.univers.univers_backend.Entity;
 
+import com.univers.univers_backend.DTO.UserDTO;
 import com.univers.univers_backend.Enum.Status;
+import com.univers.univers_backend.Enum.Task;
 import jakarta.persistence.*;
 import java.util.UUID;
 
@@ -16,12 +18,13 @@ public class EventPersonnel {
     @Column(unique = true, nullable = false, updatable = false)
     private UUID publicId;
 
-    private String name;
+    private UserDTO assignedPersonnel;
 
     private String phoneNumber;
 
     private Status status;
 
+    private Task task;
     @ManyToOne
     @JoinColumn(name = "event_id")
     private Event event;
@@ -35,12 +38,13 @@ public class EventPersonnel {
 
     public EventPersonnel() {}
 
-    public EventPersonnel(Long id, UUID publicId, String name, String phoneNumber, Status status) {
+    public EventPersonnel(Long id, UUID publicId, UserDTO assignedPersonnel, String phoneNumber, Status status, Task task) {
         this.id = id;
         this.publicId = publicId;
-        this.name = name;
+        this.assignedPersonnel = assignedPersonnel;
         this.phoneNumber = phoneNumber;
         this.status = status;
+        this.task = task;
     }
 
     public Long getId() {
@@ -59,12 +63,12 @@ public class EventPersonnel {
         this.publicId = publicId;
     }
 
-    public String getName() {
-        return name;
+    public UserDTO getAssignedPersonnel() {
+        return assignedPersonnel;
     }
 
-    public void setName(String name) {
-        this.name = name;
+    public void setAssignedPersonnel(UserDTO assignedPersonnel) {
+        this.assignedPersonnel = assignedPersonnel;
     }
 
     public String getPhoneNumber() {
@@ -89,5 +93,13 @@ public class EventPersonnel {
 
     public void setEvent(Event event) {
         this.event = event;
+    }
+
+    public Task getTask() {
+        return task;
+    }
+
+    public void setTask(Task task) {
+        this.task = task;
     }
 }

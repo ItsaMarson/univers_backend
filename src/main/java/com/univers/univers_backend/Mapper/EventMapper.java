@@ -117,6 +117,6 @@ public class EventMapper {
     public EventPersonnelDTO toPersonnelDto(EventPersonnel newPersonnel) {
 
         return new EventPersonnelDTO(
-                newPersonnel.getPublicId(), newPersonnel.getName(), newPersonnel.getPhoneNumber());
+                newPersonnel.getPublicId(), newPersonnel.getAssignedPersonnel(), newPersonnel.getPhoneNumber(), newPersonnel.getTask());
     }
 }

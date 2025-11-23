@@ -456,4 +456,5 @@ public class EventController {
                                     e.getMessage()));
         }
     }
+//    TODO: Create getAllPersonnel method, to fetch from client
 }

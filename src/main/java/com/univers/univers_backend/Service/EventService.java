@@ -5,7 +5,9 @@ import com.univers.univers_backend.DTO.*;
 import com.univers.univers_backend.Entity.*;
 import com.univers.univers_backend.Enum.Role;
 import com.univers.univers_backend.Enum.Status;
+import com.univers.univers_backend.Enum.Task;
 import com.univers.univers_backend.Mapper.EventMapper;
+import com.univers.univers_backend.Mapper.UserMapper;
 import com.univers.univers_backend.Repository.EventApprovalRepository;
 import com.univers.univers_backend.Repository.EventRepository;
 import com.univers.univers_backend.Repository.UserRepository;
@@ -44,6 +46,8 @@ public class EventService {
 
         // Mappers
         private final EventMapper eventMapper;
+        private final UserMapper userMapper;
+
 
         private static final Logger logger = LoggerFactory.getLogger(EventService.class);
 
@@ -62,7 +66,8 @@ public class EventService {
                         NotificationService notificationService,
                         EventApprovalRepository eventApprovalRepository,
                         EquipmentReservationService equipmentReservationService,
-                        @Lazy EventMapper eventMapper) {
+                        @Lazy EventMapper eventMapper,
+                        UserMapper userMapper) {
                 this.eventRepository = eventRepository;
                 this.userRepository = userRepository;
                 this.venueRepository = venueRepository;
@@ -72,6 +77,7 @@ public class EventService {
                 this.eventApprovalRepository = eventApprovalRepository;
                 this.equipmentReservationService = equipmentReservationService;
                 this.eventMapper = eventMapper;
+                this.userMapper = userMapper;
         }
 
         @Transactional
@@ -817,10 +823,22 @@ public class EventService {
                 }
 
                 EventPersonnel newPersonnel = new EventPersonnel();
-                newPersonnel.setName(requestDTO.name());
+                if(requestDTO.personnel() != null && requestDTO.personnel().publicId() != null){
+                        User findPersonnel =
+                                userRepository
+                                        .findByPublicId(requestDTO.personnel().publicId())
+                                        .orElseThrow(
+                                                () -> new IllegalArgumentException(
+                                                        "User (personnel) not found with public ID: "
+                                                        + requestDTO.personnel().publicId()));
+
+                        UserDTO assignedPersonnel = userMapper.toDto(findPersonnel);
+                        newPersonnel.setAssignedPersonnel(assignedPersonnel);
+                }
                 newPersonnel.setPhoneNumber(requestDTO.phoneNumber());
                 newPersonnel.setStatus(Status.AVAILABLE);
                 newPersonnel.setEvent(event);
+                newPersonnel.setTask(requestDTO.task() != null ? requestDTO.task() : Task.SETUP);
 
                 if (event.getAssignedPersonnel() == null) {
                         event.setAssignedPersonnel(new ArrayList<>());
