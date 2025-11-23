@@ -1,7 +1,6 @@
 /* (C)2025 */
 package com.univers.univers_backend.Entity;
 
-import com.univers.univers_backend.DTO.UserDTO;
 import com.univers.univers_backend.Enum.Status;
 import com.univers.univers_backend.Enum.Task;
 import jakarta.persistence.*;
@@ -18,27 +17,29 @@ public class EventPersonnel {
     @Column(unique = true, nullable = false, updatable = false)
     private UUID publicId;
 
-    private UserDTO assignedPersonnel;
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "assigned_personnel_id", nullable = false)
+    private User assignedPersonnel;
 
     private String phoneNumber;
 
+    @Enumerated(EnumType.STRING)
     private Status status;
 
+    @Enumerated(EnumType.STRING)
     private Task task;
+
     @ManyToOne
     @JoinColumn(name = "event_id")
     private Event event;
 
-    @PrePersist
-    protected void OnCreate() {
-        if (this.publicId == null) {
-            this.publicId = UUID.randomUUID();
-        }
-    }
-
-    public EventPersonnel() {}
-
-    public EventPersonnel(Long id, UUID publicId, UserDTO assignedPersonnel, String phoneNumber, Status status, Task task) {
+    public EventPersonnel(
+            Long id,
+            UUID publicId,
+            User assignedPersonnel,
+            String phoneNumber,
+            Status status,
+            Task task) {
         this.id = id;
         this.publicId = publicId;
         this.assignedPersonnel = assignedPersonnel;
@@ -46,6 +47,8 @@ public class EventPersonnel {
         this.status = status;
         this.task = task;
     }
+
+    public EventPersonnel() {}
 
     public Long getId() {
         return id;
@@ -63,11 +66,11 @@ public class EventPersonnel {
         this.publicId = publicId;
     }
 
-    public UserDTO getAssignedPersonnel() {
+    public User getAssignedPersonnel() {
         return assignedPersonnel;
     }
 
-    public void setAssignedPersonnel(UserDTO assignedPersonnel) {
+    public void setAssignedPersonnel(User assignedPersonnel) {
         this.assignedPersonnel = assignedPersonnel;
     }
 

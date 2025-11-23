@@ -115,8 +115,14 @@ public class EventMapper {
     // public Event toEntity(EventDTO dto) { ... } // If needed later
 
     public EventPersonnelDTO toPersonnelDto(EventPersonnel newPersonnel) {
-
+        UserDTO personnelDto = null;
+        if (newPersonnel.getAssignedPersonnel() != null) {
+            personnelDto = userMapper.toDto(newPersonnel.getAssignedPersonnel());
+        }
         return new EventPersonnelDTO(
-                newPersonnel.getPublicId(), newPersonnel.getAssignedPersonnel(), newPersonnel.getPhoneNumber(), newPersonnel.getTask());
+                newPersonnel.getPublicId(),
+                personnelDto,
+                newPersonnel.getPhoneNumber(),
+                newPersonnel.getTask());
     }
 }
