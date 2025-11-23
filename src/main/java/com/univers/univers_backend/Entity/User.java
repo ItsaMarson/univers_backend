@@ -3,11 +3,10 @@ package com.univers.univers_backend.Entity;
 
 import com.univers.univers_backend.Enum.Role;
 import jakarta.persistence.*;
+import jakarta.validation.constraints.Email;
 import java.time.Instant;
 import java.util.*;
 import java.util.stream.Collectors;
-
-import jakarta.validation.constraints.Email;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -27,9 +26,11 @@ public class User implements UserDetails {
     @Email(message = "Invalid Email format")
     @Column(unique = true, nullable = false)
     private String email;
+
     private String password;
     private String firstName;
     private String lastName;
+
     @Column(unique = true, nullable = false)
     private String idNumber;
 
@@ -50,7 +51,7 @@ public class User implements UserDetails {
     @ElementCollection(targetClass = Role.class, fetch = FetchType.EAGER)
     @CollectionTable(name = "user_roles", joinColumns = @JoinColumn(name = "user_id"))
     @Enumerated(EnumType.STRING)
-    @Column(name = "role")
+    @Column(name = "role", length = 50)
     private Set<Role> roles = new HashSet<>();
 
     private Boolean active;

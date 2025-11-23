@@ -5,6 +5,7 @@ import com.univers.univers_backend.Enum.Status;
 import com.univers.univers_backend.Enum.Task;
 import jakarta.persistence.*;
 import java.util.UUID;
+import org.hibernate.annotations.UuidGenerator;
 
 @Entity
 @Table(name = "event_personnel")
@@ -15,6 +16,7 @@ public class EventPersonnel {
     private Long id;
 
     @Column(unique = true, nullable = false, updatable = false)
+    @UuidGenerator
     private UUID publicId;
 
     @ManyToOne(fetch = FetchType.EAGER)

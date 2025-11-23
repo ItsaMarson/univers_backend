@@ -1001,4 +1001,9 @@ public class EventService {
         return "Event completed successfully. Equipment will be automatically returned when"
                 + " reservations expire.";
     }
+
+    public List<UserDTO> getAllPersonnel() {
+        List<User> personnel = userRepository.findAllByRolesContains(Role.ASSIGNED_PERSONNEL);
+        return personnel.stream().map(userMapper::toDto).collect(Collectors.toList());
+    }
 }

@@ -456,5 +456,30 @@ public class EventController {
                                     e.getMessage()));
         }
     }
-//    TODO: Create getAllPersonnel method, to fetch from client
+
+    @Operation(
+            summary = "Get all personnel",
+            description = "Retrieves all users with ASSIGNED_PERSONNEL role")
+    @ApiResponses(
+            value = {
+                @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                        responseCode = "200",
+                        description = "Personnel retrieved successfully"),
+                @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                        responseCode = "500",
+                        description = "Internal server error")
+            })
+    @GetMapping("/personnel")
+    public ResponseEntity<ApiResponse<List<UserDTO>>> getAllPersonnel() {
+        try {
+            List<UserDTO> personnel = eventService.getAllPersonnel();
+            return ResponseEntity.ok(ApiResponse.success(personnel));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(
+                            ApiResponse.error(
+                                    HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                                    "An unexpected error occurred while retrieving personnel"));
+        }
+    }
 }
