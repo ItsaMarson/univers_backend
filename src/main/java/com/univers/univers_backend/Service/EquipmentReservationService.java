@@ -561,7 +561,7 @@ public class EquipmentReservationService {
                 }
             }
             // If reservations are found, delete them
-            equipmentReservationRepository.deleteAll(reservations);
+            equipmentReservationRepository.deleteAllInBatch(reservations);
             logger.info(
                     "Deleted {} equipment reservations for event public ID: {}",
                     reservations.size(),
@@ -603,11 +603,8 @@ public class EquipmentReservationService {
                     reservation.getEvent().getPublicId(),
                     "EQUIPMENT_RESERVATION_REQUEST");
 
-            System.out.println(
-                    "DEBUG: Notify Equipment Owner: "
-                            + equipmentOwner.getEmail()
-                            + " - Message: "
-                            + message);
+            logger.debug(
+                    "Notify Equipment Owner: {} - Message: {}", equipmentOwner.getEmail(), message);
         }
     }
 
@@ -633,8 +630,7 @@ public class EquipmentReservationService {
                     reservation.getPublicId(),
                     notificationType);
 
-            System.out.println(
-                    "DEBUG: Notify Requester: " + requester.getEmail() + " - Message: " + message);
+            logger.debug("Notify Requester: {} - Message: {}", requester.getEmail(), message);
         }
     }
 
@@ -662,11 +658,10 @@ public class EquipmentReservationService {
                     reservation.getPublicId(),
                     "EQUIPMENT_RESERVATION_CANCELED");
 
-            System.out.println(
-                    "DEBUG: Notify Owner of Cancellation: "
-                            + equipmentOwner.getEmail()
-                            + " - Message: "
-                            + message);
+            logger.debug(
+                    "Notify Owner of Cancellation: {} - Message: {}",
+                    equipmentOwner.getEmail(),
+                    message);
         }
     }
 
@@ -734,11 +729,10 @@ public class EquipmentReservationService {
                 profileImageUrl =
                         fileStorageService.getFileUrl(user.getProfileImagePath(), usersBucketName);
             } catch (Exception e) {
-                System.err.println(
-                        "Error generating image URL for user "
-                                + user.getPublicId()
-                                + ": "
-                                + e.getMessage());
+                logger.error(
+                        "Error generating image URL for user {}: {}",
+                        user.getPublicId(),
+                        e.getMessage());
             }
         }
 

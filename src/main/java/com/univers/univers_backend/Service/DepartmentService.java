@@ -18,11 +18,15 @@ import java.util.Optional;
 import java.util.UUID; // Import UUID
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
 @Service
 public class DepartmentService {
+
+    private static final Logger logger = LoggerFactory.getLogger(DepartmentService.class);
 
     private final DepartmentRepository departmentRepository;
     private final UserRepository userRepository;

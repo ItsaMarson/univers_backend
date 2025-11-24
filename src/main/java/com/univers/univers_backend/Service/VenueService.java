@@ -14,6 +14,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,12 +24,13 @@ import org.springframework.web.multipart.MultipartFile;
 @Service
 public class VenueService {
 
+    private static final Logger logger = LoggerFactory.getLogger(VenueService.class);
+
     private final UserMapper userMapper;
 
     private final VenueRepository venueRepository;
     private final UserRepository userRepository;
     private final FileStorageService fileStorageService; // Inject FileStorageService
-
 
     @Value("${minio.bucket.venues}") // Inject MinIO bucket name
     private String venuesBucketName;
@@ -227,11 +230,10 @@ public class VenueService {
                     fileStorageService.deleteFile(venue.getImagePath(), venuesBucketName);
                 } catch (Exception e) {
                     // Log error but continue with deletion
-                    System.err.println(
-                            "Error deleting image for venue "
-                                    + venue.getPublicId()
-                                    + ": "
-                                    + e.getMessage());
+                    logger.error(
+                            "Error deleting image for venue {}: {}",
+                            venue.getPublicId(),
+                            e.getMessage());
                 }
             }
         }
@@ -253,11 +255,10 @@ public class VenueService {
             try {
                 imageUrl = fileStorageService.getFileUrl(venue.getImagePath(), venuesBucketName);
             } catch (Exception e) {
-                System.err.println(
-                        "Error generating image URL for venue "
-                                + venue.getPublicId()
-                                + ": "
-                                + e.getMessage());
+                logger.error(
+                        "Error generating image URL for venue {}: {}",
+                        venue.getPublicId(),
+                        e.getMessage());
             }
         }
         return new VenueDTO(

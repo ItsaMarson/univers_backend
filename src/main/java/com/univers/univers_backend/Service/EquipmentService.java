@@ -11,6 +11,7 @@ import com.univers.univers_backend.Enum.Status;
 import com.univers.univers_backend.Mapper.EquipmentMapper;
 import com.univers.univers_backend.Repository.EquipmentRepository;
 import com.univers.univers_backend.Repository.UserRepository;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -149,17 +150,17 @@ public class EquipmentService {
             serial = null;
         }
 
-        equipmentRepository
-                .findBySerialNo(serial)
-                .ifPresent(
-                        existingEquipment -> {
-                            if (!existingEquipment.getPublicId().equals(requester.getPublicId())) {
+        if (serial != null) {
+            equipmentRepository
+                    .findBySerialNo(serial)
+                    .ifPresent(
+                            existingEquipment -> {
                                 throw new IllegalArgumentException(
                                         "Another equipment with serial number '"
                                                 + request.serialNo()
                                                 + "' already exists.");
-                            }
-                        });
+                            });
+        }
         newEquipment.setSerialNo(serial);
 
         Set<EquipmentCategory> resolvedCategories = resolveCategoriesByIds(request.categoryIds());
@@ -295,22 +296,31 @@ public class EquipmentService {
         if (request.status() != null) {
             equipment.setStatus(request.status());
         }
-        if (request.serialNo() != null && !request.serialNo().isBlank()) {
-            if (!equipment.getSerialNo().equals(request.serialNo())) {
-                equipmentRepository
-                        .findBySerialNo(request.serialNo())
-                        .ifPresent(
-                                existingEquipment -> {
-                                    if (!existingEquipment
-                                            .getPublicId()
-                                            .equals(equipment.getPublicId())) {
-                                        throw new IllegalArgumentException(
-                                                "Another equipment with serial number '"
-                                                        + request.serialNo()
-                                                        + "' already exists.");
-                                    }
-                                });
-                equipment.setSerialNo(request.serialNo());
+        if (request.serialNo() != null) {
+            String newSerial = request.serialNo().isBlank() ? null : request.serialNo();
+            String currentSerial = equipment.getSerialNo();
+
+            boolean changed =
+                    (newSerial == null && currentSerial != null)
+                            || (newSerial != null && !newSerial.equals(currentSerial));
+
+            if (changed) {
+                if (newSerial != null) {
+                    equipmentRepository
+                            .findBySerialNo(newSerial)
+                            .ifPresent(
+                                    existingEquipment -> {
+                                        if (!existingEquipment
+                                                .getPublicId()
+                                                .equals(equipment.getPublicId())) {
+                                            throw new IllegalArgumentException(
+                                                    "Another equipment with serial number '"
+                                                            + request.serialNo()
+                                                            + "' already exists.");
+                                        }
+                                    });
+                }
+                equipment.setSerialNo(newSerial);
             }
         }
 
@@ -380,6 +390,8 @@ public class EquipmentService {
         boolean isSuperAdmin =
                 requester.getRoles().stream().anyMatch(role -> role == Role.SUPER_ADMIN);
 
+        List<Equipment> equipmentsToDelete = new ArrayList<>();
+
         for (UUID equipmentId : equipmentIds) {
             try {
                 Equipment equipment =
@@ -409,12 +421,17 @@ public class EquipmentService {
                     fileStorageService.deleteFile(equipment.getImagePath(), equipmentsBucketName);
                 }
 
-                equipmentRepository.delete(equipment);
+                equipmentsToDelete.add(equipment);
                 results.put(equipmentId.toString(), "Successfully deleted");
             } catch (Exception e) {
                 results.put(equipmentId.toString(), "Error: " + e.getMessage());
             }
         }
+
+        if (!equipmentsToDelete.isEmpty()) {
+            equipmentRepository.deleteAllInBatch(equipmentsToDelete);
+        }
+
         return results;
     }
 }

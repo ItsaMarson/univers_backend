@@ -12,11 +12,15 @@ import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 @Service
 public class EmailService {
+
+    private static final Logger logger = LoggerFactory.getLogger(EmailService.class);
 
     private final MailjetClient client;
 
@@ -64,7 +68,8 @@ public class EmailService {
             request.sendWith(client);
             return true;
         } catch (MailjetException e) {
-            e.printStackTrace();
+            logger.error(
+                    "Error sending verification email to {}: {}", recipientEmail, e.getMessage());
             return false;
         }
     }

@@ -28,6 +28,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -36,6 +38,8 @@ import org.springframework.util.StringUtils;
 
 @Service
 public class DashboardService {
+
+    private static final Logger logger = LoggerFactory.getLogger(DashboardService.class);
 
     private final EventRepository eventRepository;
     private final EquipmentReservationRepository equipmentReservationRepository;
@@ -90,8 +94,7 @@ public class DashboardService {
                 case REJECTED -> newRejectedCount += count;
                 case ONGOING -> newOngoingCount += count;
                 case COMPLETED -> newCompletedCount += count;
-                default -> {
-                }
+                default -> {}
             }
             topVenuesMap.put(
                     venueName,
@@ -161,8 +164,7 @@ public class DashboardService {
                 case CANCELED -> newCanceledCount += count;
                 case ONGOING -> newOngoingCount += count;
                 case COMPLETED -> newCompletedCount += count;
-                default -> {
-                }
+                default -> {}
             }
             topEquipmentMap.put(
                     equipmentName,
@@ -238,8 +240,7 @@ public class DashboardService {
                 case CANCELED -> newCanceledCount += count;
                 case ONGOING -> newOngoingCount += count;
                 case COMPLETED -> newCompletedCount += count;
-                default -> {
-                }
+                default -> {}
             }
             userActivityMap.put(
                     userPublicId,
@@ -285,11 +286,10 @@ public class DashboardService {
                 try {
                     eventDate = LocalDate.parse(result[0].toString());
                 } catch (Exception e) {
-                    System.err.println(
-                            "Could not parse date from query result: "
-                                    + result[0]
-                                    + " Error: "
-                                    + e.getMessage());
+                    logger.error(
+                            "Could not parse date from query result: {} Error: {}",
+                            result[0],
+                            e.getMessage());
                     continue;
                 }
             } else {
@@ -390,12 +390,11 @@ public class DashboardService {
                                 try {
                                     creationDate = LocalDate.parse(result[0].toString());
                                 } catch (Exception e) {
-                                    System.err.println(
+                                    logger.error(
                                             "Could not parse date from cancellation stats query"
-                                                    + " result: "
-                                                    + result[0]
-                                                    + " Error: "
-                                                    + e.getMessage());
+                                                    + " result: {} Error: {}",
+                                            result[0],
+                                            e.getMessage());
                                     return null;
                                 }
                             } else {
@@ -438,11 +437,11 @@ public class DashboardService {
                                 try {
                                     hourOfDay = Integer.parseInt(result[0].toString());
                                 } catch (NumberFormatException e) {
-                                    System.err.println(
-                                            "Could not parse hour from peak hours query result: "
-                                                    + result[0]
-                                                    + " Error: "
-                                                    + e.getMessage());
+                                    logger.error(
+                                            "Could not parse hour from peak hours query result: {}"
+                                                    + " Error: {}",
+                                            result[0],
+                                            e.getMessage());
                                     return null;
                                 }
                             }
@@ -679,8 +678,7 @@ public class DashboardService {
                 case REJECTED -> newRejectedCount += count;
                 case ONGOING -> newOngoingCount += count;
                 case COMPLETED -> newCompletedCount += count;
-                default -> {
-                }
+                default -> {}
             }
             summariesByType.put(
                     eventType,
