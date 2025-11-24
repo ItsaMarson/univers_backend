@@ -20,6 +20,8 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -38,6 +40,8 @@ import org.springframework.web.multipart.MultipartFile;
 
 @Service
 public class UserService {
+
+    private static final Logger logger = LoggerFactory.getLogger(UserService.class);
 
     private final PasswordEncoder passwordEncoder;
     private final UserRepository userRepository;
@@ -106,7 +110,7 @@ public class UserService {
             }
 
             String accessToken = jwtUtil.generateAccessToken(userDetails);
-            String refreshToken = jwtUtil.generateRefreshToken(userDetails);    
+            String refreshToken = jwtUtil.generateRefreshToken(userDetails);
 
             Cookie accessCookie = new Cookie("access_token", accessToken);
             accessCookie.setHttpOnly(true);
@@ -243,8 +247,8 @@ public class UserService {
             emailService.sendVerificationEmail(
                     user.getEmail(), resetCode, user.getFirstname(), resetPassTemplateId, subject);
         } catch (Exception e) {
-            System.err.println(
-                    "Error sending password reset email for user " + email + ": " + e.getMessage());
+            logger.error(
+                    "Error sending password reset email for user {}: {}", email, e.getMessage());
         }
 
         return "Password reset code sent to your email.";
@@ -344,7 +348,7 @@ public class UserService {
                 try {
                     fileStorageService.deleteFile(user.getProfileImagePath(), usersBucketName);
                 } catch (Exception e) {
-                    System.err.println("Error deleting old profile image: " + e.getMessage());
+                    logger.error("Error deleting old profile image: {}", e.getMessage());
                 }
             }
             try {
@@ -353,7 +357,7 @@ public class UserService {
                                 imageFile, usersBucketName, "user-profile-images/");
                 user.setProfileImagePath(imagePath);
             } catch (Exception e) {
-                System.err.println("Error saving new profile image: " + e.getMessage());
+                logger.error("Error saving new profile image: {}", e.getMessage());
                 throw new RuntimeException("Error updating profile image.", e);
             }
         }
@@ -427,7 +431,7 @@ public class UserService {
                 try {
                     fileStorageService.deleteFile(user.getProfileImagePath(), usersBucketName);
                 } catch (Exception e) {
-                    System.err.println("Error deleting old profile image: " + e.getMessage());
+                    logger.error("Error deleting old profile image: {}", e.getMessage());
                 }
             }
             try {
@@ -436,7 +440,7 @@ public class UserService {
                                 imageFile, usersBucketName, "user-profile-images/");
                 user.setProfileImagePath(imagePath);
             } catch (Exception e) {
-                System.err.println("Error saving new profile image: " + e.getMessage());
+                logger.error("Error saving new profile image: {}", e.getMessage());
                 throw new RuntimeException("Error: Could not update profile image.", e);
             }
         }
@@ -590,9 +594,9 @@ public class UserService {
         } else if (authentication.getPrincipal() instanceof String) {
             username = (String) authentication.getPrincipal();
         } else {
-            System.err.println(
-                    "Unexpected principal type in SecurityContext: "
-                            + authentication.getPrincipal().getClass().getName());
+            logger.error(
+                    "Unexpected principal type in SecurityContext: {}",
+                    authentication.getPrincipal().getClass().getName());
             throw new UsernameNotFoundException(
                     "Cannot determine username from security principal.");
         }

@@ -43,17 +43,9 @@ public class NotificationController {
     @GetMapping
     public ResponseEntity<ApiResponse<Page<NotificationDTO>>> getMyNotifications(
             @PageableDefault(size = 10) Pageable pageable) {
-        try {
-            Page<NotificationDTO> notifications =
-                    userNotificationService.getNotificationsForCurrentUser(pageable);
-            return ResponseEntity.ok(ApiResponse.success(notifications));
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(
-                            ApiResponse.error(
-                                    HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                                    "An unexpected error occurred while retrieving notifications"));
-        }
+        Page<NotificationDTO> notifications =
+                userNotificationService.getNotificationsForCurrentUser(pageable);
+        return ResponseEntity.ok(ApiResponse.success(notifications));
     }
 
     @Operation(
@@ -70,16 +62,8 @@ public class NotificationController {
             })
     @GetMapping("/count-unread")
     public ResponseEntity<ApiResponse<Map<String, Long>>> getUnreadCount() {
-        try {
-            long count = userNotificationService.getUnreadNotificationCountForCurrentUser();
-            return ResponseEntity.ok(ApiResponse.success(Map.of("unreadCount", count)));
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(
-                            ApiResponse.error(
-                                    HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                                    "An unexpected error occurred while retrieving unread count"));
-        }
+        long count = userNotificationService.getUnreadNotificationCountForCurrentUser();
+        return ResponseEntity.ok(ApiResponse.success(Map.of("unreadCount", count)));
     }
 
     @Operation(
@@ -100,24 +84,15 @@ public class NotificationController {
     @PatchMapping("/read")
     public ResponseEntity<ApiResponse<Void>> markAsRead(
             @RequestBody List<UUID> notificationPublicIds) {
-        try {
-            if (notificationPublicIds == null || notificationPublicIds.isEmpty()) {
-                return ResponseEntity.badRequest()
-                        .body(
-                                ApiResponse.error(
-                                        HttpStatus.BAD_REQUEST.value(),
-                                        "Notification IDs cannot be empty"));
-            }
-            userNotificationService.markNotificationsAsRead(notificationPublicIds);
-            return ResponseEntity.ok(ApiResponse.success(null));
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+        if (notificationPublicIds == null || notificationPublicIds.isEmpty()) {
+            return ResponseEntity.badRequest()
                     .body(
                             ApiResponse.error(
-                                    HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                                    "An unexpected error occurred while marking notifications as"
-                                            + " read"));
+                                    HttpStatus.BAD_REQUEST.value(),
+                                    "Notification IDs cannot be empty"));
         }
+        userNotificationService.markNotificationsAsRead(notificationPublicIds);
+        return ResponseEntity.ok(ApiResponse.success(null));
     }
 
     @Operation(
@@ -134,17 +109,8 @@ public class NotificationController {
             })
     @PatchMapping("/read-all")
     public ResponseEntity<ApiResponse<Void>> markAllAsRead() {
-        try {
-            userNotificationService.markAllNotificationsAsReadForCurrentUser();
-            return ResponseEntity.ok(ApiResponse.success(null));
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(
-                            ApiResponse.error(
-                                    HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                                    "An unexpected error occurred while marking all notifications"
-                                            + " as read"));
-        }
+        userNotificationService.markAllNotificationsAsReadForCurrentUser();
+        return ResponseEntity.ok(ApiResponse.success(null));
     }
 
     @Operation(summary = "Delete notifications", description = "Deletes specified notifications")
@@ -163,23 +129,15 @@ public class NotificationController {
     @DeleteMapping
     public ResponseEntity<ApiResponse<Void>> deleteNotifications(
             @RequestBody List<UUID> notificationPublicIds) {
-        try {
-            if (notificationPublicIds == null || notificationPublicIds.isEmpty()) {
-                return ResponseEntity.badRequest()
-                        .body(
-                                ApiResponse.error(
-                                        HttpStatus.BAD_REQUEST.value(),
-                                        "Notification IDs cannot be empty"));
-            }
-            userNotificationService.deleteNotifications(notificationPublicIds);
-            return ResponseEntity.ok(ApiResponse.success(null));
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+        if (notificationPublicIds == null || notificationPublicIds.isEmpty()) {
+            return ResponseEntity.badRequest()
                     .body(
                             ApiResponse.error(
-                                    HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                                    "An unexpected error occurred while deleting notifications"));
+                                    HttpStatus.BAD_REQUEST.value(),
+                                    "Notification IDs cannot be empty"));
         }
+        userNotificationService.deleteNotifications(notificationPublicIds);
+        return ResponseEntity.ok(ApiResponse.success(null));
     }
 
     @Operation(
@@ -196,16 +154,7 @@ public class NotificationController {
             })
     @DeleteMapping("/all")
     public ResponseEntity<ApiResponse<Void>> deleteAllNotifications() {
-        try {
-            userNotificationService.deleteAllNotificationsForCurrentUser();
-            return ResponseEntity.ok(ApiResponse.success(null));
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(
-                            ApiResponse.error(
-                                    HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                                    "An unexpected error occurred while deleting all"
-                                            + " notifications"));
-        }
+        userNotificationService.deleteAllNotificationsForCurrentUser();
+        return ResponseEntity.ok(ApiResponse.success(null));
     }
 }

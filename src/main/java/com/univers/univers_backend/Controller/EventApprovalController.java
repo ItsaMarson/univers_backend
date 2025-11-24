@@ -12,8 +12,6 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -23,8 +21,6 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/event-approval")
 @Tag(name = "Event Approval", description = "APIs for managing event approvals")
 public class EventApprovalController {
-
-    private static final Logger logger = LoggerFactory.getLogger(EventApprovalController.class);
 
     private final EventApprovalService eventApprovalService;
 
@@ -88,24 +84,10 @@ public class EventApprovalController {
                                     "Event ID list cannot be empty."));
         }
 
-        try {
-            List<EventApprovalDTO> results =
-                    eventApprovalService.processBulkApprovalAction(
-                            request.eventPublicIds(), request.status(), request.remarks());
-            return ResponseEntity.ok(ApiResponse.success(results));
-        } catch (Exception e) {
-            logger.error(
-                    "Error processing bulk approval action for user {}: {}",
-                    authentication.getName(),
-                    e.getMessage(),
-                    e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(
-                            ApiResponse.error(
-                                    HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                                    "Error processing bulk action",
-                                    e.getMessage()));
-        }
+        List<EventApprovalDTO> results =
+                eventApprovalService.processBulkApprovalAction(
+                        request.eventPublicIds(), request.status(), request.remarks());
+        return ResponseEntity.ok(ApiResponse.success(results));
     }
 
     @Operation(
@@ -133,33 +115,8 @@ public class EventApprovalController {
     @GetMapping("/{eventPublicId}")
     public ResponseEntity<ApiResponse<List<EventApprovalDTO>>> getAllApprovalsForEvent(
             @PathVariable UUID eventPublicId) {
-        try {
-            List<EventApprovalDTO> approvals =
-                    eventApprovalService.getAllApprovalsOfEvent(eventPublicId);
-            return ResponseEntity.ok(ApiResponse.success(approvals));
-        } catch (java.util.NoSuchElementException e) {
-            logger.warn(
-                    "Attempted to get approvals for non-existent event {}: {}",
-                    eventPublicId,
-                    e.getMessage());
-            return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(
-                            ApiResponse.error(
-                                    HttpStatus.NOT_FOUND.value(),
-                                    "Event not found",
-                                    e.getMessage()));
-        } catch (Exception e) {
-            logger.error(
-                    "Unexpected error retrieving approvals for event {}: {}",
-                    eventPublicId,
-                    e.getMessage(),
-                    e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(
-                            ApiResponse.error(
-                                    HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                                    "An unexpected error occurred while retrieving event"
-                                            + " approvals."));
-        }
+        List<EventApprovalDTO> approvals =
+                eventApprovalService.getAllApprovalsOfEvent(eventPublicId);
+        return ResponseEntity.ok(ApiResponse.success(approvals));
     }
 }

@@ -8,9 +8,9 @@ import com.univers.univers_backend.config.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import java.util.List;
 import java.util.Map;
-import java.util.NoSuchElementException;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import org.springframework.http.HttpStatus;
@@ -47,28 +47,13 @@ public class EquipmentController {
     @PostMapping(consumes = "multipart/form-data")
     public ResponseEntity<ApiResponse<EquipmentDTO>> addEquipment(
             @RequestParam("userId") String userId,
-            @RequestPart("equipment") EquipmentInputDTO equipmentInputDTO,
+            @Valid @RequestPart("equipment") EquipmentInputDTO equipmentInputDTO,
             @RequestPart(name = "image", required = false) MultipartFile imageFile) {
 
-        try {
-            EquipmentDTO newEquipment =
-                    equipmentService.addEquipment(userId, equipmentInputDTO, imageFile);
-            return ResponseEntity.status(HttpStatus.CREATED)
-                    .body(ApiResponse.success("Equipment created successfully", newEquipment));
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest()
-                    .body(
-                            ApiResponse.error(
-                                    HttpStatus.BAD_REQUEST.value(),
-                                    "Invalid input",
-                                    e.getMessage()));
-        } catch (RuntimeException e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(
-                            ApiResponse.error(
-                                    HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                                    "An unexpected error occurred while creating the equipment"));
-        }
+        EquipmentDTO newEquipment =
+                equipmentService.addEquipment(userId, equipmentInputDTO, imageFile);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success("Equipment created successfully", newEquipment));
     }
 
     @Operation(summary = "Get all equipments", description = "Retrieves a list of all equipments")
@@ -112,31 +97,14 @@ public class EquipmentController {
     @GetMapping
     public ResponseEntity<ApiResponse<List<EquipmentDTO>>> getAllEquipmentsByOwner(
             @RequestParam String userId) {
-        try {
-            List<EquipmentDTO> allEquipmentsByOwner =
-                    equipmentService.getAllEquipmentsByOwner(userId);
-            if (allEquipmentsByOwner.isEmpty()) {
-                return ResponseEntity.status(HttpStatus.NO_CONTENT)
-                        .body(
-                                ApiResponse.success(
-                                        "No equipments found for this owner",
-                                        allEquipmentsByOwner));
-            }
-            return ResponseEntity.ok(ApiResponse.success(allEquipmentsByOwner));
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest()
+        List<EquipmentDTO> allEquipmentsByOwner = equipmentService.getAllEquipmentsByOwner(userId);
+        if (allEquipmentsByOwner.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NO_CONTENT)
                     .body(
-                            ApiResponse.error(
-                                    HttpStatus.BAD_REQUEST.value(),
-                                    "Invalid user ID",
-                                    e.getMessage()));
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(
-                            ApiResponse.error(
-                                    HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                                    "An unexpected error occurred while retrieving equipments"));
+                            ApiResponse.success(
+                                    "No equipments found for this owner", allEquipmentsByOwner));
         }
+        return ResponseEntity.ok(ApiResponse.success(allEquipmentsByOwner));
     }
 
     @Operation(
@@ -157,23 +125,8 @@ public class EquipmentController {
     @GetMapping("/{equipmentId}")
     public ResponseEntity<ApiResponse<EquipmentDTO>> getEquipmentById(
             @PathVariable String equipmentId) {
-        try {
-            EquipmentDTO equipment = equipmentService.getEquipmentById(equipmentId);
-            return ResponseEntity.ok(ApiResponse.success(equipment));
-        } catch (NoSuchElementException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(
-                            ApiResponse.error(
-                                    HttpStatus.NOT_FOUND.value(),
-                                    "Equipment not found",
-                                    e.getMessage()));
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(
-                            ApiResponse.error(
-                                    HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                                    "An unexpected error occurred while retrieving the equipment"));
-        }
+        EquipmentDTO equipment = equipmentService.getEquipmentById(equipmentId);
+        return ResponseEntity.ok(ApiResponse.success(equipment));
     }
 
     @Operation(
@@ -201,35 +154,12 @@ public class EquipmentController {
     public ResponseEntity<ApiResponse<EquipmentDTO>> updateEquipment(
             @PathVariable String equipmentId,
             @RequestParam("userId") String userId,
-            @RequestPart("equipment") EquipmentInputDTO equipmentInputDTO,
+            @Valid @RequestPart("equipment") EquipmentInputDTO equipmentInputDTO,
             @RequestPart(name = "image", required = false) MultipartFile imageFile) {
-        try {
-            EquipmentDTO updatedEquipment =
-                    equipmentService.updateEquipment(
-                            equipmentId, userId, equipmentInputDTO, imageFile);
-            return ResponseEntity.ok(
-                    ApiResponse.success("Equipment updated successfully", updatedEquipment));
-        } catch (NoSuchElementException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(
-                            ApiResponse.error(
-                                    HttpStatus.NOT_FOUND.value(),
-                                    "Equipment not found",
-                                    e.getMessage()));
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                    .body(
-                            ApiResponse.error(
-                                    HttpStatus.FORBIDDEN.value(),
-                                    "Operation not allowed",
-                                    e.getMessage()));
-        } catch (RuntimeException e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(
-                            ApiResponse.error(
-                                    HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                                    "An unexpected error occurred while updating the equipment"));
-        }
+        EquipmentDTO updatedEquipment =
+                equipmentService.updateEquipment(equipmentId, userId, equipmentInputDTO, imageFile);
+        return ResponseEntity.ok(
+                ApiResponse.success("Equipment updated successfully", updatedEquipment));
     }
 
     @Operation(summary = "Delete equipment", description = "Deletes multiple equipments")
@@ -257,45 +187,22 @@ public class EquipmentController {
     @DeleteMapping("/bulk")
     public ResponseEntity<ApiResponse<Map<String, String>>> deleteEquipments(
             @RequestBody Map<String, Object> payload, @RequestParam String userId) {
-        try {
-            @SuppressWarnings("unchecked")
-            List<String> equipmentIds = (List<String>) payload.get("equipmentIds");
+        @SuppressWarnings("unchecked")
+        List<String> equipmentIds = (List<String>) payload.get("equipmentIds");
 
-            if (equipmentIds == null || equipmentIds.isEmpty()) {
-                return ResponseEntity.badRequest()
-                        .body(
-                                ApiResponse.error(
-                                        HttpStatus.BAD_REQUEST.value(),
-                                        "Invalid request",
-                                        "Equipment IDs list cannot be null or empty."));
-            }
-
-            List<UUID> equipmentUuids =
-                    equipmentIds.stream().map(UUID::fromString).collect(Collectors.toList());
-            Map<String, String> results =
-                    equipmentService.bulkDeleteEquipments(equipmentUuids, userId);
-
-            return ResponseEntity.ok(
-                    ApiResponse.success("Equipment(s) deleted successfully", results));
-        } catch (IllegalArgumentException e) {
+        if (equipmentIds == null || equipmentIds.isEmpty()) {
             return ResponseEntity.badRequest()
                     .body(
                             ApiResponse.error(
                                     HttpStatus.BAD_REQUEST.value(),
-                                    "Invalid UUID format",
-                                    e.getMessage()));
-        } catch (SecurityException e) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                    .body(
-                            ApiResponse.error(
-                                    HttpStatus.FORBIDDEN.value(), "Access denied", e.getMessage()));
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(
-                            ApiResponse.error(
-                                    HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                                    "An unexpected error occurred while deleting equipments",
-                                    e.getMessage()));
+                                    "Invalid request",
+                                    "Equipment IDs list cannot be null or empty."));
         }
+
+        List<UUID> equipmentUuids =
+                equipmentIds.stream().map(UUID::fromString).collect(Collectors.toList());
+        Map<String, String> results = equipmentService.bulkDeleteEquipments(equipmentUuids, userId);
+
+        return ResponseEntity.ok(ApiResponse.success("Equipment(s) deleted successfully", results));
     }
 }

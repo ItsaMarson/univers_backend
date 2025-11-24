@@ -38,19 +38,11 @@ public class DepartmentController {
             })
     @GetMapping
     public ResponseEntity<ApiResponse<List<DepartmentDTO>>> getAllDepartments() {
-        try {
-            List<DepartmentDTO> departments = departmentService.getAllDepartments();
-            if (departments.isEmpty()) {
-                return ResponseEntity.status(HttpStatus.NO_CONTENT)
-                        .body(ApiResponse.success("No departments found", departments));
-            }
-            return ResponseEntity.ok(ApiResponse.success(departments));
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(
-                            ApiResponse.error(
-                                    HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                                    "An unexpected error occurred while retrieving departments"));
+        List<DepartmentDTO> departments = departmentService.getAllDepartments();
+        if (departments.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NO_CONTENT)
+                    .body(ApiResponse.success("No departments found", departments));
         }
+        return ResponseEntity.ok(ApiResponse.success(departments));
     }
 }

@@ -20,11 +20,9 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import java.time.Instant;
 import java.util.*;
-
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -74,9 +72,9 @@ public class AuthController {
     @PostMapping("/register")
     public ResponseEntity<ApiResponse<String>> register(@Valid @RequestBody RegisterDTO request) {
         String responseMessage = userService.register(request);
-        if (ErrorMessage.fromString(responseMessage) == ErrorMessage.EMAIL_IN_USE ||
-                ErrorMessage.fromString(responseMessage) == ErrorMessage.ID_NUMBER_IN_USE ||
-                ErrorMessage.fromString(responseMessage) == ErrorMessage.INVALID_EMAIL_DOMAIN) {
+        if (ErrorMessage.fromString(responseMessage) == ErrorMessage.EMAIL_IN_USE
+                || ErrorMessage.fromString(responseMessage) == ErrorMessage.ID_NUMBER_IN_USE
+                || ErrorMessage.fromString(responseMessage) == ErrorMessage.INVALID_EMAIL_DOMAIN) {
             return ResponseEntity.badRequest()
                     .body(
                             ApiResponse.error(
@@ -101,14 +99,9 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<?> login(
             @RequestBody LoginRequest loginRequest, HttpServletResponse response) {
-        try {
-            authManager.authenticate(
-                    new UsernamePasswordAuthenticationToken(
-                            loginRequest.email(), loginRequest.password()));
-        } catch (BadCredentialsException e) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(Map.of("error", "Invalid credentials"));
-        }
+        authManager.authenticate(
+                new UsernamePasswordAuthenticationToken(
+                        loginRequest.email(), loginRequest.password()));
 
         com.univers.univers_backend.Entity.User userDetails;
         try {
