@@ -413,10 +413,6 @@ public class EquipmentService {
                     throw new SecurityException("User is not authorized to delete this equipment.");
                 }
 
-                // Before deleting equipment, disassociate categories to avoid constraint violations
-                equipment.getCategories().clear();
-                equipmentRepository.save(equipment);
-
                 if (equipment.getImagePath() != null && !equipment.getImagePath().isBlank()) {
                     fileStorageService.deleteFile(equipment.getImagePath(), equipmentsBucketName);
                 }
@@ -429,7 +425,7 @@ public class EquipmentService {
         }
 
         if (!equipmentsToDelete.isEmpty()) {
-            equipmentRepository.deleteAllInBatch(equipmentsToDelete);
+            equipmentRepository.deleteAll(equipmentsToDelete);
         }
 
         return results;

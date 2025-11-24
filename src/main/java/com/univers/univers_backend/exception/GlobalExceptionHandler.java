@@ -4,6 +4,8 @@ package com.univers.univers_backend.exception;
 import com.univers.univers_backend.config.ApiResponse;
 import java.util.NoSuchElementException;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -15,6 +17,8 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    private static final Logger logger = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     @ExceptionHandler(NoSuchElementException.class)
     public ResponseEntity<ApiResponse<Object>> handleNoSuchElementException(
@@ -91,7 +95,8 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public ResponseEntity<ApiResponse<Object>> handleMethodArgumentTypeMismatchException(
             MethodArgumentTypeMismatchException ex) {
-        String typeName = ex.getRequiredType() != null ? ex.getRequiredType().getSimpleName() : "unknown";
+        String typeName =
+                ex.getRequiredType() != null ? ex.getRequiredType().getSimpleName() : "unknown";
         String error =
                 String.format(
                         "The parameter '%s' of value '%s' could not be converted to type '%s'",
@@ -104,11 +109,12 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Object>> handleGlobalException(Exception ex) {
+        logger.error("An unexpected error occurred: ", ex);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(
                         ApiResponse.error(
                                 HttpStatus.INTERNAL_SERVER_ERROR.value(),
                                 "An unexpected error occurred",
-                                ex.getMessage()));
+                                "Please contact support for assistance."));
     }
 }
