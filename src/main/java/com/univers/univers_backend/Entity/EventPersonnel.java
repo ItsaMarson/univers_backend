@@ -4,6 +4,9 @@ package com.univers.univers_backend.Entity;
 import com.univers.univers_backend.Enum.Status;
 import com.univers.univers_backend.Enum.Task;
 import jakarta.persistence.*;
+
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 import org.hibernate.annotations.UuidGenerator;
 
@@ -23,6 +26,8 @@ public class EventPersonnel {
     @JoinColumn(name = "assigned_personnel_id", nullable = false)
     private User assignedPersonnel;
 
+    @OneToMany(mappedBy = "eventPersonnel", cascade = CascadeType.ALL)
+    private List<EquipmentChecklist> checklists = new ArrayList<>();
     private String phoneNumber;
 
     @Enumerated(EnumType.STRING)
@@ -35,19 +40,27 @@ public class EventPersonnel {
     @JoinColumn(name = "event_id")
     private Event event;
 
+    @ElementCollection
+    private List<String> assignedEquipmentIds;
+
+
     public EventPersonnel(
             Long id,
             UUID publicId,
             User assignedPersonnel,
+            List<EquipmentChecklist> checklists,
             String phoneNumber,
             Status status,
-            Task task) {
+            Task task,
+            List<String> assignedEquipmentIds) {
         this.id = id;
         this.publicId = publicId;
         this.assignedPersonnel = assignedPersonnel;
+        this.checklists = checklists;
         this.phoneNumber = phoneNumber;
         this.status = status;
         this.task = task;
+        this.assignedPersonnel = assignedPersonnel;
     }
 
     public EventPersonnel() {}
@@ -80,6 +93,14 @@ public class EventPersonnel {
         return phoneNumber;
     }
 
+    public List<EquipmentChecklist> getChecklists() {
+        return checklists;
+    }
+
+    public void setChecklists(List<EquipmentChecklist> checklists) {
+        this.checklists = checklists;
+    }
+
     public void setPhoneNumber(String phoneNumber) {
         this.phoneNumber = phoneNumber;
     }
@@ -106,5 +127,13 @@ public class EventPersonnel {
 
     public void setTask(Task task) {
         this.task = task;
+    }
+
+    public List<String> getAssignedEquipmentIds() {
+        return assignedEquipmentIds;
+    }
+
+    public void setAssignedEquipmentIds(List<String> assignedEquipmentIds) {
+        this.assignedEquipmentIds = assignedEquipmentIds;
     }
 }
