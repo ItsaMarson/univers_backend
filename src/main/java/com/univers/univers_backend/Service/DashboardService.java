@@ -438,8 +438,7 @@ public class DashboardService {
                                     hourOfDay = Integer.parseInt(result[0].toString());
                                 } catch (NumberFormatException e) {
                                     logger.error(
-                                            "Could not parse hour from peak hours query result: {}"
-                                                    + " Error: {}",
+                                            "Could not parse hour from peak hours query result: {} Error: {}",
                                             result[0],
                                             e.getMessage());
                                     return null;
