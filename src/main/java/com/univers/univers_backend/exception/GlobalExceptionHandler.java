@@ -91,10 +91,11 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public ResponseEntity<ApiResponse<Object>> handleMethodArgumentTypeMismatchException(
             MethodArgumentTypeMismatchException ex) {
+        String typeName = ex.getRequiredType() != null ? ex.getRequiredType().getSimpleName() : "unknown";
         String error =
                 String.format(
                         "The parameter '%s' of value '%s' could not be converted to type '%s'",
-                        ex.getName(), ex.getValue(), ex.getRequiredType().getSimpleName());
+                        ex.getName(), ex.getValue(), typeName);
         return ResponseEntity.badRequest()
                 .body(
                         ApiResponse.error(
