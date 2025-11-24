@@ -1,0 +1,113 @@
+/* (C)2025 */
+package com.univers.univers_backend.exception;
+
+import com.univers.univers_backend.config.ApiResponse;
+import java.util.NoSuchElementException;
+import java.util.stream.Collectors;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+
+@RestControllerAdvice
+public class GlobalExceptionHandler {
+
+    @ExceptionHandler(NoSuchElementException.class)
+    public ResponseEntity<ApiResponse<Object>> handleNoSuchElementException(
+            NoSuchElementException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(
+                        ApiResponse.error(
+                                HttpStatus.NOT_FOUND.value(),
+                                "Resource not found",
+                                ex.getMessage()));
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ApiResponse<Object>> handleIllegalArgumentException(
+            IllegalArgumentException ex) {
+        return ResponseEntity.badRequest()
+                .body(
+                        ApiResponse.error(
+                                HttpStatus.BAD_REQUEST.value(), "Invalid input", ex.getMessage()));
+    }
+
+    @ExceptionHandler(IllegalStateException.class)
+    public ResponseEntity<ApiResponse<Object>> handleIllegalStateException(
+            IllegalStateException ex) {
+        return ResponseEntity.badRequest()
+                .body(
+                        ApiResponse.error(
+                                HttpStatus.BAD_REQUEST.value(), "Illegal state", ex.getMessage()));
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ApiResponse<Object>> handleAccessDeniedException(
+            AccessDeniedException ex) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(
+                        ApiResponse.error(
+                                HttpStatus.FORBIDDEN.value(), "Access denied", ex.getMessage()));
+    }
+
+    @ExceptionHandler(SecurityException.class)
+    public ResponseEntity<ApiResponse<Object>> handleSecurityException(SecurityException ex) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(
+                        ApiResponse.error(
+                                HttpStatus.FORBIDDEN.value(),
+                                "Operation not allowed",
+                                ex.getMessage()));
+    }
+
+    @ExceptionHandler(BadCredentialsException.class)
+    public ResponseEntity<ApiResponse<Object>> handleBadCredentialsException(
+            BadCredentialsException ex) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(
+                        ApiResponse.error(
+                                HttpStatus.UNAUTHORIZED.value(),
+                                "Invalid credentials",
+                                ex.getMessage()));
+    }
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<ApiResponse<Object>> handleValidationException(
+            MethodArgumentNotValidException ex) {
+        String errorMessage =
+                ex.getBindingResult().getFieldErrors().stream()
+                        .map(error -> error.getField() + ": " + error.getDefaultMessage())
+                        .collect(Collectors.joining(", "));
+        return ResponseEntity.badRequest()
+                .body(
+                        ApiResponse.error(
+                                HttpStatus.BAD_REQUEST.value(), "Validation failed", errorMessage));
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ApiResponse<Object>> handleMethodArgumentTypeMismatchException(
+            MethodArgumentTypeMismatchException ex) {
+        String error =
+                String.format(
+                        "The parameter '%s' of value '%s' could not be converted to type '%s'",
+                        ex.getName(), ex.getValue(), ex.getRequiredType().getSimpleName());
+        return ResponseEntity.badRequest()
+                .body(
+                        ApiResponse.error(
+                                HttpStatus.BAD_REQUEST.value(), "Invalid parameter type", error));
+    }
+
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<ApiResponse<Object>> handleGlobalException(Exception ex) {
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(
+                        ApiResponse.error(
+                                HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                                "An unexpected error occurred",
+                                ex.getMessage()));
+    }
+}

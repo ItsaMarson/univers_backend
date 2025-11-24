@@ -38,19 +38,11 @@ public class VenueController {
             })
     @GetMapping
     public ResponseEntity<ApiResponse<List<VenueDTO>>> getAllVenues() {
-        try {
-            List<VenueDTO> venues = venueService.getAllVenues();
-            if (venues.isEmpty()) {
-                return ResponseEntity.status(HttpStatus.NO_CONTENT)
-                        .body(ApiResponse.success("No venues found", venues));
-            }
-            return ResponseEntity.ok(ApiResponse.success(venues));
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(
-                            ApiResponse.error(
-                                    HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                                    "An unexpected error occurred while retrieving venues"));
+        List<VenueDTO> venues = venueService.getAllVenues();
+        if (venues.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NO_CONTENT)
+                    .body(ApiResponse.success("No venues found", venues));
         }
+        return ResponseEntity.ok(ApiResponse.success(venues));
     }
 }

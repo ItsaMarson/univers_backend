@@ -8,6 +8,7 @@ import com.univers.univers_backend.config.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
@@ -38,16 +39,8 @@ public class UserController {
             })
     @GetMapping
     public ResponseEntity<ApiResponse<List<UserDTO>>> getAllUsers() {
-        try {
-            List<UserDTO> users = userService.getAllUsers();
-            return ResponseEntity.ok(ApiResponse.success(users));
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(
-                            ApiResponse.error(
-                                    HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                                    "An unexpected error occurred while retrieving users"));
-        }
+        List<UserDTO> users = userService.getAllUsers();
+        return ResponseEntity.ok(ApiResponse.success(users));
     }
 
     @Operation(
@@ -68,27 +61,19 @@ public class UserController {
     @PatchMapping("/{userId}")
     public ResponseEntity<ApiResponse<String>> updateUserProfile(
             @PathVariable UUID userId,
-            @RequestPart("userDTO") EditUserDTO userDTO,
+            @RequestPart("userDTO") @Valid EditUserDTO userDTO,
             @RequestPart(value = "image", required = false) MultipartFile imageFile) {
-        try {
-            String responseMessage = userService.updateUserProfile(userId, userDTO, imageFile);
-            if ("User does not exist".equals(responseMessage)
-                    || "Invalid department Id".equals(responseMessage)) {
-                return ResponseEntity.badRequest()
-                        .body(
-                                ApiResponse.error(
-                                        HttpStatus.BAD_REQUEST.value(),
-                                        "Invalid input",
-                                        responseMessage));
-            }
-            return ResponseEntity.ok(
-                    ApiResponse.success("User profile updated successfully", responseMessage));
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+        String responseMessage = userService.updateUserProfile(userId, userDTO, imageFile);
+        if ("User does not exist".equals(responseMessage)
+                || "Invalid department Id".equals(responseMessage)) {
+            return ResponseEntity.badRequest()
                     .body(
                             ApiResponse.error(
-                                    HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                                    "An unexpected error occurred while updating user profile"));
+                                    HttpStatus.BAD_REQUEST.value(),
+                                    "Invalid input",
+                                    responseMessage));
         }
+        return ResponseEntity.ok(
+                ApiResponse.success("User profile updated successfully", responseMessage));
     }
 }

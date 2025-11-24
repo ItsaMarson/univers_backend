@@ -8,12 +8,16 @@ import com.univers.univers_backend.Service.FileStorageService;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 
 @Component
 public class EventMapper {
+
+    private static final Logger logger = LoggerFactory.getLogger(EventMapper.class);
 
     private final UserMapper userMapper;
     private final VenueMapper venueMapper;
@@ -56,11 +60,10 @@ public class EventMapper {
                         fileStorageService.getFileUrl(
                                 event.getApprovedLetterPath(), approvedLettersBucketName);
             } catch (Exception e) {
-                System.err.println(
-                        "Error generating approved letter URL for event "
-                                + event.getPublicId()
-                                + ": "
-                                + e.getMessage());
+                logger.error(
+                        "Error generating approved letter URL for event {}: {}",
+                        event.getPublicId(),
+                        e.getMessage());
             }
         }
 
@@ -70,11 +73,10 @@ public class EventMapper {
                 imageUrl =
                         fileStorageService.getFileUrl(event.getImagePath(), eventImagesBucketName);
             } catch (Exception e) {
-                System.err.println(
-                        "Error generating image URL for event "
-                                + event.getPublicId()
-                                + ": "
-                                + e.getMessage());
+                logger.error(
+                        "Error generating image URL for event {}: {}",
+                        event.getPublicId(),
+                        e.getMessage());
             }
         }
 

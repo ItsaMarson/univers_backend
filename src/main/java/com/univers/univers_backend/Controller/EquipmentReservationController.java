@@ -10,7 +10,6 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 import java.util.Map;
-import java.util.NoSuchElementException;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import org.springframework.http.HttpStatus;
@@ -50,41 +49,21 @@ public class EquipmentReservationController {
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponse<List<EquipmentReservationDTO>>> createEquipmentReservation(
             @RequestBody List<EquipmentReservationDTO> reservationDTOs) {
-        try {
-            if (reservationDTOs == null || reservationDTOs.isEmpty()) {
-                return ResponseEntity.badRequest()
-                        .body(
-                                ApiResponse.error(
-                                        HttpStatus.BAD_REQUEST.value(),
-                                        "Invalid request",
-                                        "Reservation list cannot be null or empty."));
-            }
-            List<EquipmentReservationDTO> createdReservations =
-                    equipmentReservationService.createBulkEquipmentReservations(reservationDTOs);
-            return ResponseEntity.status(HttpStatus.CREATED)
-                    .body(
-                            ApiResponse.success(
-                                    "Equipment reservations created successfully",
-                                    createdReservations));
-        } catch (IllegalArgumentException | NoSuchElementException e) {
+        if (reservationDTOs == null || reservationDTOs.isEmpty()) {
             return ResponseEntity.badRequest()
                     .body(
                             ApiResponse.error(
                                     HttpStatus.BAD_REQUEST.value(),
                                     "Invalid request",
-                                    e.getMessage()));
-        } catch (Exception e) {
-            // Log the exception details for server-side debugging
-            // logger.error("Error during bulk equipment reservation: ", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(
-                            ApiResponse.error(
-                                    HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                                    "An unexpected error occurred while creating equipment"
-                                            + " reservations.",
-                                    e.getMessage())); // Optionally include e.getMessage() if
-            // safe to expose
+                                    "Reservation list cannot be null or empty."));
         }
+        List<EquipmentReservationDTO> createdReservations =
+                equipmentReservationService.createBulkEquipmentReservations(reservationDTOs);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(
+                        ApiResponse.success(
+                                "Equipment reservations created successfully",
+                                createdReservations));
     }
 
     @Operation(
@@ -102,18 +81,9 @@ public class EquipmentReservationController {
     @GetMapping("/me")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponse<List<EquipmentReservationDTO>>> getOwnReservations() {
-        try {
-            List<EquipmentReservationDTO> reservations =
-                    equipmentReservationService.getOwnEquipmentReservations();
-            return ResponseEntity.ok(ApiResponse.success(reservations));
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(
-                            ApiResponse.error(
-                                    HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                                    "An unexpected error occurred while retrieving own"
-                                            + " reservations"));
-        }
+        List<EquipmentReservationDTO> reservations =
+                equipmentReservationService.getOwnEquipmentReservations();
+        return ResponseEntity.ok(ApiResponse.success(reservations));
     }
 
     @Operation(
@@ -134,18 +104,9 @@ public class EquipmentReservationController {
     @GetMapping
     @PreAuthorize("hasAnyAuthority('SUPER_ADMIN', 'ADMIN')")
     public ResponseEntity<ApiResponse<List<EquipmentReservationDTO>>> getAllReservations() {
-        try {
-            List<EquipmentReservationDTO> reservations =
-                    equipmentReservationService.getAllReservations();
-            return ResponseEntity.ok(ApiResponse.success(reservations));
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(
-                            ApiResponse.error(
-                                    HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                                    "An unexpected error occurred while retrieving all"
-                                            + " reservations"));
-        }
+        List<EquipmentReservationDTO> reservations =
+                equipmentReservationService.getAllReservations();
+        return ResponseEntity.ok(ApiResponse.success(reservations));
     }
 
     @Operation(
@@ -167,24 +128,9 @@ public class EquipmentReservationController {
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponse<EquipmentReservationDTO>> getReservationById(
             @PathVariable UUID reservationId) {
-        try {
-            EquipmentReservationDTO reservation =
-                    equipmentReservationService.getReservationByPublicId(reservationId);
-            return ResponseEntity.ok(ApiResponse.success(reservation));
-        } catch (NoSuchElementException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(
-                            ApiResponse.error(
-                                    HttpStatus.NOT_FOUND.value(),
-                                    "Reservation not found",
-                                    e.getMessage()));
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(
-                            ApiResponse.error(
-                                    HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                                    "An unexpected error occurred while retrieving reservation"));
-        }
+        EquipmentReservationDTO reservation =
+                equipmentReservationService.getReservationByPublicId(reservationId);
+        return ResponseEntity.ok(ApiResponse.success(reservation));
     }
 
     @Operation(
@@ -203,18 +149,9 @@ public class EquipmentReservationController {
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponse<List<EquipmentReservationDTO>>> getReservationsByEventId(
             @PathVariable UUID eventId) {
-        try {
-            List<EquipmentReservationDTO> reservations =
-                    equipmentReservationService.getReservationsByEventPublicId(eventId);
-            return ResponseEntity.ok(ApiResponse.success(reservations));
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(
-                            ApiResponse.error(
-                                    HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                                    "An unexpected error occurred while retrieving event"
-                                            + " reservations"));
-        }
+        List<EquipmentReservationDTO> reservations =
+                equipmentReservationService.getReservationsByEventPublicId(eventId);
+        return ResponseEntity.ok(ApiResponse.success(reservations));
     }
 
     @Operation(
@@ -241,46 +178,26 @@ public class EquipmentReservationController {
     @PreAuthorize("hasAuthority('EQUIPMENT_OWNER')")
     public ResponseEntity<ApiResponse<Map<UUID, String>>> approveReservations(
             @RequestBody Map<String, Object> payload) {
-        try {
-            @SuppressWarnings("unchecked")
-            List<String> reservationIds = (List<String>) payload.get("reservationIds");
-            String remarks = (String) payload.getOrDefault("remarks", "");
+        @SuppressWarnings("unchecked")
+        List<String> reservationIds = (List<String>) payload.get("reservationIds");
+        String remarks = (String) payload.getOrDefault("remarks", "");
 
-            if (reservationIds == null || reservationIds.isEmpty()) {
-                return ResponseEntity.badRequest()
-                        .body(
-                                ApiResponse.error(
-                                        HttpStatus.BAD_REQUEST.value(),
-                                        "Invalid request",
-                                        "Reservation IDs list cannot be null or empty."));
-            }
-
-            List<UUID> reservationUuids =
-                    reservationIds.stream().map(UUID::fromString).collect(Collectors.toList());
-            Map<UUID, String> results =
-                    equipmentReservationService.bulkApproveReservations(reservationUuids, remarks);
-
-            return ResponseEntity.ok(
-                    ApiResponse.success("Reservation(s) approved successfully", results));
-        } catch (IllegalArgumentException e) {
+        if (reservationIds == null || reservationIds.isEmpty()) {
             return ResponseEntity.badRequest()
                     .body(
                             ApiResponse.error(
                                     HttpStatus.BAD_REQUEST.value(),
-                                    "Invalid UUID format",
-                                    e.getMessage()));
-        } catch (SecurityException e) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                    .body(
-                            ApiResponse.error(
-                                    HttpStatus.FORBIDDEN.value(), "Access denied", e.getMessage()));
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(
-                            ApiResponse.error(
-                                    HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                                    "An unexpected error occurred while approving reservation(s)"));
+                                    "Invalid request",
+                                    "Reservation IDs list cannot be null or empty."));
         }
+
+        List<UUID> reservationUuids =
+                reservationIds.stream().map(UUID::fromString).collect(Collectors.toList());
+        Map<UUID, String> results =
+                equipmentReservationService.bulkApproveReservations(reservationUuids, remarks);
+
+        return ResponseEntity.ok(
+                ApiResponse.success("Reservation(s) approved successfully", results));
     }
 
     @Operation(
@@ -307,54 +224,34 @@ public class EquipmentReservationController {
     @PreAuthorize("hasAuthority('EQUIPMENT_OWNER')")
     public ResponseEntity<ApiResponse<Map<UUID, String>>> rejectReservations(
             @RequestBody Map<String, Object> payload) {
-        try {
-            @SuppressWarnings("unchecked")
-            List<String> reservationIds = (List<String>) payload.get("reservationIds");
-            String remarks = (String) payload.get("remarks");
+        @SuppressWarnings("unchecked")
+        List<String> reservationIds = (List<String>) payload.get("reservationIds");
+        String remarks = (String) payload.get("remarks");
 
-            if (reservationIds == null || reservationIds.isEmpty()) {
-                return ResponseEntity.badRequest()
-                        .body(
-                                ApiResponse.error(
-                                        HttpStatus.BAD_REQUEST.value(),
-                                        "Invalid request",
-                                        "Reservation IDs list cannot be null or empty."));
-            }
-
-            if (remarks == null || remarks.isBlank()) {
-                return ResponseEntity.badRequest()
-                        .body(
-                                ApiResponse.error(
-                                        HttpStatus.BAD_REQUEST.value(),
-                                        "Rejection remarks are required"));
-            }
-
-            List<UUID> reservationUuids =
-                    reservationIds.stream().map(UUID::fromString).collect(Collectors.toList());
-            Map<UUID, String> results =
-                    equipmentReservationService.bulkRejectReservations(reservationUuids, remarks);
-
-            return ResponseEntity.ok(
-                    ApiResponse.success("Reservation(s) rejected successfully", results));
-        } catch (IllegalArgumentException e) {
+        if (reservationIds == null || reservationIds.isEmpty()) {
             return ResponseEntity.badRequest()
                     .body(
                             ApiResponse.error(
                                     HttpStatus.BAD_REQUEST.value(),
-                                    "Invalid UUID format",
-                                    e.getMessage()));
-        } catch (SecurityException e) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                    .body(
-                            ApiResponse.error(
-                                    HttpStatus.FORBIDDEN.value(), "Access denied", e.getMessage()));
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(
-                            ApiResponse.error(
-                                    HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                                    "An unexpected error occurred while rejecting reservation(s)"));
+                                    "Invalid request",
+                                    "Reservation IDs list cannot be null or empty."));
         }
+
+        if (remarks == null || remarks.isBlank()) {
+            return ResponseEntity.badRequest()
+                    .body(
+                            ApiResponse.error(
+                                    HttpStatus.BAD_REQUEST.value(),
+                                    "Rejection remarks are required"));
+        }
+
+        List<UUID> reservationUuids =
+                reservationIds.stream().map(UUID::fromString).collect(Collectors.toList());
+        Map<UUID, String> results =
+                equipmentReservationService.bulkRejectReservations(reservationUuids, remarks);
+
+        return ResponseEntity.ok(
+                ApiResponse.success("Reservation(s) rejected successfully", results));
     }
 
     @Operation(
@@ -381,46 +278,25 @@ public class EquipmentReservationController {
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponse<Map<UUID, String>>> cancelReservations(
             @RequestBody Map<String, Object> payload) {
-        try {
-            @SuppressWarnings("unchecked")
-            List<String> reservationIds = (List<String>) payload.get("reservationIds");
+        @SuppressWarnings("unchecked")
+        List<String> reservationIds = (List<String>) payload.get("reservationIds");
 
-            if (reservationIds == null || reservationIds.isEmpty()) {
-                return ResponseEntity.badRequest()
-                        .body(
-                                ApiResponse.error(
-                                        HttpStatus.BAD_REQUEST.value(),
-                                        "Invalid request",
-                                        "Reservation IDs list cannot be null or empty."));
-            }
-
-            List<UUID> reservationUuids =
-                    reservationIds.stream().map(UUID::fromString).collect(Collectors.toList());
-            Map<UUID, String> results =
-                    equipmentReservationService.bulkCancelReservations(reservationUuids);
-
-            return ResponseEntity.ok(
-                    ApiResponse.success("Reservation(s) cancelled successfully", results));
-        } catch (IllegalArgumentException e) {
+        if (reservationIds == null || reservationIds.isEmpty()) {
             return ResponseEntity.badRequest()
                     .body(
                             ApiResponse.error(
                                     HttpStatus.BAD_REQUEST.value(),
-                                    "Invalid UUID format",
-                                    e.getMessage()));
-        } catch (SecurityException e) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                    .body(
-                            ApiResponse.error(
-                                    HttpStatus.FORBIDDEN.value(), "Access denied", e.getMessage()));
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(
-                            ApiResponse.error(
-                                    HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                                    "An unexpected error occurred while cancelling"
-                                            + " reservation(s)"));
+                                    "Invalid request",
+                                    "Reservation IDs list cannot be null or empty."));
         }
+
+        List<UUID> reservationUuids =
+                reservationIds.stream().map(UUID::fromString).collect(Collectors.toList());
+        Map<UUID, String> results =
+                equipmentReservationService.bulkCancelReservations(reservationUuids);
+
+        return ResponseEntity.ok(
+                ApiResponse.success("Reservation(s) cancelled successfully", results));
     }
 
     @Operation(
@@ -442,24 +318,9 @@ public class EquipmentReservationController {
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponse<List<EquipmentApprovalDTO>>> getApprovalsForReservation(
             @PathVariable UUID reservationId) {
-        try {
-            List<EquipmentApprovalDTO> approvals =
-                    equipmentReservationService.getAllApprovalsForReservation(reservationId);
-            return ResponseEntity.ok(ApiResponse.success(approvals));
-        } catch (NoSuchElementException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(
-                            ApiResponse.error(
-                                    HttpStatus.NOT_FOUND.value(),
-                                    "Reservation not found",
-                                    e.getMessage()));
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(
-                            ApiResponse.error(
-                                    HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                                    "An unexpected error occurred while retrieving approvals"));
-        }
+        List<EquipmentApprovalDTO> approvals =
+                equipmentReservationService.getAllApprovalsForReservation(reservationId);
+        return ResponseEntity.ok(ApiResponse.success(approvals));
     }
 
     @Operation(
@@ -481,18 +342,9 @@ public class EquipmentReservationController {
     @PreAuthorize("hasAuthority('EQUIPMENT_OWNER')")
     public ResponseEntity<ApiResponse<List<EquipmentReservationDTO>>>
             getPendingEquipmentOwnerReservations() {
-        try {
-            List<EquipmentReservationDTO> pendingReservations =
-                    equipmentReservationService.getPendingReservationsForEquipmentOwner();
-            return ResponseEntity.ok(ApiResponse.success(pendingReservations));
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(
-                            ApiResponse.error(
-                                    HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                                    "An unexpected error occurred while retrieving pending"
-                                            + " reservations"));
-        }
+        List<EquipmentReservationDTO> pendingReservations =
+                equipmentReservationService.getPendingReservationsForEquipmentOwner();
+        return ResponseEntity.ok(ApiResponse.success(pendingReservations));
     }
 
     @Operation(
@@ -514,17 +366,8 @@ public class EquipmentReservationController {
     @PreAuthorize("hasAuthority('EQUIPMENT_OWNER')")
     public ResponseEntity<ApiResponse<List<EquipmentReservationDTO>>>
             getAllEquipmentOwnerReservations() {
-        try {
-            List<EquipmentReservationDTO> allReservations =
-                    equipmentReservationService.getAllReservationsForEquipmentOwner();
-            return ResponseEntity.ok(ApiResponse.success(allReservations));
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(
-                            ApiResponse.error(
-                                    HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                                    "An unexpected error occurred while retrieving all"
-                                            + " reservations"));
-        }
+        List<EquipmentReservationDTO> allReservations =
+                equipmentReservationService.getAllReservationsForEquipmentOwner();
+        return ResponseEntity.ok(ApiResponse.success(allReservations));
     }
 }

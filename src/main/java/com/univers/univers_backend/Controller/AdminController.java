@@ -15,7 +15,6 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.util.List;
-import java.util.NoSuchElementException;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -56,23 +55,14 @@ public class AdminController {
     @PostMapping("/users")
     public ResponseEntity<ApiResponse<String>> createUser(
             @Valid @RequestBody CreateUserDTO request) {
-        try {
-            String responseMessage = userService.createUser(request);
-            if ("Email already in use".equals(responseMessage)) {
-                return ResponseEntity.badRequest()
-                        .body(
-                                ApiResponse.error(
-                                        HttpStatus.BAD_REQUEST.value(), "Email already in use"));
-            }
-            return ResponseEntity.ok(
-                    ApiResponse.success("User created successfully", responseMessage));
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+        String responseMessage = userService.createUser(request);
+        if ("Email already in use".equals(responseMessage)) {
+            return ResponseEntity.badRequest()
                     .body(
                             ApiResponse.error(
-                                    HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                                    "An unexpected error occurred while creating user"));
+                                    HttpStatus.BAD_REQUEST.value(), "Email already in use"));
         }
+        return ResponseEntity.ok(ApiResponse.success("User created successfully", responseMessage));
     }
 
     @Operation(summary = "Get all users", description = "Retrieves a list of all users")
@@ -87,16 +77,8 @@ public class AdminController {
             })
     @GetMapping("/users")
     public ResponseEntity<ApiResponse<List<UserDTO>>> getAllUsers() {
-        try {
-            List<UserDTO> users = userService.getAllUsers();
-            return ResponseEntity.ok(ApiResponse.success(users));
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(
-                            ApiResponse.error(
-                                    HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                                    "An unexpected error occurred while retrieving users"));
-        }
+        List<UserDTO> users = userService.getAllUsers();
+        return ResponseEntity.ok(ApiResponse.success(users));
     }
 
     @Operation(
@@ -117,29 +99,20 @@ public class AdminController {
     @PatchMapping(value = "/users/{userId}")
     public ResponseEntity<ApiResponse<String>> editUserAsAdmin(
             @PathVariable UUID userId,
-            @RequestPart("userDTO") EditUserDTO EditUserDTO,
+            @RequestPart("userDTO") @Valid EditUserDTO EditUserDTO,
             @RequestPart(value = "image", required = false) MultipartFile imageFile) {
-        try {
-            String responseMessage = userService.editUserAsAdmin(userId, EditUserDTO, imageFile);
-            if ("User does not exist".equals(responseMessage)
-                    || "Invalid department Id".equals(responseMessage)
-                    || responseMessage.startsWith("Failed to update profile image")) {
-                return ResponseEntity.badRequest()
-                        .body(
-                                ApiResponse.error(
-                                        HttpStatus.BAD_REQUEST.value(),
-                                        "Invalid input",
-                                        responseMessage));
-            }
-            return ResponseEntity.ok(
-                    ApiResponse.success("User updated successfully", responseMessage));
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+        String responseMessage = userService.editUserAsAdmin(userId, EditUserDTO, imageFile);
+        if ("User does not exist".equals(responseMessage)
+                || "Invalid department Id".equals(responseMessage)
+                || responseMessage.startsWith("Failed to update profile image")) {
+            return ResponseEntity.badRequest()
                     .body(
                             ApiResponse.error(
-                                    HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                                    "An unexpected error occurred while updating user"));
+                                    HttpStatus.BAD_REQUEST.value(),
+                                    "Invalid input",
+                                    responseMessage));
         }
+        return ResponseEntity.ok(ApiResponse.success("User updated successfully", responseMessage));
     }
 
     @Operation(
@@ -159,21 +132,13 @@ public class AdminController {
             })
     @PostMapping("/users/{userId}")
     public ResponseEntity<ApiResponse<String>> activateUser(@PathVariable UUID userId) {
-        try {
-            String responseMessage = userService.activateUser(userId);
-            if ("User not found".equals(responseMessage)) {
-                return ResponseEntity.badRequest()
-                        .body(ApiResponse.error(HttpStatus.BAD_REQUEST.value(), "User not found"));
-            }
-            return ResponseEntity.ok(
-                    ApiResponse.success("User activated successfully", responseMessage));
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(
-                            ApiResponse.error(
-                                    HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                                    "An unexpected error occurred while activating user"));
+        String responseMessage = userService.activateUser(userId);
+        if ("User not found".equals(responseMessage)) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error(HttpStatus.BAD_REQUEST.value(), "User not found"));
         }
+        return ResponseEntity.ok(
+                ApiResponse.success("User activated successfully", responseMessage));
     }
 
     @Operation(
@@ -208,29 +173,18 @@ public class AdminController {
     @PatchMapping("/users")
     public ResponseEntity<ApiResponse<List<String>>> bulkDeactivateUsers(
             @RequestBody List<UUID> userPublicIds) {
-        try {
-            List<String> results = userService.bulkDeactivateUsers(userPublicIds);
+        List<String> results = userService.bulkDeactivateUsers(userPublicIds);
 
-            // If the list of IDs was empty or null, the service returns a list like: ["User ID list
-            // cannot be null or empty."]
-            // In this specific scenario, it's more appropriate to return a 400 Bad Request.
-            if (results.size() == 1
-                    && "User ID list cannot be null or empty.".equals(results.get(0))) {
-                return ResponseEntity.badRequest()
-                        .body(ApiResponse.error(HttpStatus.BAD_REQUEST.value(), results.get(0)));
-            }
-
-            return ResponseEntity.ok(
-                    ApiResponse.success("Bulk deactivation process completed.", results));
-        } catch (Exception e) {
-            // Consider logging the exception here, e.g.:
-            // log.error("Error during bulk user deactivation: {}", e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(
-                            ApiResponse.error(
-                                    HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                                    "An unexpected error occurred during bulk deactivation."));
+        // If the list of IDs was empty or null, the service returns a list like: ["User ID list
+        // cannot be null or empty."]
+        // In this specific scenario, it's more appropriate to return a 400 Bad Request.
+        if (results.size() == 1 && "User ID list cannot be null or empty.".equals(results.get(0))) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error(HttpStatus.BAD_REQUEST.value(), results.get(0)));
         }
+
+        return ResponseEntity.ok(
+                ApiResponse.success("Bulk deactivation process completed.", results));
     }
 
     @Operation(
@@ -250,19 +204,8 @@ public class AdminController {
             })
     @GetMapping("/department/{id}")
     public ResponseEntity<ApiResponse<DepartmentDTO>> getDepartmentById(@PathVariable UUID id) {
-        try {
-            DepartmentDTO departmentDTO = departmentService.getDepartmentDtoByPublicId(id);
-            return ResponseEntity.ok(ApiResponse.success(departmentDTO));
-        } catch (RuntimeException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(ApiResponse.error(HttpStatus.NOT_FOUND.value(), "Department not found"));
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(
-                            ApiResponse.error(
-                                    HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                                    "An unexpected error occurred while retrieving department"));
-        }
+        DepartmentDTO departmentDTO = departmentService.getDepartmentDtoByPublicId(id);
+        return ResponseEntity.ok(ApiResponse.success(departmentDTO));
     }
 
     @Operation(summary = "Add department", description = "Creates a new department")
@@ -283,34 +226,26 @@ public class AdminController {
             })
     @PostMapping("/departments")
     public ResponseEntity<ApiResponse<String>> addDepartment(
-            @RequestBody DepartmentDTO departmentDTO) {
-        try {
-            String response = departmentService.addDepartment(departmentDTO);
-            if (response.contains("already exists")) {
-                return ResponseEntity.status(HttpStatus.CONFLICT)
-                        .body(
-                                ApiResponse.error(
-                                        HttpStatus.CONFLICT.value(),
-                                        "Department already exists",
-                                        response));
-            }
-            if (response.contains("Invalid department head")) {
-                return ResponseEntity.badRequest()
-                        .body(
-                                ApiResponse.error(
-                                        HttpStatus.BAD_REQUEST.value(),
-                                        "Invalid department head",
-                                        response));
-            }
-            return ResponseEntity.status(HttpStatus.CREATED)
-                    .body(ApiResponse.success("Department created successfully", response));
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+            @Valid @RequestBody DepartmentDTO departmentDTO) {
+        String response = departmentService.addDepartment(departmentDTO);
+        if (response.contains("already exists")) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
                     .body(
                             ApiResponse.error(
-                                    HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                                    "An unexpected error occurred while creating department"));
+                                    HttpStatus.CONFLICT.value(),
+                                    "Department already exists",
+                                    response));
         }
+        if (response.contains("Invalid department head")) {
+            return ResponseEntity.badRequest()
+                    .body(
+                            ApiResponse.error(
+                                    HttpStatus.BAD_REQUEST.value(),
+                                    "Invalid department head",
+                                    response));
+        }
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success("Department created successfully", response));
     }
 
     @Operation(summary = "Update department", description = "Updates an existing department")
@@ -331,34 +266,25 @@ public class AdminController {
             })
     @PatchMapping("/department/{id}")
     public ResponseEntity<ApiResponse<String>> updateDepartment(
-            @PathVariable UUID id, @RequestBody DepartmentDTO departmentDTO) {
-        try {
-            String response = departmentService.updateDepartment(id, departmentDTO);
-            if (response.contains("does not exist")) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                        .body(
-                                ApiResponse.error(
-                                        HttpStatus.NOT_FOUND.value(),
-                                        "Department not found",
-                                        response));
-            }
-            if (response.contains("Invalid department head")) {
-                return ResponseEntity.badRequest()
-                        .body(
-                                ApiResponse.error(
-                                        HttpStatus.BAD_REQUEST.value(),
-                                        "Invalid department head",
-                                        response));
-            }
-            return ResponseEntity.ok(
-                    ApiResponse.success("Department updated successfully", response));
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+            @PathVariable UUID id, @Valid @RequestBody DepartmentDTO departmentDTO) {
+        String response = departmentService.updateDepartment(id, departmentDTO);
+        if (response.contains("does not exist")) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .body(
                             ApiResponse.error(
-                                    HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                                    "An unexpected error occurred while updating department"));
+                                    HttpStatus.NOT_FOUND.value(),
+                                    "Department not found",
+                                    response));
         }
+        if (response.contains("Invalid department head")) {
+            return ResponseEntity.badRequest()
+                    .body(
+                            ApiResponse.error(
+                                    HttpStatus.BAD_REQUEST.value(),
+                                    "Invalid department head",
+                                    response));
+        }
+        return ResponseEntity.ok(ApiResponse.success("Department updated successfully", response));
     }
 
     @Operation(
@@ -391,23 +317,8 @@ public class AdminController {
                                     HttpStatus.BAD_REQUEST.value(),
                                     "Department ID list cannot be null or empty."));
         }
-        try {
-            List<String> results = departmentService.deleteDepartments(departmentPublicIds);
-            return ResponseEntity.ok(
-                    ApiResponse.success("Bulk delete operation processed.", results));
-        } catch (Exception e) {
-            // Consider logging the exception e.g., using a logger instance
-            // logger.error("Error during bulk department deletion for IDs: {}",
-            // departmentPublicIds, e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(
-                            ApiResponse.error(
-                                    HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                                    "An unexpected error occurred during bulk department deletion.",
-                                    e.getMessage() != null
-                                            ? e.getMessage()
-                                            : "Internal error details unavailable."));
-        }
+        List<String> results = departmentService.deleteDepartments(departmentPublicIds);
+        return ResponseEntity.ok(ApiResponse.success("Bulk delete operation processed.", results));
     }
 
     @Operation(
@@ -428,25 +339,9 @@ public class AdminController {
     @PostMapping("/department/{departmentId}/assignHead/{userId}")
     public ResponseEntity<ApiResponse<String>> assignDepartmentHead(
             @PathVariable UUID departmentId, @PathVariable UUID userId) {
-        try {
-            String response = departmentService.assignDepartmentHead(departmentId, userId);
-            return ResponseEntity.ok(
-                    ApiResponse.success("Department head assigned successfully", response));
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest()
-                    .body(
-                            ApiResponse.error(
-                                    HttpStatus.BAD_REQUEST.value(),
-                                    "Invalid input",
-                                    e.getMessage()));
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(
-                            ApiResponse.error(
-                                    HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                                    "An unexpected error occurred while assigning department"
-                                            + " head"));
-        }
+        String response = departmentService.assignDepartmentHead(departmentId, userId);
+        return ResponseEntity.ok(
+                ApiResponse.success("Department head assigned successfully", response));
     }
 
     @Operation(summary = "Add venue", description = "Creates a new venue with optional image")
@@ -464,26 +359,11 @@ public class AdminController {
             })
     @PostMapping("/venues")
     public ResponseEntity<ApiResponse<VenueDTO>> addVenue(
-            @RequestPart("venue") VenueDTO venueDTO,
+            @Valid @RequestPart("venue") VenueDTO venueDTO,
             @RequestPart(value = "image", required = false) MultipartFile imageFile) {
-        try {
-            VenueDTO newVenue = venueService.addVenue(venueDTO, imageFile);
-            return ResponseEntity.status(HttpStatus.CREATED)
-                    .body(ApiResponse.success("Venue created successfully", newVenue));
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest()
-                    .body(
-                            ApiResponse.error(
-                                    HttpStatus.BAD_REQUEST.value(),
-                                    "Invalid input",
-                                    e.getMessage()));
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(
-                            ApiResponse.error(
-                                    HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                                    "An unexpected error occurred while creating venue"));
-        }
+        VenueDTO newVenue = venueService.addVenue(venueDTO, imageFile);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success("Venue created successfully", newVenue));
     }
 
     @Operation(
@@ -507,33 +387,10 @@ public class AdminController {
     @PatchMapping("/venues/{venueId}")
     public ResponseEntity<ApiResponse<VenueDTO>> updateVenue(
             @PathVariable UUID venueId,
-            @RequestPart("venue") VenueDTO venueDTO,
+            @Valid @RequestPart("venue") VenueDTO venueDTO,
             @RequestPart(value = "image", required = false) MultipartFile imageFile) {
-        try {
-            VenueDTO updatedVenue = venueService.updateVenue(venueId, venueDTO, imageFile);
-            return ResponseEntity.ok(
-                    ApiResponse.success("Venue updated successfully", updatedVenue));
-        } catch (NoSuchElementException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(
-                            ApiResponse.error(
-                                    HttpStatus.NOT_FOUND.value(),
-                                    "Venue not found",
-                                    e.getMessage()));
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest()
-                    .body(
-                            ApiResponse.error(
-                                    HttpStatus.BAD_REQUEST.value(),
-                                    "Invalid input",
-                                    e.getMessage()));
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(
-                            ApiResponse.error(
-                                    HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                                    "An unexpected error occurred while updating venue"));
-        }
+        VenueDTO updatedVenue = venueService.updateVenue(venueId, venueDTO, imageFile);
+        return ResponseEntity.ok(ApiResponse.success("Venue updated successfully", updatedVenue));
     }
 
     @Operation(summary = "Delete venue", description = "Deletes an existing venue")
@@ -554,24 +411,8 @@ public class AdminController {
             })
     @DeleteMapping("/venues/{venueId}")
     public ResponseEntity<ApiResponse<String>> deleteVenue(@PathVariable UUID venueId) {
-        try {
-            venueService.deleteVenue(venueId);
-            return ResponseEntity.ok(ApiResponse.success("Venue deleted successfully"));
-        } catch (NoSuchElementException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(
-                            ApiResponse.error(
-                                    HttpStatus.NOT_FOUND.value(),
-                                    "Venue not found",
-                                    e.getMessage()));
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.CONFLICT)
-                    .body(
-                            ApiResponse.error(
-                                    HttpStatus.CONFLICT.value(),
-                                    "Could not delete venue. It might be associated with existing"
-                                        + " events or an error occurred during image deletion"));
-        }
+        venueService.deleteVenue(venueId);
+        return ResponseEntity.ok(ApiResponse.success("Venue deleted successfully"));
     }
 
     @Operation(
@@ -594,24 +435,7 @@ public class AdminController {
             })
     @DeleteMapping("/venues/bulk")
     public ResponseEntity<ApiResponse<String>> bulkDeleteVenues(@RequestBody List<UUID> venueIds) {
-        try {
-            venueService.bulkDeleteVenues(venueIds);
-            return ResponseEntity.ok(ApiResponse.success("Venues deleted successfully"));
-        } catch (NoSuchElementException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(
-                            ApiResponse.error(
-                                    HttpStatus.NOT_FOUND.value(),
-                                    "Some venues were not found",
-                                    e.getMessage()));
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.CONFLICT)
-                    .body(
-                            ApiResponse.error(
-                                    HttpStatus.CONFLICT.value(),
-                                    "Could not delete some venues. They might be associated with"
-                                            + " existing events or an error occurred during image"
-                                            + " deletion"));
-        }
+        venueService.bulkDeleteVenues(venueIds);
+        return ResponseEntity.ok(ApiResponse.success("Venues deleted successfully"));
     }
 }
