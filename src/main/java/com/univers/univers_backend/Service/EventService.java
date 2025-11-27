@@ -295,12 +295,22 @@ public class EventService {
         if (requestDTO.eventType() != null && !requestDTO.eventType().isBlank()) {
             event.setEventType(requestDTO.eventType());
         }
+
+        // Track if times are being updated for notification purposes
+        boolean startTimeChanged = false;
+        boolean endTimeChanged = false;
+        Instant oldStartTime = event.getStartTime();
+        Instant oldEndTime = event.getEndTime();
+
         if (requestDTO.startTime() != null) {
             Instant now = Instant.now();
             if (requestDTO.startTime().isBefore(now)) {
                 throw new IllegalArgumentException(
                         "Event start time cannot be in the past. Start time: "
                                 + requestDTO.startTime());
+            }
+            if (!requestDTO.startTime().equals(oldStartTime)) {
+                startTimeChanged = true;
             }
             event.setStartTime(requestDTO.startTime());
         }
@@ -309,6 +319,9 @@ public class EventService {
             if (requestDTO.endTime().isBefore(now)) {
                 throw new IllegalArgumentException(
                         "Event end time cannot be in the past. End time: " + requestDTO.endTime());
+            }
+            if (!requestDTO.endTime().equals(oldEndTime)) {
+                endTimeChanged = true;
             }
             event.setEndTime(requestDTO.endTime());
         }
@@ -403,6 +416,51 @@ public class EventService {
         }
 
         Event updatedDbEvent = eventRepository.save(event);
+
+        // Notify assigned personnel if event times changed
+        if ((startTimeChanged || endTimeChanged)
+                && updatedDbEvent.getAssignedPersonnel() != null
+                && !updatedDbEvent.getAssignedPersonnel().isEmpty()) {
+            String timeChangeMessage = "";
+            if (startTimeChanged && endTimeChanged) {
+                timeChangeMessage =
+                        String.format(
+                                "The event '%s' schedule has been updated. New start time: %s, New"
+                                        + " end time: %s.",
+                                updatedDbEvent.getEventName(),
+                                updatedDbEvent.getStartTime().toString(),
+                                updatedDbEvent.getEndTime().toString());
+            } else if (startTimeChanged) {
+                timeChangeMessage =
+                        String.format(
+                                "The event '%s' start time has been updated to %s.",
+                                updatedDbEvent.getEventName(),
+                                updatedDbEvent.getStartTime().toString());
+            } else if (endTimeChanged) {
+                timeChangeMessage =
+                        String.format(
+                                "The event '%s' end time has been updated to %s.",
+                                updatedDbEvent.getEventName(),
+                                updatedDbEvent.getEndTime().toString());
+            }
+
+            for (EventPersonnel personnel : updatedDbEvent.getAssignedPersonnel()) {
+                if (personnel.getAssignedPersonnel() != null) {
+                    User personnelUser = personnel.getAssignedPersonnel();
+                    notificationService.createNotification(
+                            personnelUser,
+                            timeChangeMessage,
+                            updatedDbEvent.getPublicId(),
+                            updatedDbEvent.getPublicId(),
+                            "EVENT_TIME_UPDATE");
+                    logger.info(
+                            "Sent time update notification to personnel {} for event {}",
+                            personnelUser.getPublicId(),
+                            updatedDbEvent.getPublicId());
+                }
+            }
+        }
+
         return eventMapper.toDto(updatedDbEvent);
     }
 
@@ -567,6 +625,33 @@ public class EventService {
                     canceledEvent.getPublicId(),
                     null, // No specific reservation ID anymore
                     "EVENT_VENUE_CANCELLATION_INFO");
+        }
+
+        // Notify all assigned personnel about the event cancellation
+        List<EventPersonnel> assignedPersonnel = canceledEvent.getAssignedPersonnel();
+        if (assignedPersonnel != null && !assignedPersonnel.isEmpty()) {
+            for (EventPersonnel personnel : assignedPersonnel) {
+                if (personnel.getAssignedPersonnel() != null) {
+                    User personnelUser = personnel.getAssignedPersonnel();
+                    String taskName =
+                            personnel.getTask() != null ? personnel.getTask().name() : "ASSIGNED";
+                    notificationService.createNotification(
+                            personnelUser,
+                            "The event '"
+                                    + canceledEvent.getEventName()
+                                    + "' where you were assigned as "
+                                    + taskName
+                                    + " has been canceled. Reason: "
+                                    + reasonOrDefault,
+                            canceledEvent.getPublicId(),
+                            canceledEvent.getPublicId(),
+                            "EVENT_PERSONNEL_CANCELLATION");
+                    logger.info(
+                            "Sent cancellation notification to personnel {} for event {}",
+                            personnelUser.getPublicId(),
+                            canceledEvent.getPublicId());
+                }
+            }
         }
 
         return "Event canceled successfully.";
@@ -877,6 +962,29 @@ public class EventService {
         event.getAssignedPersonnel().add(newPersonnel);
         Event updatedEvent = eventRepository.save(event);
 
+        // Send notification to the assigned personnel
+        User assignedUser = newPersonnel.getAssignedPersonnel();
+        if (assignedUser != null) {
+            String taskName =
+                    newPersonnel.getTask() != null ? newPersonnel.getTask().name() : "SETUP";
+            String message =
+                    String.format(
+                            "You have been assigned to event '%s' as %s. Event starts at %s.",
+                            event.getEventName(), taskName, event.getStartTime().toString());
+
+            notificationService.createNotification(
+                    assignedUser,
+                    message,
+                    event.getPublicId(),
+                    event.getPublicId(),
+                    "PERSONNEL_ASSIGNMENT");
+
+            logger.info(
+                    "Sent personnel assignment notification to user {} for event {}",
+                    assignedUser.getPublicId(),
+                    event.getPublicId());
+        }
+
         return updatedEvent.getAssignedPersonnel().stream()
                 .map(eventMapper::toPersonnelDto)
                 .collect(Collectors.toList());
@@ -904,10 +1012,12 @@ public class EventService {
 
         Iterator<EventPersonnel> iterator = assignedPersonnel.iterator();
         boolean foundAndRemoved = false;
+        EventPersonnel removedPersonnel = null;
 
         while (iterator.hasNext()) {
             EventPersonnel personnel = iterator.next();
             if (personnel.getPublicId().equals(personnelPublicId)) {
+                removedPersonnel = personnel;
                 iterator.remove();
                 foundAndRemoved = true;
                 break;
@@ -917,6 +1027,28 @@ public class EventService {
             throw new NoSuchElementException("Personnel not found with UUID" + personnelPublicId);
         }
         eventRepository.save(event);
+
+        // Send notification to the removed personnel
+        if (removedPersonnel != null && removedPersonnel.getAssignedPersonnel() != null) {
+            User removedUser = removedPersonnel.getAssignedPersonnel();
+            String message =
+                    String.format(
+                            "You have been removed from event '%s'. You are no longer assigned to"
+                                    + " this event.",
+                            event.getEventName());
+
+            notificationService.createNotification(
+                    removedUser,
+                    message,
+                    event.getPublicId(),
+                    event.getPublicId(),
+                    "PERSONNEL_REMOVAL");
+
+            logger.info(
+                    "Sent personnel removal notification to user {} for event {}",
+                    removedUser.getPublicId(),
+                    event.getPublicId());
+        }
     }
 
     @Transactional

@@ -87,26 +87,30 @@ public class EventApprovalService {
                                         new NoSuchElementException(
                                                 "Event not found with ID: " + eventPublicId));
 
-        // Check if user is SUPER_ADMIN - they can approve/deny any event without needing an
-        // approval record
+        // Check if user is SUPER_ADMIN or ASSIGNED_PERSONNEL - they can approve/deny any event
+        // without needing an approval record
         boolean isSuperAdmin = currentUser.getRoles().contains(Role.SUPER_ADMIN);
+        boolean isAssignedPersonnel = currentUser.getRoles().contains(Role.ASSIGNED_PERSONNEL);
+        boolean hasAdminPrivileges = isSuperAdmin || isAssignedPersonnel;
 
         EventApproval eventApproval;
-        if (isSuperAdmin) {
-            // For SUPER_ADMIN, find or create an approval record if it doesn't exist
+        if (hasAdminPrivileges) {
+            // For SUPER_ADMIN or ASSIGNED_PERSONNEL, find or create an approval record if it
+            // doesn't exist
             eventApproval =
                     eventApprovalRepository
                             .findByEventAndSignedBy(event, currentUser)
                             .orElseGet(
                                     () -> {
-                                        // Create a new approval record for SUPER_ADMIN
+                                        // Create a new approval record for SUPER_ADMIN or
+                                        // ASSIGNED_PERSONNEL
                                         EventApproval newApproval = new EventApproval();
                                         newApproval.setEvent(event);
                                         newApproval.setSignedBy(currentUser);
                                         newApproval.setStatus(Status.PENDING);
                                         logger.info(
-                                                "SUPER_ADMIN {} is creating new approval record for"
-                                                        + " event {}",
+                                                "User {} with admin privileges is creating new"
+                                                        + " approval record for event {}",
                                                 currentUser.getPublicId(),
                                                 eventPublicId);
                                         return newApproval;
@@ -174,13 +178,14 @@ public class EventApprovalService {
         eventApproval.setDateSigned(Instant.now());
         EventApproval updatedApproval = eventApprovalRepository.save(eventApproval);
 
-        // If SUPER_ADMIN approves the event, automatically approve the entire event
-        if (isSuperAdmin && newStatus == Status.APPROVED) {
+        // If user with admin privileges approves the event, automatically approve the entire
+        // event
+        if (hasAdminPrivileges && newStatus == Status.APPROVED) {
             event.setStatus(Status.APPROVED);
             eventRepository.save(event);
             logger.info(
-                    "SUPER_ADMIN {} automatically approved event {} (entire event set to APPROVED"
-                            + " status)",
+                    "User {} with admin privileges automatically approved event {} (entire event"
+                            + " set to APPROVED status)",
                     currentUser.getPublicId(),
                     eventPublicId);
         }
@@ -209,6 +214,42 @@ public class EventApprovalService {
                     event.getPublicId(),
                     event.getPublicId(),
                     "EVENT_APPROVAL_ACTION");
+        }
+
+        // Notify assigned personnel when event is approved or rejected
+        if (event.getAssignedPersonnel() != null && !event.getAssignedPersonnel().isEmpty()) {
+            String personnelMessage = "";
+            if (newStatus == Status.APPROVED) {
+                personnelMessage =
+                        String.format(
+                                "The event '%s' where you are assigned has been approved. Event"
+                                        + " starts at %s.",
+                                event.getEventName(), event.getStartTime().toString());
+            } else if (newStatus == Status.REJECTED) {
+                personnelMessage =
+                        String.format(
+                                "The event '%s' where you were assigned has been rejected.%s",
+                                event.getEventName(),
+                                remarks != null && !remarks.isBlank() ? " Reason: " + remarks : "");
+            }
+
+            if (!personnelMessage.isEmpty()) {
+                for (var personnel : event.getAssignedPersonnel()) {
+                    if (personnel.getAssignedPersonnel() != null) {
+                        notificationService.createNotification(
+                                personnel.getAssignedPersonnel(),
+                                personnelMessage,
+                                event.getPublicId(),
+                                event.getPublicId(),
+                                "EVENT_PERSONNEL_STATUS_UPDATE");
+                        logger.info(
+                                "Sent {} notification to personnel {} for event {}",
+                                newStatus == Status.APPROVED ? "approval" : "rejection",
+                                personnel.getAssignedPersonnel().getPublicId(),
+                                eventPublicId);
+                    }
+                }
+            }
         }
 
         // If this is an equipment owner approving the event, automatically approve their equipment
@@ -300,9 +341,9 @@ public class EventApprovalService {
             }
         }
 
-        // Only call checkAndUpdateEventStatus if not SUPER_ADMIN approving (since SUPER_ADMIN
-        // directly sets the event to APPROVED)
-        if (!(isSuperAdmin && newStatus == Status.APPROVED)) {
+        // Only call checkAndUpdateEventStatus if not user with admin privileges approving (since
+        // they directly set the event to APPROVED)
+        if (!(hasAdminPrivileges && newStatus == Status.APPROVED)) {
             checkAndUpdateEventStatus(updatedApproval.getEvent());
         }
 
