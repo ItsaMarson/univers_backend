@@ -780,6 +780,30 @@ public class EventService {
                                                                         // cb.equal(approvalRoot.get("status"), Status.PENDING)
                                                                         )));
                                     });
+                } else if (userRole.contains(Role.ASSIGNED_PERSONNEL)) {
+                    // Get all events where this user is assigned as personnel
+                    spec =
+                            spec.and(
+                                    (root, query, cb) -> {
+                                        // Join with EventPersonnel to find events where this
+                                        // user is assigned
+                                        Subquery<Long> subquery = query.subquery(Long.class);
+                                        Root<EventPersonnel> personnelRoot =
+                                                subquery.from(EventPersonnel.class);
+
+                                        return cb.exists(
+                                                subquery.select(cb.literal(1L))
+                                                        .where(
+                                                                cb.and(
+                                                                        cb.equal(
+                                                                                personnelRoot.get(
+                                                                                        "event"),
+                                                                                root),
+                                                                        cb.equal(
+                                                                                personnelRoot.get(
+                                                                                        "assignedPersonnel"),
+                                                                                currentUser))));
+                                    });
                 } else {
                     logger.info(
                             "User role {} cannot query for scope 'related'. Returning empty list.",
