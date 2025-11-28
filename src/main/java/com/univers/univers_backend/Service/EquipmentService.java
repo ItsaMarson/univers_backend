@@ -34,6 +34,7 @@ public class EquipmentService {
     private final FileStorageService fileStorageService;
     private final EquipmentMapper equipmentMapper;
     private final EquipmentCategoryService equipmentCategoryService;
+    private final ActivityLogService activityLogService;
 
     @Value("${minio.bucket.equipments}")
     private String equipmentsBucketName;
@@ -46,11 +47,13 @@ public class EquipmentService {
             UserRepository userRepository,
             FileStorageService fileStorageService,
             EquipmentCategoryService equipmentCategoryService,
+            ActivityLogService activityLogService,
             EquipmentMapper equipmentMapper) {
         this.equipmentRepository = equipmentRepository;
         this.userRepository = userRepository;
         this.fileStorageService = fileStorageService;
         this.equipmentCategoryService = equipmentCategoryService;
+        this.activityLogService = activityLogService;
         this.equipmentMapper = equipmentMapper;
     }
 
@@ -174,6 +177,16 @@ public class EquipmentService {
         }
 
         Equipment savedEquipment = equipmentRepository.save(newEquipment);
+
+        // Log equipment creation
+        User currentUser = getCurrentUserEntity();
+        activityLogService.logActivity(
+                "EQUIPMENT_CREATED",
+                "Equipment",
+                savedEquipment.getPublicId(),
+                currentUser,
+                "Equipment created: " + savedEquipment.getName(),
+                null);
 
         return equipmentMapper.toDto(savedEquipment);
     }
@@ -372,6 +385,17 @@ public class EquipmentService {
         }
 
         Equipment updatedEquipment = equipmentRepository.save(equipment);
+
+        // Log equipment update
+        User currentUser = getCurrentUserEntity();
+        activityLogService.logActivity(
+                "EQUIPMENT_UPDATED",
+                "Equipment",
+                updatedEquipment.getPublicId(),
+                currentUser,
+                "Equipment updated: " + updatedEquipment.getName(),
+                null);
+
         return equipmentMapper.toDto(updatedEquipment);
     }
 
@@ -429,5 +453,36 @@ public class EquipmentService {
         }
 
         return results;
+    }
+
+    private User getCurrentUserEntity() {
+        try {
+            org.springframework.security.core.Authentication authentication =
+                    org.springframework.security.core.context.SecurityContextHolder.getContext()
+                            .getAuthentication();
+            if (authentication == null
+                    || !authentication.isAuthenticated()
+                    || authentication.getPrincipal() == null
+                    || "anonymousUser".equals(authentication.getPrincipal().toString())) {
+                return null;
+            }
+
+            String username;
+            if (authentication.getPrincipal()
+                    instanceof org.springframework.security.core.userdetails.UserDetails) {
+                username =
+                        ((org.springframework.security.core.userdetails.UserDetails)
+                                        authentication.getPrincipal())
+                                .getUsername();
+            } else if (authentication.getPrincipal() instanceof String) {
+                username = (String) authentication.getPrincipal();
+            } else {
+                return null;
+            }
+
+            return userRepository.findByEmail(username).orElse(null);
+        } catch (Exception e) {
+            return null;
+        }
     }
 }

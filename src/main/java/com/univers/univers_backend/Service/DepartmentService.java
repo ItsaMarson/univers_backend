@@ -32,6 +32,7 @@ public class DepartmentService {
     private final UserRepository userRepository;
     private final DepartmentMapper departmentMapper; // Injected DepartmentMapper
     private final EquipmentReservationRepository equipmentReservationRepository; // Added import
+    private final ActivityLogService activityLogService;
 
     public DepartmentService(
             DepartmentRepository departmentRepository,
@@ -39,12 +40,14 @@ public class DepartmentService {
             @Lazy
                     DepartmentMapper
                             departmentMapper, // Inject DepartmentMapper, @Lazy if cycles are a
-            EquipmentReservationRepository equipmentReservationRepository) { // Added repository
+            EquipmentReservationRepository equipmentReservationRepository,
+            ActivityLogService activityLogService) { // Added repository
         // concern
         this.departmentRepository = departmentRepository;
         this.userRepository = userRepository;
         this.departmentMapper = departmentMapper;
         this.equipmentReservationRepository = equipmentReservationRepository; // Added assignment
+        this.activityLogService = activityLogService;
     }
 
     public String assignDepartmentHead(UUID departmentPublicId, UUID userPublicId) {
@@ -76,6 +79,17 @@ public class DepartmentService {
         }
         department.setDeptHead(user);
         departmentRepository.save(department);
+
+        // Log department head assignment
+        User currentUser = getCurrentUserEntity();
+        activityLogService.logActivity(
+                "DEPARTMENT_HEAD_ASSIGNED",
+                "Department",
+                department.getPublicId(),
+                currentUser,
+                "Assigned " + user.getEmail() + " as department head of " + department.getName(),
+                null);
+
         return "User " + user.getEmail() + " is now the department head of " + department.getName();
     }
 
@@ -110,6 +124,17 @@ public class DepartmentService {
         } // If deptHead or its publicId is null, created without a head.
 
         departmentRepository.save(newDepartment);
+
+        // Log department creation
+        User currentUser = getCurrentUserEntity();
+        activityLogService.logActivity(
+                "DEPARTMENT_CREATED",
+                "Department",
+                newDepartment.getPublicId(),
+                currentUser,
+                "Department created: " + newDepartment.getName(),
+                null);
+
         return "Department '" + newDepartment.getName() + "' has been saved successfully.";
     }
 
@@ -149,6 +174,17 @@ public class DepartmentService {
         // explicitly nulled.
 
         departmentRepository.save(department);
+
+        // Log department update
+        User currentUser = getCurrentUserEntity();
+        activityLogService.logActivity(
+                "DEPARTMENT_UPDATED",
+                "Department",
+                department.getPublicId(),
+                currentUser,
+                "Department updated: " + department.getName(),
+                null);
+
         return "Department has been successfully updated.";
     }
 
@@ -195,6 +231,17 @@ public class DepartmentService {
         }
 
         departmentRepository.delete(department);
+
+        // Log department deletion
+        User currentUser = getCurrentUserEntity();
+        activityLogService.logActivity(
+                "DEPARTMENT_DELETED",
+                "Department",
+                department.getPublicId(),
+                currentUser,
+                "Department deleted: " + department.getName(),
+                null);
+
         return "Department successfully deleted.";
     }
 
@@ -274,6 +321,38 @@ public class DepartmentService {
             }
         }
         return results;
+    }
+
+    private User getCurrentUserEntity() {
+        try {
+            org.springframework.security.core.Authentication authentication =
+                    org.springframework.security.core.context.SecurityContextHolder.getContext()
+                            .getAuthentication();
+            if (authentication == null
+                    || !authentication.isAuthenticated()
+                    || authentication.getPrincipal() == null
+                    || "anonymousUser".equals(authentication.getPrincipal().toString())) {
+                return null;
+            }
+
+            String username;
+            if (authentication.getPrincipal()
+                    instanceof org.springframework.security.core.userdetails.UserDetails) {
+                username =
+                        ((org.springframework.security.core.userdetails.UserDetails)
+                                        authentication.getPrincipal())
+                                .getUsername();
+            } else if (authentication.getPrincipal() instanceof String) {
+                username = (String) authentication.getPrincipal();
+            } else {
+                return null;
+            }
+
+            return userRepository.findByEmail(username).orElse(null);
+        } catch (Exception e) {
+            logger.error("Error getting current user: {}", e.getMessage());
+            return null;
+        }
     }
 
     // Removed private mapDepartmentToDTO method

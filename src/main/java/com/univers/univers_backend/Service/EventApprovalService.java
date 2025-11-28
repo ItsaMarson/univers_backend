@@ -38,6 +38,7 @@ public class EventApprovalService {
     private final NotificationService notificationService;
     private final UserMapper userMapper;
     private final EquipmentReservationService equipmentReservationService;
+    private final ActivityLogService activityLogService;
 
     public EventApprovalService(
             EventApprovalRepository eventApprovalRepository,
@@ -45,13 +46,15 @@ public class EventApprovalService {
             UserRepository userRepository,
             NotificationService notificationService,
             UserMapper userMapper,
-            EquipmentReservationService equipmentReservationService) {
+            EquipmentReservationService equipmentReservationService,
+            ActivityLogService activityLogService) {
         this.eventApprovalRepository = eventApprovalRepository;
         this.eventRepository = eventRepository;
         this.userRepository = userRepository;
         this.notificationService = notificationService;
         this.userMapper = userMapper;
         this.equipmentReservationService = equipmentReservationService;
+        this.activityLogService = activityLogService;
     }
 
     // Helper method to get the current authenticated user
@@ -173,6 +176,18 @@ public class EventApprovalService {
         eventApproval.setRemarks(remarks);
         eventApproval.setDateSigned(Instant.now());
         EventApproval updatedApproval = eventApprovalRepository.save(eventApproval);
+
+        // Log approval action
+        activityLogService.logActivity(
+                "EVENT_APPROVAL_" + newStatus.name(),
+                "EventApproval",
+                eventApproval.getPublicId(),
+                currentUser,
+                "Event approval "
+                        + newStatus.name().toLowerCase()
+                        + " for event: "
+                        + event.getEventName(),
+                null);
 
         // If SUPER_ADMIN approves the event, automatically approve the entire event
         if (isSuperAdmin && newStatus == Status.APPROVED) {

@@ -61,6 +61,7 @@ public class EquipmentReservationService {
     private final EventMapper eventMapper;
     private final DepartmentMapper departmentMapper;
     private final EquipmentMapper equipmentMapper;
+    private final ActivityLogService activityLogService;
     private static final Logger logger = LoggerFactory.getLogger(EquipmentReservationService.class);
     // Define roles that can approve/reject equipment reservations
     // Assuming EQUIPMENT_OWNER is the primary role
@@ -85,6 +86,7 @@ public class EquipmentReservationService {
             FileStorageService fileStorageService,
             NotificationService notificationService,
             EventApprovalRepository eventApprovalRepository,
+            ActivityLogService activityLogService,
             @Lazy EventMapper eventMapper,
             @Lazy DepartmentMapper departmentMapper,
             @Lazy EquipmentMapper equipmentMapper) {
@@ -97,6 +99,7 @@ public class EquipmentReservationService {
         this.fileStorageService = fileStorageService;
         this.notificationService = notificationService;
         this.eventApprovalRepository = eventApprovalRepository;
+        this.activityLogService = activityLogService;
         this.eventMapper = eventMapper;
         this.departmentMapper = departmentMapper;
         this.equipmentMapper = equipmentMapper;
@@ -345,6 +348,16 @@ public class EquipmentReservationService {
         approval.setRemarks(remarks);
         equipmentApprovalRepository.save(approval);
 
+        // Log equipment approval
+        activityLogService.logActivity(
+                "EQUIPMENT_RESERVATION_APPROVED",
+                "EquipmentReservation",
+                reservation.getPublicId(),
+                currentUser,
+                "Equipment reservation approved for event: "
+                        + reservation.getEvent().getEventName(),
+                null);
+
         checkAndUpdateEquipmentReservationStatus(reservation);
 
         notifyRequester(
@@ -396,6 +409,16 @@ public class EquipmentReservationService {
         rejectionRecord.setStatus(Status.REJECTED);
         rejectionRecord.setRemarks(remarks);
         equipmentApprovalRepository.save(rejectionRecord);
+
+        // Log equipment rejection
+        activityLogService.logActivity(
+                "EQUIPMENT_RESERVATION_REJECTED",
+                "EquipmentReservation",
+                reservation.getPublicId(),
+                currentUser,
+                "Equipment reservation rejected for event: "
+                        + reservation.getEvent().getEventName(),
+                null);
 
         // Restore equipment quantity that was reserved (works for both PENDING and APPROVED status)
         Equipment equipment = reservation.getEquipment();

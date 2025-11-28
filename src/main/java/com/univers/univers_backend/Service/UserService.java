@@ -55,6 +55,7 @@ public class UserService {
     private final FileStorageService fileStorageService;
 
     private final UserMapper userMapper;
+    private final ActivityLogService activityLogService;
 
     @Value("${minio.bucket.users}")
     private String usersBucketName;
@@ -73,7 +74,8 @@ public class UserService {
             PasswordEncoder passwordEncoder,
             EmailService emailService,
             FileStorageService fileStorageService,
-            UserMapper userMapper) {
+            UserMapper userMapper,
+            ActivityLogService activityLogService) {
         this.authenticationManager = authenticationManager;
         this.jwtUtil = jwtUtil;
         this.userRepository = userRepository;
@@ -82,6 +84,7 @@ public class UserService {
         this.emailService = emailService;
         this.fileStorageService = fileStorageService;
         this.userMapper = userMapper;
+        this.activityLogService = activityLogService;
     }
 
     public ResponseEntity<Map<String, Object>> login(
@@ -198,6 +201,15 @@ public class UserService {
         user.setActive(true);
         userRepository.save(user);
 
+        // Log user registration
+        activityLogService.logActivity(
+                "USER_REGISTERED",
+                "User",
+                user.getPublicId(),
+                user,
+                "New user registered: " + user.getEmail(),
+                null);
+
         String subject = "Thanks for Signing Up. Please Verify Your Email Address [UniVERS] ";
         emailService.sendVerificationEmail(
                 user.getEmail(),
@@ -300,6 +312,16 @@ public class UserService {
         user.setVerificationCodeExpiration(Instant.now().plus(10, ChronoUnit.MINUTES));
         user.setActive(true);
         userRepository.save(user);
+
+        // Log user creation by admin
+        User currentUser = getCurrentUserEntity();
+        activityLogService.logActivity(
+                "USER_CREATED_BY_ADMIN",
+                "User",
+                user.getPublicId(),
+                currentUser,
+                "Admin created new user: " + user.getEmail(),
+                null);
 
         String subject = "Thanks for Signing Up. Please Verify Your Email Address [UniVERS] ";
         emailService.sendVerificationEmail(
@@ -445,6 +467,17 @@ public class UserService {
             }
         }
         userRepository.save(user);
+
+        // Log user edit by admin
+        User currentUser = getCurrentUserEntity();
+        activityLogService.logActivity(
+                "USER_UPDATED_BY_ADMIN",
+                "User",
+                user.getPublicId(),
+                currentUser,
+                "Admin updated user: " + user.getEmail(),
+                null);
+
         return "User details updated successfully by admin.";
     }
 
@@ -475,6 +508,17 @@ public class UserService {
 
         user.setActive(false);
         userRepository.save(user);
+
+        // Log user deactivation
+        User currentUser = getCurrentUserEntity();
+        activityLogService.logActivity(
+                "USER_DEACTIVATED",
+                "User",
+                user.getPublicId(),
+                currentUser,
+                "Admin deactivated user: " + user.getEmail(),
+                null);
+
         return "User " + user.getFullName() + " deactivated successfully.";
     }
 
@@ -575,6 +619,17 @@ public class UserService {
                                                 "User not found with Public ID: " + publicId));
         user.setActive(true);
         userRepository.save(user);
+
+        // Log user activation
+        User currentUser = getCurrentUserEntity();
+        activityLogService.logActivity(
+                "USER_ACTIVATED",
+                "User",
+                user.getPublicId(),
+                currentUser,
+                "Admin activated user: " + user.getEmail(),
+                null);
+
         return "User activated successfully.";
     }
 
@@ -609,6 +664,27 @@ public class UserService {
                                         new UsernameNotFoundException(
                                                 "User not found with email: " + username));
         return userMapper.toDto(user);
+    }
+
+    private User getCurrentUserEntity() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null
+                || !authentication.isAuthenticated()
+                || authentication.getPrincipal() == null
+                || "anonymousUser".equals(authentication.getPrincipal().toString())) {
+            return null;
+        }
+
+        String username;
+        if (authentication.getPrincipal() instanceof UserDetails) {
+            username = ((UserDetails) authentication.getPrincipal()).getUsername();
+        } else if (authentication.getPrincipal() instanceof String) {
+            username = (String) authentication.getPrincipal();
+        } else {
+            return null;
+        }
+
+        return userRepository.findByEmail(username).orElse(null);
     }
 
     public String verifyResetCode(String email, String verificationCode) {

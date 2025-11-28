@@ -41,8 +41,7 @@ public class SecurityConfig {
                                 cors.configurationSource(
                                         request -> {
                                             CorsConfiguration config = new CorsConfiguration();
-                                            config.setAllowedOrigins(
-                                                    List.of(allowedOrigin));
+                                            config.setAllowedOrigins(List.of(allowedOrigin));
                                             config.setAllowedMethods(
                                                     List.of(
                                                             "GET", "POST", "PATCH", "DELETE", "PUT",
@@ -75,7 +74,10 @@ public class SecurityConfig {
                                                 "/auth/me",
                                                 "/departments")
                                         .permitAll()
-                                        .requestMatchers("/admin/**", "/admin/users/**")
+                                        .requestMatchers(
+                                                "/admin/**",
+                                                "/admin/users/**",
+                                                "/admin/activity-logs/**")
                                         .hasAuthority("SUPER_ADMIN")
                                         .anyRequest()
                                         .authenticated())

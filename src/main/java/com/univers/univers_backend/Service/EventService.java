@@ -43,6 +43,7 @@ public class EventService {
     private final DepartmentService departmentService;
     private final EventApprovalRepository eventApprovalRepository;
     private final EquipmentReservationService equipmentReservationService;
+    private final ActivityLogService activityLogService;
 
     // Mappers
     private final EventMapper eventMapper;
@@ -65,6 +66,7 @@ public class EventService {
             NotificationService notificationService,
             EventApprovalRepository eventApprovalRepository,
             EquipmentReservationService equipmentReservationService,
+            ActivityLogService activityLogService,
             @Lazy EventMapper eventMapper,
             UserMapper userMapper) {
         this.eventRepository = eventRepository;
@@ -75,6 +77,7 @@ public class EventService {
         this.notificationService = notificationService;
         this.eventApprovalRepository = eventApprovalRepository;
         this.equipmentReservationService = equipmentReservationService;
+        this.activityLogService = activityLogService;
         this.eventMapper = eventMapper;
         this.userMapper = userMapper;
     }
@@ -228,6 +231,15 @@ public class EventService {
                 }
             }
         }
+
+        // Log event creation
+        activityLogService.logActivity(
+                "EVENT_CREATED",
+                "Event",
+                savedEvent.getPublicId(),
+                organizer,
+                "Event created: " + savedEvent.getEventName(),
+                null);
 
         return eventMapper.toDto(savedEvent);
     }
@@ -461,6 +473,15 @@ public class EventService {
             }
         }
 
+        // Log event update
+        activityLogService.logActivity(
+                "EVENT_UPDATED",
+                "Event",
+                updatedDbEvent.getPublicId(),
+                currentUser,
+                "Event updated: " + updatedDbEvent.getEventName(),
+                null);
+
         return eventMapper.toDto(updatedDbEvent);
     }
 
@@ -489,6 +510,15 @@ public class EventService {
             eventRepository.delete(event);
             logger.info("Event {} deleted successfully by SUPER_ADMIN.", publicId);
 
+            // Log event deletion
+            activityLogService.logActivity(
+                    "EVENT_DELETED",
+                    "Event",
+                    event.getPublicId(),
+                    currentUser,
+                    "Event deleted: " + event.getEventName(),
+                    null);
+
         } else {
             boolean isOrganizer =
                     event.getOrganizer().getPublicId().equals(currentUser.getPublicId());
@@ -506,6 +536,15 @@ public class EventService {
                         "Event {} deleted successfully by organizer {}.",
                         publicId,
                         currentUser.getPublicId());
+
+                // Log event deletion by organizer
+                activityLogService.logActivity(
+                        "EVENT_DELETED",
+                        "Event",
+                        event.getPublicId(),
+                        currentUser,
+                        "Event deleted by organizer: " + event.getEventName(),
+                        null);
             } else {
                 String reason = "User not authorized to delete this event.";
                 if (!isOrganizer) reason = "User is not the organizer.";
@@ -653,6 +692,15 @@ public class EventService {
                 }
             }
         }
+
+        // Log event cancellation
+        activityLogService.logActivity(
+                "EVENT_CANCELED",
+                "Event",
+                canceledEvent.getPublicId(),
+                currentUser,
+                "Event canceled: " + canceledEvent.getEventName() + ". Reason: " + reasonOrDefault,
+                null);
 
         return "Event canceled successfully.";
     }

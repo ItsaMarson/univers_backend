@@ -31,6 +31,7 @@ public class VenueService {
     private final VenueRepository venueRepository;
     private final UserRepository userRepository;
     private final FileStorageService fileStorageService; // Inject FileStorageService
+    private final ActivityLogService activityLogService;
 
     @Value("${minio.bucket.venues}") // Inject MinIO bucket name
     private String venuesBucketName;
@@ -43,10 +44,12 @@ public class VenueService {
             VenueRepository venueRepository,
             UserRepository userRepository,
             FileStorageService fileStorageService,
+            ActivityLogService activityLogService,
             UserMapper userMapper) {
         this.venueRepository = venueRepository;
         this.userRepository = userRepository;
         this.fileStorageService = fileStorageService;
+        this.activityLogService = activityLogService;
         this.userMapper = userMapper; // Add to constructor
     }
 
@@ -82,6 +85,16 @@ public class VenueService {
         }
 
         Venue savedVenue = venueRepository.save(newVenue);
+
+        // Log venue creation
+        User currentUser = getCurrentUserEntity();
+        activityLogService.logActivity(
+                "VENUE_CREATED",
+                "Venue",
+                savedVenue.getPublicId(),
+                currentUser,
+                "Venue created: " + savedVenue.getName(),
+                null);
 
         // Regenerate ownerDto if it wasn't set initially but owner exists after save
         UserDTO finalOwnerDto = null;
@@ -181,6 +194,16 @@ public class VenueService {
 
         Venue updatedVenue = venueRepository.save(venue);
 
+        // Log venue update
+        User currentUser = getCurrentUserEntity();
+        activityLogService.logActivity(
+                "VENUE_UPDATED",
+                "Venue",
+                updatedVenue.getPublicId(),
+                currentUser,
+                "Venue updated: " + updatedVenue.getName(),
+                null);
+
         UserDTO finalOwnerDto = null;
         if (updatedVenue.getVenueOwner() != null) {
             finalOwnerDto = userMapper.toDto(updatedVenue.getVenueOwner());
@@ -206,6 +229,16 @@ public class VenueService {
 
         // Now delete the venue record
         venueRepository.delete(venue);
+
+        // Log venue deletion
+        User currentUser = getCurrentUserEntity();
+        activityLogService.logActivity(
+                "VENUE_DELETED",
+                "Venue",
+                venue.getPublicId(),
+                currentUser,
+                "Venue deleted: " + venue.getName(),
+                null);
     }
 
     @Transactional
@@ -269,5 +302,37 @@ public class VenueService {
                 imageUrl,
                 venue.getCreatedAt(),
                 venue.getUpdatedAt());
+    }
+
+    private User getCurrentUserEntity() {
+        try {
+            org.springframework.security.core.Authentication authentication =
+                    org.springframework.security.core.context.SecurityContextHolder.getContext()
+                            .getAuthentication();
+            if (authentication == null
+                    || !authentication.isAuthenticated()
+                    || authentication.getPrincipal() == null
+                    || "anonymousUser".equals(authentication.getPrincipal().toString())) {
+                return null;
+            }
+
+            String username;
+            if (authentication.getPrincipal()
+                    instanceof org.springframework.security.core.userdetails.UserDetails) {
+                username =
+                        ((org.springframework.security.core.userdetails.UserDetails)
+                                        authentication.getPrincipal())
+                                .getUsername();
+            } else if (authentication.getPrincipal() instanceof String) {
+                username = (String) authentication.getPrincipal();
+            } else {
+                return null;
+            }
+
+            return userRepository.findByEmail(username).orElse(null);
+        } catch (Exception e) {
+            logger.error("Error getting current user: {}", e.getMessage());
+            return null;
+        }
     }
 }
