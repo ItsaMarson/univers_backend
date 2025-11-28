@@ -842,6 +842,84 @@ public class EquipmentReservationService {
         return results;
     }
 
+    /**
+     * Completes a reservation and restores equipment to inventory.
+     * This method should be called when Event Personnel submits a PULLOUT checklist.
+     *
+     * @param reservationPublicId The public ID of the reservation to complete
+     */
+    @Transactional
+    public void completeReservation(UUID reservationPublicId) {
+        EquipmentReservation reservation =
+                equipmentReservationRepository
+                        .findByPublicId(reservationPublicId)
+                        .orElseThrow(
+                                () ->
+                                        new NoSuchElementException(
+                                                "Equipment Reservation not found with Public ID: "
+                                                        + reservationPublicId));
+
+        // Only process if reservation is APPROVED or ONGOING
+        if (reservation.getStatus() != Status.APPROVED
+                && reservation.getStatus() != Status.ONGOING) {
+            logger.warn(
+                    "Attempted to complete reservation {} with status {}. Only APPROVED or ONGOING"
+                            + " reservations can be completed.",
+                    reservationPublicId,
+                    reservation.getStatus());
+            return;
+        }
+
+        Equipment equipment = reservation.getEquipment();
+        Integer reservedQuantity = reservation.getQuantity();
+        Integer currentAvailable = equipment.getAvailableQuantity();
+
+        // Restore the reserved quantity back to available inventory
+        equipment.setAvailableQuantity(currentAvailable + reservedQuantity);
+        equipmentRepository.save(equipment);
+
+        // Update reservation status to COMPLETED
+        reservation.setStatus(Status.COMPLETED);
+        equipmentReservationRepository.save(reservation);
+
+        logger.info(
+                "Completed reservation {} and restored {} units of equipment '{}' (ID: {})",
+                reservationPublicId,
+                reservedQuantity,
+                equipment.getName(),
+                equipment.getPublicId());
+
+        // Notify the requesting user about equipment return
+        if (reservation.getRequestingUser() != null) {
+            notificationService.createNotification(
+                    reservation.getRequestingUser(),
+                    "Equipment '"
+                            + equipment.getName()
+                            + "' ("
+                            + reservedQuantity
+                            + " units) has been returned to inventory by event personnel.",
+                    reservation.getEvent().getPublicId(),
+                    reservation.getPublicId(),
+                    "EQUIPMENT_RETURNED");
+        }
+
+        // Notify equipment owner
+        if (equipment.getEquipmentOwner() != null) {
+            notificationService.createNotification(
+                    equipment.getEquipmentOwner(),
+                    "Equipment '"
+                            + equipment.getName()
+                            + "' ("
+                            + reservedQuantity
+                            + " units) has been returned to inventory for event '"
+                            + reservation.getEvent().getEventName()
+                            + "'",
+                    reservation.getEvent().getPublicId(),
+                    reservation.getPublicId(),
+                    "EQUIPMENT_RETURNED");
+        }
+    }
+
     @Deprecated
     @Transactional
     public void returnEquipmentForCompletedEvent(UUID eventPublicId) {

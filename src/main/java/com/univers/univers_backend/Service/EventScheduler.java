@@ -106,21 +106,23 @@ public class EventScheduler {
                 eventsToComplete.size());
     }
 
-    @Scheduled(cron = "0 */1 * * * ?") // Runs every 1 minutes
-    @Transactional
-    public void restoreEquipmentForExpiredReservations() {
-        Instant now = Instant.now();
-        logger.info("Scheduler: Checking for equipment reservations to restore at {}", now);
-
-        try {
-            equipmentReservationService.restoreEquipmentForExpiredReservations(now);
-        } catch (Exception e) {
-            logger.error(
-                    "Error restoring equipment for expired reservations: {}", e.getMessage(), e);
-        }
-
-        logger.info("Scheduler: Finished checking for equipment reservations to restore.");
-    }
+    // DISABLED: Equipment return is now handled manually by Event Personnel PULLOUT task
+    // Equipment is only returned when assigned personnel submits the pullout checklist
+    // @Scheduled(cron = "0 */1 * * * ?") // Runs every 1 minutes
+    // @Transactional
+    // public void restoreEquipmentForExpiredReservations() {
+    //     Instant now = Instant.now();
+    //     logger.info("Scheduler: Checking for equipment reservations to restore at {}", now);
+    //
+    //     try {
+    //         equipmentReservationService.restoreEquipmentForExpiredReservations(now);
+    //     } catch (Exception e) {
+    //         logger.error(
+    //                 "Error restoring equipment for expired reservations: {}", e.getMessage(), e);
+    //     }
+    //
+    //     logger.info("Scheduler: Finished checking for equipment reservations to restore.");
+    // }
 
     @Scheduled(cron = "0 */1 * * * ?") // Runs every 1 minutes
     @Transactional

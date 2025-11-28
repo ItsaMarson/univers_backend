@@ -980,6 +980,21 @@ public class EventService {
         newPersonnel.setStatus(Status.AVAILABLE);
         newPersonnel.setEvent(event);
         newPersonnel.setTask(requestDTO.task() != null ? requestDTO.task() : Task.SETUP);
+
+        // Auto-assign all equipment reserved for this event to the newly assigned personnel
+        List<EquipmentReservationDTO> reservationsForEvent =
+                equipmentReservationService.getReservationsByEventPublicId(event.getPublicId());
+        List<String> assignedEquipmentIds =
+                reservationsForEvent.stream()
+                        .filter(
+                                res ->
+                                        res.equipment() != null
+                                                && res.equipment().publicId() != null)
+                        .map(res -> res.equipment().publicId().toString())
+                        .distinct()
+                        .collect(Collectors.toList());
+        newPersonnel.setAssignedEquipmentIds(assignedEquipmentIds);
+
         if (event.getAssignedPersonnel() == null) {
             event.setAssignedPersonnel(new ArrayList<>());
         }
@@ -1099,11 +1114,15 @@ public class EventService {
                             + event.getStatus());
         }
 
-        // Note: Equipment restoration is now handled automatically by time-based
-        // scheduler
-        // that checks reservation end times every 5 minutes
-        return "Event completed. Equipment will be automatically returned to inventory when"
-                + " reservations expire.";
+        // Explicitly complete all equipment reservations for this event
+        equipmentReservationService
+                .getReservationsByEventPublicId(publicId)
+                .forEach(
+                        reservation ->
+                                equipmentReservationService.completeReservation(
+                                        reservation.publicId()));
+
+        return "Event completed and all associated equipment reservations have been returned.";
     }
 
     @Transactional
@@ -1138,9 +1157,13 @@ public class EventService {
         event.setStatus(Status.COMPLETED);
         Event completedEvent = eventRepository.save(event);
 
-        // Note: Equipment restoration is now handled automatically by time-based
-        // scheduler
-        // that checks reservation end times every 5 minutes
+        // Explicitly complete all equipment reservations for this event
+        equipmentReservationService
+                .getReservationsByEventPublicId(publicId)
+                .forEach(
+                        reservation ->
+                                equipmentReservationService.completeReservation(
+                                        reservation.publicId()));
 
         // Notify organizer if completed by admin
         if (isAdmin && !isOrganizer && event.getOrganizer() != null) {

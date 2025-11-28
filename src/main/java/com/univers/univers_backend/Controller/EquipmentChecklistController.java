@@ -2,6 +2,8 @@
 package com.univers.univers_backend.Controller;
 
 import com.univers.univers_backend.DTO.EquipmentChecklistRequest;
+import com.univers.univers_backend.DTO.EquipmentChecklistStatusDTO;
+import com.univers.univers_backend.Enum.Task;
 import com.univers.univers_backend.Service.EquipmentChecklistService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
@@ -30,5 +32,20 @@ public class EquipmentChecklistController {
     public ResponseEntity<String> submitChecklist(@RequestBody EquipmentChecklistRequest request) {
         checklistService.submitChecklist(request);
         return ResponseEntity.ok("Checklist submitted");
+    }
+
+    @GetMapping("/status")
+    public ResponseEntity<List<String>> getChecklistStatus(
+            @RequestParam UUID eventId, @RequestParam Task task) {
+        List<String> checkedEquipment = checklistService.getCheckedEquipmentForEvent(eventId, task);
+        return ResponseEntity.ok(checkedEquipment);
+    }
+
+    @GetMapping("/status/detail")
+    public ResponseEntity<List<EquipmentChecklistStatusDTO>> getDetailedChecklistStatus(
+            @RequestParam UUID eventId, @RequestParam Task task) {
+        List<EquipmentChecklistStatusDTO> status =
+                checklistService.getDetailedChecklistStatus(eventId, task);
+        return ResponseEntity.ok(status);
     }
 }
