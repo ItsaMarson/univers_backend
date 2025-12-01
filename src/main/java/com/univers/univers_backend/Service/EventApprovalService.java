@@ -90,7 +90,8 @@ public class EventApprovalService {
                                         new NoSuchElementException(
                                                 "Event not found with ID: " + eventPublicId));
 
-        // Check if user is SUPER_ADMIN - they can approve/deny any event without needing an
+        // Check if user is SUPER_ADMIN - they can approve/deny any event without
+        // needing an
         // approval record
         boolean isSuperAdmin = currentUser.getRoles().contains(Role.SUPER_ADMIN);
 
@@ -127,21 +128,27 @@ public class EventApprovalService {
                                                             + " on event "
                                                             + eventPublicId));
 
-            // The check for ownership is implicitly handled by finding the approval signed by the
+            // The check for ownership is implicitly handled by finding the approval signed
+            // by the
             // current user.
-            // If no record is found for the current user and this event, the above orElseThrow is
+            // If no record is found for the current user and this event, the above
+            // orElseThrow is
             // triggered.
-            // We still need to check if an approval record exists but might belong to a different
+            // We still need to check if an approval record exists but might belong to a
+            // different
             // user
-            // if the query `findByEventAndSignedBy` was broader. However, given its name, it
+            // if the query `findByEventAndSignedBy` was broader. However, given its name,
+            // it
             // should be
             // specific.
-            // For safety, let's ensure the found approval indeed matches the current user, though
+            // For safety, let's ensure the found approval indeed matches the current user,
+            // though
             // it
             // should be redundant
             // if `findByEventAndSignedBy` is correctly implemented and used.
             if (!eventApproval.getSignedBy().getId().equals(currentUser.getId())) {
-                // This case should ideally not be reached if findByEventAndSignedBy is specific.
+                // This case should ideally not be reached if findByEventAndSignedBy is
+                // specific.
                 logger.warn(
                         "Mismatch: Found approval {} for event {} but it is signed by {} instead"
                                 + " of current user {}.",
@@ -262,11 +269,13 @@ public class EventApprovalService {
             }
         }
 
-        // If this is an equipment owner approving the event, automatically approve their equipment
+        // If this is an equipment owner approving the event, automatically approve
+        // their equipment
         // reservations
         if (newStatus == Status.APPROVED && currentUser.getRoles().contains(Role.EQUIPMENT_OWNER)) {
             try {
-                // Get all equipment reservations for this event that are owned by the current user
+                // Get all equipment reservations for this event that are owned by the current
+                // user
                 List<EquipmentReservationDTO> reservations =
                         equipmentReservationService.getReservationsByEventPublicId(eventPublicId);
                 List<UUID> pendingReservationIds =
@@ -303,11 +312,13 @@ public class EventApprovalService {
             }
         }
 
-        // If this is an equipment owner rejecting the event, automatically reject their equipment
+        // If this is an equipment owner rejecting the event, automatically reject their
+        // equipment
         // reservations
         if (newStatus == Status.REJECTED && currentUser.getRoles().contains(Role.EQUIPMENT_OWNER)) {
             try {
-                // Get all equipment reservations for this event that are owned by the current user
+                // Get all equipment reservations for this event that are owned by the current
+                // user
                 List<EquipmentReservationDTO> reservations =
                         equipmentReservationService.getReservationsByEventPublicId(eventPublicId);
                 List<UUID> reservationIdsToReject =
@@ -351,7 +362,8 @@ public class EventApprovalService {
             }
         }
 
-        // Only call checkAndUpdateEventStatus if not SUPER_ADMIN approving (since SUPER_ADMIN
+        // Only call checkAndUpdateEventStatus if not SUPER_ADMIN approving (since
+        // SUPER_ADMIN
         // directly sets the event to APPROVED)
         if (!(isSuperAdmin && newStatus == Status.APPROVED)) {
             checkAndUpdateEventStatus(updatedApproval.getEvent());
@@ -368,10 +380,12 @@ public class EventApprovalService {
                     "No approval records found for event ID: {}. Cannot determine overall status.",
                     event.getPublicId());
             // If event is PENDING and has no required approvers, it could be auto-approved.
-            // This needs clear business rules. For now, if no approval records exist (e.g. for an
+            // This needs clear business rules. For now, if no approval records exist (e.g.
+            // for an
             // old event or misconfiguration)
             // and status is PENDING, it will remain PENDING by this logic.
-            // If EventService correctly creates placeholders, this list should not be empty for
+            // If EventService correctly creates placeholders, this list should not be empty
+            // for
             // events requiring approval.
             return;
         }
@@ -380,9 +394,15 @@ public class EventApprovalService {
         boolean anyRejected = false;
 
         for (EventApproval approval : approvals) {
-            if (approval.getStatus() == Status.REJECTED
-                    || approval.getStatus() == Status.DENIED_RESERVATION
-                    || approval.getStatus() == Status.NOT_RECOMMENDED) {
+            User approver = approval.getSignedBy();
+            boolean isAccounting =
+                    approver != null && approver.getRoles().contains(Role.ACCOUNTING);
+
+            // Ignore ACCOUNTING role rejections - they don't affect overall event status
+            if (!isAccounting
+                    && (approval.getStatus() == Status.REJECTED
+                            || approval.getStatus() == Status.DENIED_RESERVATION
+                            || approval.getStatus() == Status.NOT_RECOMMENDED)) {
                 anyRejected = true;
                 break;
             }
@@ -525,9 +545,11 @@ public class EventApprovalService {
         }
 
         // If there were any errors, we might want to throw a custom exception
-        // to indicate partial success/failure, or handle it as per business requirements.
+        // to indicate partial success/failure, or handle it as per business
+        // requirements.
         // For now, we'll log errors and return only successful ones.
-        // The @Transactional annotation ensures that if an unhandled RuntimeException occurs
+        // The @Transactional annotation ensures that if an unhandled RuntimeException
+        // occurs
         // (e.g., database issue not caught above), the whole transaction rolls back.
         if (!errors.isEmpty()) {
             // This is a simple way to communicate partial failure.
