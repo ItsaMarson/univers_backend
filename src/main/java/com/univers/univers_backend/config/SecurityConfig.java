@@ -63,24 +63,40 @@ public class SecurityConfig {
                 .authorizeHttpRequests(
                         auth ->
                                 auth.requestMatchers(
-                                                "/auth/register",
-                                                "/auth/login",
-                                                "/auth/verify-email",
-                                                "/auth/resend-code",
-                                                "/auth/logout",
-                                                "/auth/forgot-password",
-                                                "/auth/reset-password",
-                                                "/auth/verify-reset-code",
-                                                "/auth/me",
-                                                "/departments")
+                                                // Allow access to static resources (frontend)
+                                                "/",
+                                                "/index.html",
+                                                "/assets/**",
+                                                "/*.js",
+                                                "/*.css",
+                                                "/*.ico",
+                                                "/*.png",
+                                                "/*.json",
+                                                "/*.webp",
+                                                "/*.svg",
+                                                // Allow WebSocket connections
+                                                "/ws/**",
+                                                // Allow access to public API endpoints
+                                                "/api/auth/register",
+                                                "/api/auth/login",
+                                                "/api/auth/verify-email",
+                                                "/api/auth/resend-code",
+                                                "/api/auth/logout",
+                                                "/api/auth/forgot-password",
+                                                "/api/auth/reset-password",
+                                                "/api/auth/verify-reset-code",
+                                                "/api/auth/me",
+                                                "/api/departments")
                                         .permitAll()
                                         .requestMatchers(
-                                                "/admin/**",
-                                                "/admin/users/**",
-                                                "/admin/activity-logs/**")
+                                                "/api/admin/**",
+                                                "/api/admin/users/**",
+                                                "/api/admin/activity-logs/**")
                                         .hasAuthority("SUPER_ADMIN")
+                                        .requestMatchers("/api/**")
+                                        .authenticated()
                                         .anyRequest()
-                                        .authenticated())
+                                        .permitAll())
                 .sessionManagement(
                         session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);

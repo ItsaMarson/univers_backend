@@ -5,6 +5,8 @@ target/
 !**/src/test/**/target/
 .env
 /src/main/resources/static/approved-letters
+# Frontend build output - should be rebuilt on deployment
+/src/main/resources/static/
 ### STS ###
 .apt_generated
 .classpath
