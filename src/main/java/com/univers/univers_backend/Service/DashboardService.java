@@ -751,7 +751,11 @@ public class DashboardService {
             double reservationRate = 0.0;
             if (newTotalCount > 0) {
                 reservationRate =
-                        ((double) (newApprovedCount + newOngoingCount + newCompletedCount)
+                        ((double)
+                                                (newPendingCount
+                                                        + newApprovedCount
+                                                        + newOngoingCount
+                                                        + newCompletedCount)
                                         / newTotalCount)
                                 * 100.0;
                 reservationRate = Math.round(reservationRate * 100.0) / 100.0;
