@@ -140,4 +140,16 @@ public interface EventRepository
             @Param("startDate") Instant startDate,
             @Param("endDatePlusOne") Instant endDatePlusOne,
             Pageable pageable);
+
+    @Query(
+            "SELECT e.department.publicId, e.department.name, e.status, COUNT(e) "
+                    + "FROM Event e "
+                    + "WHERE e.department IS NOT NULL "
+                    + "AND e.startTime >= :startDate AND e.startTime < :endDatePlusOne "
+                    + "GROUP BY e.department.publicId, e.department.name, e.status "
+                    + "ORDER BY e.department.name ASC, e.status ASC")
+    List<Object[]> findTopDepartmentsByEventCount(
+            @Param("startDate") Instant startDate,
+            @Param("endDatePlusOne") Instant endDatePlusOne,
+            Pageable pageable);
 }

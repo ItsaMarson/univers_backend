@@ -7,6 +7,7 @@ import com.univers.univers_backend.DTO.dashboard.EventCountDTO;
 import com.univers.univers_backend.DTO.dashboard.EventTypeSummaryDTO;
 import com.univers.univers_backend.DTO.dashboard.PeakHourDTO;
 import com.univers.univers_backend.DTO.dashboard.RecentActivityItemDTO;
+import com.univers.univers_backend.DTO.dashboard.TopDepartmentDTO;
 import com.univers.univers_backend.DTO.dashboard.TopEquipmentDTO;
 import com.univers.univers_backend.DTO.dashboard.TopVenueDTO;
 import com.univers.univers_backend.DTO.dashboard.UserActivityDTO;
@@ -472,5 +473,50 @@ public class DashboardController {
         List<UserReservationActivityDTO> userActivity =
                 dashboardService.getUserReservationActivity(startDate, endDate, userFilter, limit);
         return ResponseEntity.ok(userActivity);
+    }
+
+    @GetMapping("/top-departments")
+    @Operation(
+            summary = "Get top departments by reservation rate",
+            description =
+                    "Fetches a list of top departments ranked by their reservation rate (percentage"
+                        + " of approved, ongoing, and completed events out of total events) within"
+                        + " a specified date range. The reservation rate is calculated as (approved"
+                        + " + ongoing + completed) / total * 100. Departments are ordered by"
+                        + " reservation rate in descending order.",
+            responses = {
+                @ApiResponse(
+                        responseCode = "200",
+                        description = "Successfully retrieved top departments",
+                        content =
+                                @Content(
+                                        mediaType = "application/json",
+                                        schema =
+                                                @Schema(
+                                                        implementation = TopDepartmentDTO.class,
+                                                        type = "array"))),
+                @ApiResponse(responseCode = "400", description = "Invalid date range provided")
+            })
+    public ResponseEntity<List<TopDepartmentDTO>> getTopDepartments(
+            @Parameter(
+                            description = "Start date for the filter (YYYY-MM-DD)",
+                            required = true,
+                            example = "2023-01-01")
+                    @RequestParam
+                    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+                    LocalDate startDate,
+            @Parameter(
+                            description = "End date for the filter (YYYY-MM-DD)",
+                            required = true,
+                            example = "2023-12-31")
+                    @RequestParam
+                    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+                    LocalDate endDate,
+            @Parameter(description = "Number of top departments to return", example = "5")
+                    @RequestParam(defaultValue = "5")
+                    int limit) {
+        List<TopDepartmentDTO> topDepartments =
+                dashboardService.getTopDepartments(startDate, endDate, limit);
+        return ResponseEntity.ok(topDepartments);
     }
 }

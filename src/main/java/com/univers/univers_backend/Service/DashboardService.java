@@ -7,6 +7,7 @@ import com.univers.univers_backend.DTO.dashboard.EventCountDTO;
 import com.univers.univers_backend.DTO.dashboard.EventTypeSummaryDTO;
 import com.univers.univers_backend.DTO.dashboard.PeakHourDTO;
 import com.univers.univers_backend.DTO.dashboard.RecentActivityItemDTO;
+import com.univers.univers_backend.DTO.dashboard.TopDepartmentDTO;
 import com.univers.univers_backend.DTO.dashboard.TopEquipmentDTO;
 import com.univers.univers_backend.DTO.dashboard.TopVenueDTO;
 import com.univers.univers_backend.DTO.dashboard.UserActivityDTO;
@@ -695,6 +696,84 @@ public class DashboardService {
 
         return summariesByType.values().stream()
                 .sorted(Comparator.comparing(EventTypeSummaryDTO::totalCount).reversed())
+                .limit(limit)
+                .collect(Collectors.toList());
+    }
+
+    public List<TopDepartmentDTO> getTopDepartments(
+            LocalDate startDate, LocalDate endDate, int limit) {
+        Instant startInstant = startDate.atStartOfDay().toInstant(ZoneOffset.UTC);
+        Instant endInstantPlusOne = endDate.plusDays(1).atStartOfDay().toInstant(ZoneOffset.UTC);
+
+        Pageable pageable = Pageable.unpaged();
+
+        List<Object[]> results =
+                eventRepository.findTopDepartmentsByEventCount(
+                        startInstant, endInstantPlusOne, pageable);
+
+        if (results == null) return new ArrayList<>();
+
+        Map<UUID, TopDepartmentDTO> departmentMap = new HashMap<>();
+
+        for (Object[] result : results) {
+            UUID departmentPublicId = (UUID) result[0];
+            String departmentName = (String) result[1];
+            Status eventStatus = (Status) result[2];
+            Long count = (Long) result[3];
+
+            if (departmentPublicId == null || departmentName == null) continue;
+
+            TopDepartmentDTO dto =
+                    departmentMap.computeIfAbsent(
+                            departmentPublicId,
+                            k ->
+                                    new TopDepartmentDTO(
+                                            k, departmentName, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0.0));
+
+            long newTotalCount = dto.totalEventCount() + count;
+            long newApprovedCount = dto.approvedCount();
+            long newPendingCount = dto.pendingCount();
+            long newCanceledCount = dto.canceledCount();
+            long newRejectedCount = dto.rejectedCount();
+            long newOngoingCount = dto.ongoingCount();
+            long newCompletedCount = dto.completedCount();
+
+            switch (eventStatus) {
+                case APPROVED -> newApprovedCount += count;
+                case PENDING -> newPendingCount += count;
+                case CANCELED -> newCanceledCount += count;
+                case REJECTED -> newRejectedCount += count;
+                case ONGOING -> newOngoingCount += count;
+                case COMPLETED -> newCompletedCount += count;
+                default -> {}
+            }
+
+            double reservationRate = 0.0;
+            if (newTotalCount > 0) {
+                reservationRate =
+                        ((double) (newApprovedCount + newOngoingCount + newCompletedCount)
+                                        / newTotalCount)
+                                * 100.0;
+                reservationRate = Math.round(reservationRate * 100.0) / 100.0;
+            }
+
+            departmentMap.put(
+                    departmentPublicId,
+                    new TopDepartmentDTO(
+                            departmentPublicId,
+                            departmentName,
+                            newTotalCount,
+                            newApprovedCount,
+                            newPendingCount,
+                            newCanceledCount,
+                            newRejectedCount,
+                            newOngoingCount,
+                            newCompletedCount,
+                            reservationRate));
+        }
+
+        return departmentMap.values().stream()
+                .sorted(Comparator.comparing(TopDepartmentDTO::reservationRate).reversed())
                 .limit(limit)
                 .collect(Collectors.toList());
     }
