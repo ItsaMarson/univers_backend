@@ -14,6 +14,8 @@
       buildInputs = with pkgs; [
         temurin-bin
         maven
+        pnpm
+        nodejs
       ];
       shellHook = ''
         echo "Welcome to the devShell!"
