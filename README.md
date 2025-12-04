@@ -6,10 +6,10 @@
 
 ## 📌 Prerequisites
 - Java 21
-- Spring Boot 3.3
-- MySQL
+- MySQL server
 - Maven
 - Node.js and pnpm (for frontend build)
+- Minio server (for object storage)
 
 ## 🚀 Getting Started
 
@@ -19,10 +19,68 @@ git clone --recurse-submodules https://github.com/ItsaMarson/univers_backend
 cd univers_backend
 ```
 
-### 2. Setup MySQL Database
+### 2. Setup Database and Storage
+
+#### Option A: Using Docker (Linux/Windows with Docker)
+If you have Docker installed, you can start MySQL and MinIO services automatically:
+
+**Linux/macOS:**
+```bash
+docker-compose up -d
+```
+
+**Windows (PowerShell/CMD):**
+```bash
+docker-compose up -d
+```
+
+This will set up MySQL and MinIO. Skip to step 3.
+
+#### Option B: Manual Setup (Windows/Linux without Docker)
+If not using Docker, install and configure MySQL and MinIO manually:
+
+**MySQL Setup:**
 ```sql
 CREATE DATABASE univers CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 ```
+
+**MinIO Setup:**
+
+1. Download MinIO server:
+   - **Linux/macOS:**
+     ```bash
+     wget https://dl.min.io/server/minio/release/linux-amd64/minio
+     chmod +x minio
+     ```
+   - **Windows:** Download from https://dl.min.io/server/minio/release/windows-amd64/minio.exe
+
+2. Start MinIO server:
+   - **Linux/macOS:**
+     ```bash
+     MINIO_ROOT_USER=minioadmin MINIO_ROOT_PASSWORD=minioadmin ./minio server ./minio-data --console-address ":9001"
+     ```
+   - **Windows (PowerShell):**
+     ```powershell
+     $env:MINIO_ROOT_USER="minioadmin"
+     $env:MINIO_ROOT_PASSWORD="minioadmin"
+     .\minio.exe server .\minio-data --console-address ":9001"
+     ```
+   - **Windows (Command Prompt):**
+     ```cmd
+     set MINIO_ROOT_USER=minioadmin
+     set MINIO_ROOT_PASSWORD=minioadmin
+     minio.exe server .\minio-data --console-address ":9001"
+     ```
+
+3. Access MinIO Console:
+   - Open browser to `http://localhost:9001`
+   - Login with username: `minioadmin`, password: `minioadmin`
+   - Create a bucket named `univers` (or as configured in your .env)
+
+4. Note your MinIO credentials for the `.env` file:
+   - `MINIO_ENDPOINT=http://127.0.0.1:9000`
+   - `MINIO_ACCESS_KEY=minioadmin`
+   - `MINIO_SECRET_KEY=minioadmin`
 
 ### 3. Configure Environment Variables
 
@@ -53,14 +111,23 @@ MINIO_SECRET_KEY=your_minio_secret_key
 CORS_ALLOWED_ORIGIN=http://localhost:5173
 ```
 
-### 4. Start Docker Services (MySQL & MinIO)
+
+### 4. Build Frontend (First Time and After Frontend Changes)
+
+**Linux/macOS:**
 ```bash
-docker-compose up -d
+chmod +x build-frontend.sh
+./build-frontend.sh
 ```
 
-### 5. Build Frontend (First Time and After Frontend Changes)
-```bash
-./build-frontend.sh
+**Windows (PowerShell):**
+```powershell
+.\build-frontend.ps1
+```
+
+**Windows (Command Prompt):**
+```cmd
+build-frontend.bat
 ```
 
 This script will:
@@ -68,13 +135,23 @@ This script will:
 - Build the frontend
 - Copy built files to `src/main/resources/static/`
 
-### 6. Build and Run Backend
-```bash
-# Build the project
-mvn clean package
+### 5. Build and Run Backend
 
-# Run the application
+**All platforms (Linux/Windows/macOS):**
+```bash
 mvn spring-boot:run
+```
+
+Or using Maven wrapper:
+
+**Linux/macOS:**
+```bash
+./mvnw spring-boot:run
+```
+
+**Windows:**
+```cmd
+mvnw.cmd spring-boot:run
 ```
 
 ## 📂 Project Structure
@@ -130,16 +207,44 @@ mvn -Dtest=YourTestClass test
 ### Production Build
 
 1. Build the frontend:
+
+**Linux/macOS:**
 ```bash
 ./build-frontend.sh
 ```
 
+**Windows (PowerShell):**
+```powershell
+.\build-frontend.ps1
+```
+
+**Windows (Command Prompt):**
+```cmd
+build-frontend.bat
+```
+
 2. Package the application:
+
+**All platforms:**
 ```bash
 mvn clean package -DskipTests
 ```
 
+Or using Maven wrapper:
+
+**Linux/macOS:**
+```bash
+./mvnw clean package -DskipTests
+```
+
+**Windows:**
+```cmd
+mvnw.cmd clean package -DskipTests
+```
+
 3. Run the JAR:
+
+**All platforms:**
 ```bash
 java -jar target/univers_backend-0.0.1-SNAPSHOT.jar
 ```
@@ -162,15 +267,14 @@ Set the following environment variables in production:
 ## 📝 API Documentation
 
 Once the application is running, access the OpenAPI documentation at:
-- Swagger UI: `http://localhost:8080/api/swagger-ui.html`
+- Swagger UI: `http://localhost:8080/swagger-ui.html`
 
 ## 🤝 Contributing
 
 1. Create a feature branch
 2. Make your changes
 3. Run `mvn spotless:apply` to format code
-4. Run tests: `mvn test`
-5. Submit a pull request
+4. Submit a pull request
 
 ## 🚀 Happy Coding! 🎉
 
