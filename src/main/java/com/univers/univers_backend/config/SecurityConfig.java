@@ -26,7 +26,7 @@ public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtFilter;
 
-    @Value("${cors.allowed.origin}")
+    @Value("${cors.allowed.origin:#{null}}")
     private String allowedOrigin;
 
     public SecurityConfig(
@@ -36,30 +36,37 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-        http.cors(
-                        cors ->
-                                cors.configurationSource(
-                                        request -> {
-                                            CorsConfiguration config = new CorsConfiguration();
-                                            config.setAllowedOrigins(List.of(allowedOrigin));
-                                            config.setAllowedMethods(
-                                                    List.of(
-                                                            "GET", "POST", "PATCH", "DELETE", "PUT",
-                                                            "OPTIONS", "HEAD"));
-                                            config.setAllowedHeaders(
-                                                    List.of(
-                                                            "Authorization",
-                                                            "Content-Type",
-                                                            "X-Requested-With",
-                                                            "accept",
-                                                            "Origin",
-                                                            "Access-Control-Request-Method",
-                                                            "Access-Control-Request-Headers"));
-                                            config.setAllowCredentials(true);
-                                            config.setExposedHeaders(List.of("Set-Cookie"));
-                                            return config;
-                                        }))
-                .csrf(AbstractHttpConfigurer::disable)
+        // Only configure CORS if allowedOrigin is set (for development with separate frontend)
+        if (allowedOrigin != null && !allowedOrigin.isEmpty()) {
+            http.cors(
+                    cors ->
+                            cors.configurationSource(
+                                    request -> {
+                                        CorsConfiguration config = new CorsConfiguration();
+                                        config.setAllowedOrigins(List.of(allowedOrigin));
+                                        config.setAllowedMethods(
+                                                List.of(
+                                                        "GET", "POST", "PATCH", "DELETE", "PUT",
+                                                        "OPTIONS", "HEAD"));
+                                        config.setAllowedHeaders(
+                                                List.of(
+                                                        "Authorization",
+                                                        "Content-Type",
+                                                        "X-Requested-With",
+                                                        "accept",
+                                                        "Origin",
+                                                        "Access-Control-Request-Method",
+                                                        "Access-Control-Request-Headers"));
+                                        config.setAllowCredentials(true);
+                                        config.setExposedHeaders(List.of("Set-Cookie"));
+                                        return config;
+                                    }));
+        } else {
+            // Disable CORS when frontend and backend are served from same origin
+            http.cors(AbstractHttpConfigurer::disable);
+        }
+
+        http.csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(
                         auth ->
                                 auth.requestMatchers(
@@ -76,6 +83,14 @@ public class SecurityConfig {
                                                 "/*.svg",
                                                 // Allow WebSocket connections
                                                 "/ws/**",
+                                                // Allow Swagger/OpenAPI documentation (static
+                                                // resources, no /api prefix)
+                                                "/v3/api-docs/**",
+                                                "/swagger-ui/**",
+                                                "/swagger-ui.html",
+                                                // Also allow with /api prefix for API docs
+                                                // endpoints
+                                                "/api/v3/api-docs/**",
                                                 // Allow access to public API endpoints
                                                 "/api/auth/register",
                                                 "/api/auth/login",
@@ -86,6 +101,7 @@ public class SecurityConfig {
                                                 "/api/auth/reset-password",
                                                 "/api/auth/verify-reset-code",
                                                 "/api/auth/me",
+                                                "/api/auth/refresh",
                                                 "/api/departments")
                                         .permitAll()
                                         .requestMatchers(
