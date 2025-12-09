@@ -1,3 +1,4 @@
 [submodule "src/main/resources/frontend"]
 	path = src/main/resources/frontend
 	url = https://github.com/imaviso/univers
+	branch = deploy
