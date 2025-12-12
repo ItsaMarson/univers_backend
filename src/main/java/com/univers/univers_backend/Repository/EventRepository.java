@@ -25,10 +25,13 @@ public interface EventRepository
     List<Event> findByStartTimeLessThanEqualAndEndTimeGreaterThanEqual(
             Instant endTime, Instant startTime);
 
-    @Query(
-            "SELECT e FROM Event e WHERE e.eventVenue.id = :venueId "
-                    + "AND e.status IN ('PENDING', 'APPROVED', 'ONGOING') "
-                    + "AND e.startTime <= :endTime AND e.endTime >= :startTime")
+    @Query("""
+    SELECT e FROM Event e
+    WHERE e.eventVenue.id = :venueId
+      AND e.status IN ('PENDING', 'APPROVED', 'ONGOING')
+      AND e.startTime < :endTime
+      AND e.endTime > :startTime
+    """)
     List<Event> findConflictingEvents(
             @Param("venueId") Long venueId,
             @Param("startTime") Instant startTime,
