@@ -11,6 +11,7 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
@@ -22,7 +23,23 @@ import java.util.List;
 import java.util.UUID;
 
 @Entity
-@Table(name = "equipment_reservation")
+@Table(
+        name = "equipment_reservation",
+        indexes = {
+            @Index(name = "idx_equipment_reservation_status", columnList = "status"),
+            @Index(name = "idx_equipment_reservation_equipment_id", columnList = "equipment_id"),
+            @Index(
+                    name = "idx_equipment_reservation_requesting_user_id",
+                    columnList = "requesting_user_id"),
+            @Index(name = "idx_equipment_reservation_event_id", columnList = "event_id"),
+            @Index(name = "idx_equipment_reservation_department_id", columnList = "department_id"),
+            @Index(name = "idx_equipment_reservation_start_time", columnList = "start_time"),
+            @Index(name = "idx_equipment_reservation_end_time", columnList = "end_time"),
+            @Index(name = "idx_equipment_reservation_created_at", columnList = "created_at"),
+            @Index(
+                    name = "idx_equipment_reservation_overlap",
+                    columnList = "equipment_id,status,start_time,end_time")
+        })
 public class EquipmentReservation {
 
     @Id

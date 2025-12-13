@@ -7,6 +7,7 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
@@ -15,7 +16,20 @@ import java.time.Instant;
 import java.util.UUID;
 
 @Entity
-@Table(name = "notifications")
+@Table(
+        name = "notifications",
+        indexes = {
+            @Index(name = "idx_notifications_recipient_id", columnList = "recipient_user_id"),
+            @Index(name = "idx_notifications_created_at", columnList = "created_at"),
+            @Index(name = "idx_notifications_is_read", columnList = "is_read"),
+            @Index(name = "idx_notifications_deleted", columnList = "deleted"),
+            @Index(
+                    name = "idx_notifications_recipient_deleted_created",
+                    columnList = "recipient_user_id,deleted,created_at"),
+            @Index(
+                    name = "idx_notifications_recipient_read_deleted",
+                    columnList = "recipient_user_id,is_read,deleted")
+        })
 public class Notification {
 
     @Id

@@ -7,7 +7,16 @@ import java.util.UUID;
 import org.hibernate.annotations.CreationTimestamp;
 
 @Entity
-@Table(name = "activity_logs")
+@Table(
+        name = "activity_logs",
+        indexes = {
+            @Index(name = "idx_activity_logs_created_at", columnList = "created_at"),
+            @Index(name = "idx_activity_logs_user_id", columnList = "user_id"),
+            @Index(name = "idx_activity_logs_entity_type", columnList = "entity_type"),
+            @Index(name = "idx_activity_logs_entity_id", columnList = "entity_id"),
+            @Index(name = "idx_activity_logs_action", columnList = "action"),
+            @Index(name = "idx_activity_logs_user_created", columnList = "user_id,created_at")
+        })
 public class ActivityLog {
 
     @Id

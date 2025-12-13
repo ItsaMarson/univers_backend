@@ -10,7 +10,14 @@ import java.util.Set;
 import java.util.UUID;
 
 @Entity
-@Table(name = "equipment")
+@Table(
+        name = "equipment",
+        indexes = {
+            @Index(name = "idx_equipment_owner_id", columnList = "equipment_owner"),
+            @Index(name = "idx_equipment_status", columnList = "status"),
+            @Index(name = "idx_equipment_availability", columnList = "availability"),
+            @Index(name = "idx_equipment_name", columnList = "name")
+        })
 public class Equipment {
 
     @Id

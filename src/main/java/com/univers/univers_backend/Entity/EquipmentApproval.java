@@ -10,6 +10,7 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
@@ -18,7 +19,16 @@ import java.time.Instant;
 import java.util.UUID;
 
 @Entity
-@Table(name = "equipment_approval_status")
+@Table(
+        name = "equipment_approval_status",
+        indexes = {
+            @Index(
+                    name = "idx_equipment_approval_reservation_id",
+                    columnList = "equipment_reservation_id"),
+            @Index(name = "idx_equipment_approval_signed_by", columnList = "signed_by_user_id"),
+            @Index(name = "idx_equipment_approval_status", columnList = "status"),
+            @Index(name = "idx_equipment_approval_date_signed", columnList = "date_signed")
+        })
 public class EquipmentApproval {
 
     @Id

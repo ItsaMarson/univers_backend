@@ -7,7 +7,14 @@ import java.time.Instant;
 import java.util.UUID;
 
 @Entity
-@Table(name = "event_approval_status")
+@Table(
+        name = "event_approval_status",
+        indexes = {
+            @Index(name = "idx_event_approval_event_id", columnList = "event_id"),
+            @Index(name = "idx_event_approval_signed_by", columnList = "signed_by_user_id"),
+            @Index(name = "idx_event_approval_status", columnList = "status"),
+            @Index(name = "idx_event_approval_event_status", columnList = "event_id,status")
+        })
 public class EventApproval {
 
     @Id

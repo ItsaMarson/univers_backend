@@ -1,13 +1,21 @@
+/* (C)2025 */
 package com.univers.univers_backend.Entity;
 
 import com.univers.univers_backend.Enum.Task;
 import jakarta.persistence.*;
-import org.hibernate.annotations.UuidGenerator;
-
 import java.util.List;
 import java.util.UUID;
+import org.hibernate.annotations.UuidGenerator;
 
 @Entity
+@Table(
+        name = "equipment_checklist",
+        indexes = {
+            @Index(
+                    name = "idx_equipment_checklist_event_personnel_id",
+                    columnList = "event_personnel_id"),
+            @Index(name = "idx_equipment_checklist_task", columnList = "task")
+        })
 public class EquipmentChecklist {
 
     @Id
@@ -25,8 +33,7 @@ public class EquipmentChecklist {
     @Enumerated(EnumType.STRING)
     private Task task;
 
-    @ElementCollection
-    private List<String> equipmentIds;
+    @ElementCollection private List<String> equipmentIds;
 
     public UUID getPublicId() {
         return publicId;

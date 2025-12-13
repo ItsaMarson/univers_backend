@@ -4,14 +4,22 @@ package com.univers.univers_backend.Entity;
 import com.univers.univers_backend.Enum.Status;
 import com.univers.univers_backend.Enum.Task;
 import jakarta.persistence.*;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import org.hibernate.annotations.UuidGenerator;
 
 @Entity
-@Table(name = "event_personnel")
+@Table(
+        name = "event_personnel",
+        indexes = {
+            @Index(name = "idx_event_personnel_event_id", columnList = "event_id"),
+            @Index(
+                    name = "idx_event_personnel_assigned_personnel_id",
+                    columnList = "assigned_personnel_id"),
+            @Index(name = "idx_event_personnel_status", columnList = "status"),
+            @Index(name = "idx_event_personnel_task", columnList = "task")
+        })
 public class EventPersonnel {
 
     @Id
@@ -28,6 +36,7 @@ public class EventPersonnel {
 
     @OneToMany(mappedBy = "eventPersonnel", cascade = CascadeType.ALL)
     private List<EquipmentChecklist> checklists = new ArrayList<>();
+
     private String phoneNumber;
 
     @Enumerated(EnumType.STRING)
@@ -40,9 +49,7 @@ public class EventPersonnel {
     @JoinColumn(name = "event_id")
     private Event event;
 
-    @ElementCollection
-    private List<String> assignedEquipmentIds;
-
+    @ElementCollection private List<String> assignedEquipmentIds;
 
     public EventPersonnel(
             Long id,

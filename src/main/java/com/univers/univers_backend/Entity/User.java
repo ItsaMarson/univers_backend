@@ -12,7 +12,13 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
 @Entity
-@Table(name = "user")
+@Table(
+        name = "user",
+        indexes = {
+            @Index(name = "idx_user_department_id", columnList = "department_id"),
+            @Index(name = "idx_user_active", columnList = "active"),
+            @Index(name = "idx_user_email_verified", columnList = "email_verified")
+        })
 public class User implements UserDetails {
 
     @Id

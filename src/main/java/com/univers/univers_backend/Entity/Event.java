@@ -8,7 +8,21 @@ import java.util.List;
 import java.util.UUID;
 
 @Entity
-@Table(name = "event")
+@Table(
+        name = "event",
+        indexes = {
+            @Index(name = "idx_event_status", columnList = "status"),
+            @Index(name = "idx_event_start_time", columnList = "start_time"),
+            @Index(name = "idx_event_end_time", columnList = "end_time"),
+            @Index(name = "idx_event_created_at", columnList = "created_at"),
+            @Index(name = "idx_event_venue_id", columnList = "venue_id"),
+            @Index(name = "idx_event_organizer_id", columnList = "organizer_id"),
+            @Index(name = "idx_event_department_id", columnList = "department_id"),
+            @Index(name = "idx_event_status_start_end", columnList = "status,start_time,end_time"),
+            @Index(
+                    name = "idx_event_venue_status_time",
+                    columnList = "venue_id,status,start_time,end_time")
+        })
 public class Event {
 
     @Id
@@ -38,6 +52,7 @@ public class Event {
     @ManyToOne
     @JoinColumn(name = "department_id")
     private Department department;
+
     @OneToMany(mappedBy = "event", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<EventPersonnel> assignedPersonnel;
 
@@ -45,7 +60,6 @@ public class Event {
     private Instant createdAt;
 
     private Instant updatedAt;
-
 
     @PrePersist
     protected void OnCreate() {
@@ -93,7 +107,6 @@ public class Event {
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
         this.assignedPersonnel = assignedPersonnel;
-
     }
 
     public Long getId() {
@@ -200,7 +213,7 @@ public class Event {
         return approvals;
     }
 
-    public void setApprovals(List<EventApproval> approvals) { //Subject to deletion, due to unused
+    public void setApprovals(List<EventApproval> approvals) { // Subject to deletion, due to unused
         this.approvals = approvals;
     }
 
