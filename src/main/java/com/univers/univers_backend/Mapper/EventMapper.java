@@ -33,7 +33,7 @@ public class EventMapper {
             @Lazy DepartmentMapper departmentMapper,
             @Lazy EventApprovalMapper eventApprovalMapper,
             FileStorageService fileStorageService,
-            @Value("${minio.bucket.approved_letters}") String approvedLettersBucketName,
+            @Value("${minio.bucket.approved-letters}") String approvedLettersBucketName,
             @Value("${minio.bucket.event_images}") String eventImagesBucketName) {
         this.userMapper = userMapper;
         this.venueMapper = venueMapper;

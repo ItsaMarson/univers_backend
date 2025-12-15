@@ -143,8 +143,7 @@ public class EventService {
 
         if (approvedLetterFile != null && !approvedLetterFile.isEmpty()) {
             String letterObjectName =
-                    fileStorageService.uploadFile(
-                            approvedLetterFile, lettersBucketName, "approved-letters/");
+                    fileStorageService.uploadFile(approvedLetterFile, lettersBucketName, "");
             event.setApprovedLetterPath(letterObjectName);
         }
         if (eventImageFile != null && !eventImageFile.isEmpty()) {
@@ -388,8 +387,7 @@ public class EventService {
                     publicId,
                     "old approved letter");
             String letterObjectName =
-                    fileStorageService.uploadFile(
-                            approvedLetterFile, lettersBucketName, "approved-letters/");
+                    fileStorageService.uploadFile(approvedLetterFile, lettersBucketName, "");
             event.setApprovedLetterPath(letterObjectName);
         }
         if (eventImageFile != null && !eventImageFile.isEmpty()) {
