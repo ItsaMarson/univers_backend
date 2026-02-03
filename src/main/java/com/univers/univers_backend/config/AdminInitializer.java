@@ -1,4 +1,4 @@
-/* (C)2025 */
+/* (C)2025-2026 */
 package com.univers.univers_backend.config;
 
 import com.univers.univers_backend.Entity.User;
@@ -6,6 +6,8 @@ import com.univers.univers_backend.Enum.Role;
 import com.univers.univers_backend.Repository.UserRepository;
 import io.github.cdimascio.dotenv.Dotenv;
 import java.util.Set;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -13,6 +15,8 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class AdminInitializer implements ApplicationRunner {
+
+    private static final Logger logger = LoggerFactory.getLogger(AdminInitializer.class);
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
@@ -45,6 +49,6 @@ public class AdminInitializer implements ApplicationRunner {
         admin.setEmailVerified(true);
 
         userRepository.save(admin);
-        System.out.println("Admin user created with email: " + adminEmail);
+        logger.info("Admin user created with email: {}", adminEmail);
     }
 }

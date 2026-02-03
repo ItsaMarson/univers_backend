@@ -1,4 +1,4 @@
-/* (C)2025 */
+/* (C)2025-2026 */
 package com.univers.univers_backend.Controller;
 
 import com.univers.univers_backend.DTO.EventDTO;
@@ -13,11 +13,11 @@ import com.univers.univers_backend.DTO.dashboard.TopVenueDTO;
 import com.univers.univers_backend.DTO.dashboard.UserActivityDTO;
 import com.univers.univers_backend.DTO.dashboard.UserReservationActivityDTO;
 import com.univers.univers_backend.Service.DashboardService;
+import com.univers.univers_backend.config.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.time.LocalDate;
 import java.util.List;
@@ -48,7 +48,7 @@ public class DashboardController {
                         + " Canceled), within a specified date range. Venues are ordered by their"
                         + " total event count in descending order.",
             responses = {
-                @ApiResponse(
+                @io.swagger.v3.oas.annotations.responses.ApiResponse(
                         responseCode = "200",
                         description = "Successfully retrieved top venues",
                         content =
@@ -58,9 +58,11 @@ public class DashboardController {
                                                 @Schema(
                                                         implementation = TopVenueDTO.class,
                                                         type = "array"))),
-                @ApiResponse(responseCode = "400", description = "Invalid date range provided")
+                @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                        responseCode = "400",
+                        description = "Invalid date range provided")
             })
-    public ResponseEntity<List<TopVenueDTO>> getTopVenues(
+    public ResponseEntity<ApiResponse<List<TopVenueDTO>>> getTopVenues(
             @Parameter(
                             description = "Start date for the filter (YYYY-MM-DD)",
                             required = true,
@@ -79,7 +81,7 @@ public class DashboardController {
                     @RequestParam(defaultValue = "5")
                     int limit) {
         List<TopVenueDTO> topVenues = dashboardService.getTopVenues(startDate, endDate, limit);
-        return ResponseEntity.ok(topVenues);
+        return ResponseEntity.ok(ApiResponse.success(topVenues));
     }
 
     @GetMapping("/top-equipment")
@@ -92,7 +94,7 @@ public class DashboardController {
                         + " is ordered by total reservation count in descending order and can be"
                         + " optionally filtered by name/type.",
             responses = {
-                @ApiResponse(
+                @io.swagger.v3.oas.annotations.responses.ApiResponse(
                         responseCode = "200",
                         description = "Successfully retrieved top equipment",
                         content =
@@ -102,11 +104,11 @@ public class DashboardController {
                                                 @Schema(
                                                         implementation = TopEquipmentDTO.class,
                                                         type = "array"))),
-                @ApiResponse(
+                @io.swagger.v3.oas.annotations.responses.ApiResponse(
                         responseCode = "400",
                         description = "Invalid date range or parameters provided")
             })
-    public ResponseEntity<List<TopEquipmentDTO>> getTopEquipment(
+    public ResponseEntity<ApiResponse<List<TopEquipmentDTO>>> getTopEquipment(
             @Parameter(
                             description = "Start date for the filter (YYYY-MM-DD)",
                             required = true,
@@ -133,7 +135,7 @@ public class DashboardController {
                     int limit) {
         List<TopEquipmentDTO> topEquipment =
                 dashboardService.getTopEquipment(startDate, endDate, equipmentTypeFilter, limit);
-        return ResponseEntity.ok(topEquipment);
+        return ResponseEntity.ok(ApiResponse.success(topEquipment));
     }
 
     @GetMapping("/events-overview")
@@ -143,7 +145,7 @@ public class DashboardController {
                     "Fetches a list of dates and corresponding event counts within a specified date"
                             + " range.",
             responses = {
-                @ApiResponse(
+                @io.swagger.v3.oas.annotations.responses.ApiResponse(
                         responseCode = "200",
                         description = "Successfully retrieved event overview data",
                         content =
@@ -153,9 +155,11 @@ public class DashboardController {
                                                 @Schema(
                                                         implementation = EventCountDTO.class,
                                                         type = "array"))),
-                @ApiResponse(responseCode = "400", description = "Invalid date range provided")
+                @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                        responseCode = "400",
+                        description = "Invalid date range provided")
             })
-    public ResponseEntity<List<EventCountDTO>> getEventsOverview(
+    public ResponseEntity<ApiResponse<List<EventCountDTO>>> getEventsOverview(
             @Parameter(
                             description = "Start date for the filter (YYYY-MM-DD)",
                             required = true,
@@ -171,7 +175,7 @@ public class DashboardController {
                     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
                     LocalDate endDate) {
         List<EventCountDTO> eventsOverview = dashboardService.getEventsOverview(startDate, endDate);
-        return ResponseEntity.ok(eventsOverview);
+        return ResponseEntity.ok(ApiResponse.success(eventsOverview));
     }
 
     @GetMapping("/cancellation-rate")
@@ -181,7 +185,7 @@ public class DashboardController {
                     "Fetches daily cancellation rates for events created within the specified date"
                             + " range.",
             responses = {
-                @ApiResponse(
+                @io.swagger.v3.oas.annotations.responses.ApiResponse(
                         responseCode = "200",
                         description = "Successfully retrieved cancellation rate data",
                         content =
@@ -191,9 +195,11 @@ public class DashboardController {
                                                 @Schema(
                                                         implementation = CancellationRateDTO.class,
                                                         type = "array"))),
-                @ApiResponse(responseCode = "400", description = "Invalid date range provided")
+                @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                        responseCode = "400",
+                        description = "Invalid date range provided")
             })
-    public ResponseEntity<List<CancellationRateDTO>> getCancellationRates(
+    public ResponseEntity<ApiResponse<List<CancellationRateDTO>>> getCancellationRates(
             @Parameter(
                             description =
                                     "Start date for the filter (YYYY-MM-DD, based on event creation"
@@ -214,7 +220,7 @@ public class DashboardController {
                     LocalDate endDate) {
         List<CancellationRateDTO> cancellationRates =
                 dashboardService.getCancellationRates(startDate, endDate);
-        return ResponseEntity.ok(cancellationRates);
+        return ResponseEntity.ok(ApiResponse.success(cancellationRates));
     }
 
     @GetMapping("/peak-hours")
@@ -224,7 +230,7 @@ public class DashboardController {
                     "Fetches event counts grouped by the hour of their start time within a"
                             + " specified date range.",
             responses = {
-                @ApiResponse(
+                @io.swagger.v3.oas.annotations.responses.ApiResponse(
                         responseCode = "200",
                         description = "Successfully retrieved peak hour data",
                         content =
@@ -234,9 +240,11 @@ public class DashboardController {
                                                 @Schema(
                                                         implementation = PeakHourDTO.class,
                                                         type = "array"))),
-                @ApiResponse(responseCode = "400", description = "Invalid date range provided")
+                @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                        responseCode = "400",
+                        description = "Invalid date range provided")
             })
-    public ResponseEntity<List<PeakHourDTO>> getPeakReservationHours(
+    public ResponseEntity<ApiResponse<List<PeakHourDTO>>> getPeakReservationHours(
             @Parameter(
                             description = "Start date for the filter (YYYY-MM-DD)",
                             required = true,
@@ -252,7 +260,7 @@ public class DashboardController {
                     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
                     LocalDate endDate) {
         List<PeakHourDTO> peakHours = dashboardService.getPeakReservationHours(startDate, endDate);
-        return ResponseEntity.ok(peakHours);
+        return ResponseEntity.ok(ApiResponse.success(peakHours));
     }
 
     @GetMapping("/user-activity")
@@ -262,7 +270,7 @@ public class DashboardController {
                     "Fetches a list of users ordered by the number of events they organized within"
                             + " a specified date range.",
             responses = {
-                @ApiResponse(
+                @io.swagger.v3.oas.annotations.responses.ApiResponse(
                         responseCode = "200",
                         description = "Successfully retrieved user activity data",
                         content =
@@ -272,11 +280,11 @@ public class DashboardController {
                                                 @Schema(
                                                         implementation = UserActivityDTO.class,
                                                         type = "array"))),
-                @ApiResponse(
+                @io.swagger.v3.oas.annotations.responses.ApiResponse(
                         responseCode = "400",
                         description = "Invalid date range or parameters provided")
             })
-    public ResponseEntity<List<UserActivityDTO>> getUserActivity(
+    public ResponseEntity<ApiResponse<List<UserActivityDTO>>> getUserActivity(
             @Parameter(
                             description = "Start date for the filter (YYYY-MM-DD)",
                             required = true,
@@ -296,7 +304,7 @@ public class DashboardController {
                     int limit) {
         List<UserActivityDTO> userActivity =
                 dashboardService.getUserActivity(startDate, endDate, limit);
-        return ResponseEntity.ok(userActivity);
+        return ResponseEntity.ok(ApiResponse.success(userActivity));
     }
 
     @GetMapping("/recent-activity")
@@ -306,7 +314,7 @@ public class DashboardController {
                     "Fetches a list of recent activities like event/reservation creations and"
                             + " updates.",
             responses = {
-                @ApiResponse(
+                @io.swagger.v3.oas.annotations.responses.ApiResponse(
                         responseCode = "200",
                         description = "Successfully retrieved recent activity",
                         content =
@@ -318,12 +326,12 @@ public class DashboardController {
                                                                 RecentActivityItemDTO.class,
                                                         type = "array")))
             })
-    public ResponseEntity<List<RecentActivityItemDTO>> getRecentActivity(
+    public ResponseEntity<ApiResponse<List<RecentActivityItemDTO>>> getRecentActivity(
             @Parameter(description = "Number of recent activities to return", example = "10")
                     @RequestParam(defaultValue = "10")
                     int limit) {
         List<RecentActivityItemDTO> recentActivity = dashboardService.getRecentActivity(limit);
-        return ResponseEntity.ok(recentActivity);
+        return ResponseEntity.ok(ApiResponse.success(recentActivity));
     }
 
     @GetMapping("/upcoming-approved-events")
@@ -331,7 +339,7 @@ public class DashboardController {
             summary = "Get upcoming approved events",
             description = "Fetches a list of approved events that are starting soon.",
             responses = {
-                @ApiResponse(
+                @io.swagger.v3.oas.annotations.responses.ApiResponse(
                         responseCode = "200",
                         description = "Successfully retrieved upcoming approved events",
                         content =
@@ -342,12 +350,12 @@ public class DashboardController {
                                                         implementation = EventDTO.class,
                                                         type = "array")))
             })
-    public ResponseEntity<List<EventDTO>> getUpcomingApprovedEvents(
+    public ResponseEntity<ApiResponse<List<EventDTO>>> getUpcomingApprovedEvents(
             @Parameter(description = "Number of upcoming events to return", example = "5")
                     @RequestParam(defaultValue = "5")
                     int limit) {
         List<EventDTO> upcomingEvents = dashboardService.getUpcomingApprovedEvents(limit);
-        return ResponseEntity.ok(upcomingEvents);
+        return ResponseEntity.ok(ApiResponse.success(upcomingEvents));
     }
 
     @GetMapping("/upcoming-approved-events-count-next-days")
@@ -357,7 +365,7 @@ public class DashboardController {
                     "Fetches the count of approved events starting within the specified number of"
                             + " days from now.",
             responses = {
-                @ApiResponse(
+                @io.swagger.v3.oas.annotations.responses.ApiResponse(
                         responseCode = "200",
                         description = "Successfully retrieved the count",
                         content =
@@ -365,7 +373,7 @@ public class DashboardController {
                                         mediaType = "application/json",
                                         schema = @Schema(implementation = Long.class)))
             })
-    public ResponseEntity<Long> getUpcomingApprovedEventsCountNextDays(
+    public ResponseEntity<ApiResponse<Long>> getUpcomingApprovedEventsCountNextDays(
             @Parameter(
                             description =
                                     "Number of days from now to look ahead for upcoming events",
@@ -373,7 +381,7 @@ public class DashboardController {
                     @RequestParam(defaultValue = "30")
                     int days) {
         long count = dashboardService.getUpcomingApprovedEventCountForNextDays(days);
-        return ResponseEntity.ok(count);
+        return ResponseEntity.ok(ApiResponse.success(count));
     }
 
     @GetMapping("/event-types-summary")
@@ -384,7 +392,7 @@ public class DashboardController {
                             + " status (e.g., Approved, Pending, Canceled), within a specified date"
                             + " range. Results are ordered by total count in descending order.",
             responses = {
-                @ApiResponse(
+                @io.swagger.v3.oas.annotations.responses.ApiResponse(
                         responseCode = "200",
                         description = "Successfully retrieved event types summary",
                         content =
@@ -395,7 +403,7 @@ public class DashboardController {
                                                         implementation = EventTypeSummaryDTO.class,
                                                         type = "array")))
             })
-    public ResponseEntity<List<EventTypeSummaryDTO>> getEventTypesSummary(
+    public ResponseEntity<ApiResponse<List<EventTypeSummaryDTO>>> getEventTypesSummary(
             @Parameter(
                             description = "Start date for the filter (YYYY-MM-DD)",
                             required = true,
@@ -415,7 +423,7 @@ public class DashboardController {
                     int limit) {
         List<EventTypeSummaryDTO> eventTypesSummary =
                 dashboardService.getEventCountsByEventType(startDate, endDate, limit);
-        return ResponseEntity.ok(eventTypesSummary);
+        return ResponseEntity.ok(ApiResponse.success(eventTypesSummary));
     }
 
     @GetMapping("/user-reservation-activity")
@@ -428,7 +436,7 @@ public class DashboardController {
                         + " specified date range. Can be optionally filtered by user's first name,"
                         + " last name, or full name.",
             responses = {
-                @ApiResponse(
+                @io.swagger.v3.oas.annotations.responses.ApiResponse(
                         responseCode = "200",
                         description = "Successfully retrieved user reservation activity",
                         content =
@@ -439,11 +447,11 @@ public class DashboardController {
                                                         implementation =
                                                                 UserReservationActivityDTO.class,
                                                         type = "array"))),
-                @ApiResponse(
+                @io.swagger.v3.oas.annotations.responses.ApiResponse(
                         responseCode = "400",
                         description = "Invalid date range or parameters provided")
             })
-    public ResponseEntity<List<UserReservationActivityDTO>> getUserReservationActivity(
+    public ResponseEntity<ApiResponse<List<UserReservationActivityDTO>>> getUserReservationActivity(
             @Parameter(
                             description = "Start date for the filter (YYYY-MM-DD)",
                             required = true,
@@ -472,7 +480,7 @@ public class DashboardController {
                     int limit) {
         List<UserReservationActivityDTO> userActivity =
                 dashboardService.getUserReservationActivity(startDate, endDate, userFilter, limit);
-        return ResponseEntity.ok(userActivity);
+        return ResponseEntity.ok(ApiResponse.success(userActivity));
     }
 
     @GetMapping("/top-departments")
@@ -485,7 +493,7 @@ public class DashboardController {
                         + " + ongoing + completed) / total * 100. Departments are ordered by"
                         + " reservation rate in descending order.",
             responses = {
-                @ApiResponse(
+                @io.swagger.v3.oas.annotations.responses.ApiResponse(
                         responseCode = "200",
                         description = "Successfully retrieved top departments",
                         content =
@@ -495,9 +503,11 @@ public class DashboardController {
                                                 @Schema(
                                                         implementation = TopDepartmentDTO.class,
                                                         type = "array"))),
-                @ApiResponse(responseCode = "400", description = "Invalid date range provided")
+                @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                        responseCode = "400",
+                        description = "Invalid date range provided")
             })
-    public ResponseEntity<List<TopDepartmentDTO>> getTopDepartments(
+    public ResponseEntity<ApiResponse<List<TopDepartmentDTO>>> getTopDepartments(
             @Parameter(
                             description = "Start date for the filter (YYYY-MM-DD)",
                             required = true,
@@ -517,6 +527,6 @@ public class DashboardController {
                     int limit) {
         List<TopDepartmentDTO> topDepartments =
                 dashboardService.getTopDepartments(startDate, endDate, limit);
-        return ResponseEntity.ok(topDepartments);
+        return ResponseEntity.ok(ApiResponse.success(topDepartments));
     }
 }

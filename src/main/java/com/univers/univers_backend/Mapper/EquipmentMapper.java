@@ -9,12 +9,16 @@ import com.univers.univers_backend.Service.FileStorageService;
 import java.util.Collections;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 
 @Component
 public class EquipmentMapper {
+
+    private static final Logger logger = LoggerFactory.getLogger(EquipmentMapper.class);
 
     private final UserMapper userMapper;
     private final FileStorageService fileStorageService;
@@ -45,11 +49,8 @@ public class EquipmentMapper {
                         fileStorageService.getFileUrl(
                                 equipment.getImagePath(), equipmentBucketName);
             } catch (Exception e) {
-                System.err.println(
-                        "Error generating image URL for equipment "
-                                + equipment.getPublicId()
-                                + ": "
-                                + e.getMessage());
+                logger.error(
+                        "Error generating image URL for equipment {}", equipment.getPublicId(), e);
             }
         }
         Set<EquipmentCategoryDTO> categoryDTOs = Collections.emptySet();

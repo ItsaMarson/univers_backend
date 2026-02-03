@@ -1,4 +1,4 @@
-/* (C)2025 */
+/* (C)2025-2026 */
 package com.univers.univers_backend.exception;
 
 import com.univers.univers_backend.config.ApiResponse;
@@ -10,6 +10,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.web.csrf.CsrfException;
+import org.springframework.security.web.csrf.InvalidCsrfTokenException;
+import org.springframework.security.web.csrf.MissingCsrfTokenException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -76,6 +79,29 @@ public class GlobalExceptionHandler {
                         ApiResponse.error(
                                 HttpStatus.UNAUTHORIZED.value(),
                                 "Invalid credentials",
+                                ex.getMessage()));
+    }
+
+    @ExceptionHandler({MissingCsrfTokenException.class, InvalidCsrfTokenException.class})
+    public ResponseEntity<ApiResponse<Object>> handleCsrfException(CsrfException ex) {
+        logger.warn("CSRF token validation failed: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(
+                        ApiResponse.error(
+                                HttpStatus.FORBIDDEN.value(),
+                                "CSRF token validation failed",
+                                "The CSRF token is missing or invalid. Please refresh the page"
+                                        + " and try again."));
+    }
+
+    @ExceptionHandler(CsrfException.class)
+    public ResponseEntity<ApiResponse<Object>> handleGenericCsrfException(CsrfException ex) {
+        logger.warn("CSRF error: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(
+                        ApiResponse.error(
+                                HttpStatus.FORBIDDEN.value(),
+                                "CSRF validation error",
                                 ex.getMessage()));
     }
 

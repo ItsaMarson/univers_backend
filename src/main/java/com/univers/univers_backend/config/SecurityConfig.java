@@ -12,11 +12,12 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import org.springframework.web.cors.CorsConfiguration;
 
 @Configuration
@@ -29,8 +30,7 @@ public class SecurityConfig {
     @Value("${cors.allowed.origin:#{null}}")
     private String allowedOrigin;
 
-    public SecurityConfig(
-            JwtAuthenticationFilter jwtFilter, UserDetailsService userDetailsService) {
+    public SecurityConfig(JwtAuthenticationFilter jwtFilter) {
         this.jwtFilter = jwtFilter;
     }
 
@@ -66,7 +66,17 @@ public class SecurityConfig {
             http.cors(AbstractHttpConfigurer::disable);
         }
 
-        http.csrf(AbstractHttpConfigurer::disable)
+        http.csrf(
+                        csrf ->
+                                csrf.csrfTokenRepository(
+                                                CookieCsrfTokenRepository.withHttpOnlyFalse())
+                                        .csrfTokenRequestHandler(
+                                                new CsrfTokenRequestAttributeHandler())
+                                        .ignoringRequestMatchers(
+                                                "/api/auth/login",
+                                                "/api/auth/register",
+                                                "/api/auth/refresh",
+                                                "/api/auth/logout"))
                 .authorizeHttpRequests(
                         auth ->
                                 auth.requestMatchers(
@@ -114,6 +124,7 @@ public class SecurityConfig {
                                         .permitAll())
                 .sessionManagement(
                         session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .addFilterAfter(new CsrfCookieFilter(), UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();

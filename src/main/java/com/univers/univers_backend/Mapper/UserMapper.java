@@ -8,12 +8,16 @@ import com.univers.univers_backend.Enum.Role;
 import com.univers.univers_backend.Service.FileStorageService;
 import java.util.HashSet;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 
 @Component
 public class UserMapper {
+
+    private static final Logger logger = LoggerFactory.getLogger(UserMapper.class);
 
     private final FileStorageService fileStorageService;
     private final String usersBucketName;
@@ -38,11 +42,7 @@ public class UserMapper {
                 profileImageUrl =
                         fileStorageService.getFileUrl(user.getProfileImagePath(), usersBucketName);
             } catch (Exception e) {
-                System.err.println(
-                        "Error generating image URL for user "
-                                + user.getPublicId()
-                                + ": "
-                                + e.getMessage());
+                logger.error("Error generating image URL for user {}", user.getPublicId(), e);
             }
         }
 
@@ -80,11 +80,7 @@ public class UserMapper {
                 profileImageUrl =
                         fileStorageService.getFileUrl(user.getProfileImagePath(), usersBucketName);
             } catch (Exception e) {
-                System.err.println(
-                        "Error generating image URL for user "
-                                + user.getPublicId()
-                                + ": "
-                                + e.getMessage());
+                logger.error("Error generating image URL for user {}", user.getPublicId(), e);
             }
         }
 

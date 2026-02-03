@@ -14,7 +14,7 @@ import com.univers.univers_backend.Mapper.UserMapper;
 import com.univers.univers_backend.Repository.DepartmentRepository;
 import com.univers.univers_backend.Repository.UserRepository;
 import com.univers.univers_backend.config.JwtUtil;
-import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -43,6 +43,15 @@ public class UserService {
 
     private static final Logger logger = LoggerFactory.getLogger(UserService.class);
 
+    @Value("${mailjet.template.id}")
+    private Long registerTemplateId;
+
+    @Value("${mailjet.template.id.forgot.password}")
+    private Long resetPassTemplateId;
+
+    @Value("${storage.bucket.users}")
+    private String usersBucketName;
+
     private final PasswordEncoder passwordEncoder;
     private final UserRepository userRepository;
 
@@ -56,28 +65,19 @@ public class UserService {
 
     private final UserMapper userMapper;
     private final ActivityLogService activityLogService;
-
-    @Value("${storage.bucket.users}")
-    private String usersBucketName;
-
-    @Value("${mailjet.template.id.forgot.password}")
-    private Long resetPassTemplateId;
-
-    @Value("${mailjet.template.id}")
-    private Long registerTemplateId;
+    private final AuthService authService;
 
     public UserService(
-            AuthenticationManager authenticationManager,
-            JwtUtil jwtUtil,
             UserRepository userRepository,
             DepartmentRepository departmentRepository,
             PasswordEncoder passwordEncoder,
             EmailService emailService,
             FileStorageService fileStorageService,
             UserMapper userMapper,
-            ActivityLogService activityLogService) {
-        this.authenticationManager = authenticationManager;
-        this.jwtUtil = jwtUtil;
+            ActivityLogService activityLogService,
+            AuthService authService,
+            JwtUtil jwtUtil,
+            AuthenticationManager authenticationManager) {
         this.userRepository = userRepository;
         this.departmentRepository = departmentRepository;
         this.passwordEncoder = passwordEncoder;
@@ -85,6 +85,9 @@ public class UserService {
         this.fileStorageService = fileStorageService;
         this.userMapper = userMapper;
         this.activityLogService = activityLogService;
+        this.authService = authService;
+        this.jwtUtil = jwtUtil;
+        this.authenticationManager = authenticationManager;
     }
 
     public ResponseEntity<Map<String, Object>> login(
@@ -112,22 +115,7 @@ public class UserService {
                                                 + " logging in."));
             }
 
-            String accessToken = jwtUtil.generateAccessToken(userDetails);
-            String refreshToken = jwtUtil.generateRefreshToken(userDetails);
-
-            Cookie accessCookie = new Cookie("access_token", accessToken);
-            accessCookie.setHttpOnly(true);
-            accessCookie.setSecure(false);
-            accessCookie.setPath("/");
-            accessCookie.setMaxAge(604800000);
-            response.addCookie(accessCookie);
-
-            Cookie refreshCookie = new Cookie("refresh_token", refreshToken);
-            refreshCookie.setHttpOnly(true);
-            refreshCookie.setSecure(false);
-            refreshCookie.setPath("/");
-            refreshCookie.setMaxAge(604800000);
-            response.addCookie(refreshCookie);
+            authService.setAuthCookies(response, userDetails);
 
             UserDTO userDto = userMapper.toDto(user);
 
@@ -221,18 +209,8 @@ public class UserService {
         return "User registered successfully. Please check your email for the verification code.";
     }
 
-    public String logout(HttpServletResponse response) {
-
-        Cookie cookie = new Cookie("access_token", "");
-        cookie.setPath("/");
-        cookie.setMaxAge(0);
-        response.addCookie(cookie);
-
-        Cookie refresh = new Cookie("refresh_token", "");
-        refresh.setPath("/");
-        refresh.setMaxAge(0);
-        response.addCookie(refresh);
-
+    public String logout(HttpServletRequest request, HttpServletResponse response) {
+        authService.clearAuthCookies(response, request);
         return "Logged out successfully";
     }
 

@@ -1,10 +1,11 @@
-/* (C)2025 */
+/* (C)2025-2026 */
 package com.univers.univers_backend.Controller;
 
 import com.univers.univers_backend.DTO.EquipmentChecklistRequest;
 import com.univers.univers_backend.DTO.EquipmentChecklistStatusDTO;
 import com.univers.univers_backend.Enum.Task;
 import com.univers.univers_backend.Service.EquipmentChecklistService;
+import com.univers.univers_backend.config.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 import java.util.UUID;
@@ -23,29 +24,31 @@ public class EquipmentChecklistController {
     }
 
     @GetMapping("/assigned")
-    public ResponseEntity<List<String>> getAssignedEquipment(@RequestParam UUID eventPersonnelId) {
+    public ResponseEntity<ApiResponse<List<String>>> getAssignedEquipment(
+            @RequestParam UUID eventPersonnelId) {
         List<String> assigned = checklistService.getAssignedEquipment(eventPersonnelId);
-        return ResponseEntity.ok(assigned);
+        return ResponseEntity.ok(ApiResponse.success(assigned));
     }
 
     @PostMapping("/submit")
-    public ResponseEntity<String> submitChecklist(@RequestBody EquipmentChecklistRequest request) {
+    public ResponseEntity<ApiResponse<String>> submitChecklist(
+            @RequestBody EquipmentChecklistRequest request) {
         checklistService.submitChecklist(request);
-        return ResponseEntity.ok("Checklist submitted");
+        return ResponseEntity.ok(ApiResponse.success("Checklist submitted"));
     }
 
     @GetMapping("/status")
-    public ResponseEntity<List<String>> getChecklistStatus(
+    public ResponseEntity<ApiResponse<List<String>>> getChecklistStatus(
             @RequestParam UUID eventId, @RequestParam Task task) {
         List<String> checkedEquipment = checklistService.getCheckedEquipmentForEvent(eventId, task);
-        return ResponseEntity.ok(checkedEquipment);
+        return ResponseEntity.ok(ApiResponse.success(checkedEquipment));
     }
 
     @GetMapping("/status/detail")
-    public ResponseEntity<List<EquipmentChecklistStatusDTO>> getDetailedChecklistStatus(
-            @RequestParam UUID eventId, @RequestParam Task task) {
+    public ResponseEntity<ApiResponse<List<EquipmentChecklistStatusDTO>>>
+            getDetailedChecklistStatus(@RequestParam UUID eventId, @RequestParam Task task) {
         List<EquipmentChecklistStatusDTO> status =
                 checklistService.getDetailedChecklistStatus(eventId, task);
-        return ResponseEntity.ok(status);
+        return ResponseEntity.ok(ApiResponse.success(status));
     }
 }

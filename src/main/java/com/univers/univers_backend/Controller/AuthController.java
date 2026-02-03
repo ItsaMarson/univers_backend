@@ -1,4 +1,4 @@
-/* (C)2025 */
+/* (C)2025-2026 */
 package com.univers.univers_backend.Controller;
 
 import com.univers.univers_backend.DTO.LoginRequest;
@@ -7,6 +7,7 @@ import com.univers.univers_backend.DTO.UserDTO;
 import com.univers.univers_backend.Entity.User;
 import com.univers.univers_backend.Enum.ErrorMessage;
 import com.univers.univers_backend.Repository.UserRepository;
+import com.univers.univers_backend.Service.AuthService;
 import com.univers.univers_backend.Service.EmailService;
 import com.univers.univers_backend.Service.UserService;
 import com.univers.univers_backend.config.ApiResponse;
@@ -38,23 +39,135 @@ public class AuthController {
     private final JwtUtil jwtUtil;
     private final UserService userService;
     private final UserRepository userRepository;
+    private final AuthService authService;
     private final UserDetailsService userDetailsService;
-
     private final EmailService emailService;
 
     public AuthController(
             AuthenticationManager authManager,
             JwtUtil jwtUtil,
             UserService userService,
+            UserDetailsService userDetailsService,
             UserRepository userRepository,
-            EmailService emailService,
-            UserDetailsService userDetailsService) {
+            AuthService authService,
+            EmailService emailService) {
         this.authManager = authManager;
         this.jwtUtil = jwtUtil;
         this.userService = userService;
-        this.userRepository = userRepository;
-        this.emailService = emailService;
         this.userDetailsService = userDetailsService;
+        this.userRepository = userRepository;
+        this.authService = authService;
+        this.emailService = emailService;
+    }
+
+    @Operation(
+            summary = "Login",
+            description = "Authenticates user and returns access and refresh tokens in cookies")
+    @ApiResponses(
+            value = {
+                @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                        responseCode = "200",
+                        description = "Login successful"),
+                @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                        responseCode = "401",
+                        description = "Invalid credentials")
+            })
+    @PostMapping("/login")
+    public ResponseEntity<ApiResponse<Map<String, String>>> login(
+            @RequestBody LoginRequest loginRequest,
+            HttpServletRequest request,
+            HttpServletResponse response) {
+        authManager.authenticate(
+                new UsernamePasswordAuthenticationToken(
+                        loginRequest.email(), loginRequest.password()));
+
+        com.univers.univers_backend.Entity.User userDetails;
+        try {
+            UserDetails springUserDetails =
+                    userDetailsService.loadUserByUsername(loginRequest.email());
+            if (!(springUserDetails instanceof com.univers.univers_backend.Entity.User)) {
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                        .body(
+                                ApiResponse.error(
+                                        HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                                        "User details configuration error"));
+            }
+            userDetails = (com.univers.univers_backend.Entity.User) springUserDetails;
+        } catch (UsernameNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(
+                            ApiResponse.error(
+                                    HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                                    "Error retrieving user details after authentication"));
+        }
+
+        if (!userDetails.getEmailVerified()) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(
+                            ApiResponse.error(
+                                    HttpStatus.FORBIDDEN.value(),
+                                    "Email not verified. Please verify your email before logging"
+                                            + " in."));
+        }
+
+        authService.setAuthCookies(response, userDetails, request);
+
+        return ResponseEntity.ok(
+                ApiResponse.success(
+                        "Login successful",
+                        Map.of("message", "Authentication tokens set in cookies")));
+    }
+
+    @Operation(
+            summary = "Refresh access token",
+            description = "Generates new access and refresh tokens using a valid refresh token")
+    @ApiResponses(
+            value = {
+                @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                        responseCode = "200",
+                        description = "Tokens refreshed successfully"),
+                @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                        responseCode = "401",
+                        description = "Invalid refresh token")
+            })
+    @PostMapping("/refresh")
+    public ResponseEntity<ApiResponse<Map<String, String>>> refreshToken(
+            HttpServletRequest request, HttpServletResponse response) {
+        Optional<Cookie> refreshTokenCookieOpt = Optional.empty();
+        Cookie[] cookies = request.getCookies();
+
+        if (cookies != null) {
+            refreshTokenCookieOpt =
+                    Arrays.stream(cookies)
+                            .filter(cookie -> "refresh_token".equals(cookie.getName()))
+                            .findFirst();
+        }
+
+        if (refreshTokenCookieOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(
+                            ApiResponse.error(
+                                    HttpStatus.UNAUTHORIZED.value(), "Refresh token not found"));
+        }
+
+        String refreshToken = refreshTokenCookieOpt.get().getValue();
+        if (!jwtUtil.validateToken(refreshToken)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(
+                            ApiResponse.error(
+                                    HttpStatus.UNAUTHORIZED.value(), "Invalid refresh token"));
+        }
+
+        String username = jwtUtil.extractUsername(refreshToken);
+        UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+
+        authService.setAuthCookies(response, userDetails, request);
+
+        return ResponseEntity.ok()
+                .body(
+                        ApiResponse.success(
+                                "Access token refreshed successfully",
+                                Map.of("message", "New authentication tokens set in cookies")));
     }
 
     @Operation(
@@ -84,115 +197,6 @@ public class AuthController {
         }
         return ResponseEntity.ok(
                 ApiResponse.success("User registered successfully", responseMessage));
-    }
-
-    @Operation(summary = "User login", description = "Authenticates a user and returns JWT tokens")
-    @ApiResponses(
-            value = {
-                @io.swagger.v3.oas.annotations.responses.ApiResponse(
-                        responseCode = "200",
-                        description = "Login successful"),
-                @io.swagger.v3.oas.annotations.responses.ApiResponse(
-                        responseCode = "401",
-                        description = "Invalid credentials")
-            })
-    @PostMapping("/login")
-    public ResponseEntity<?> login(
-            @RequestBody LoginRequest loginRequest, HttpServletResponse response) {
-        authManager.authenticate(
-                new UsernamePasswordAuthenticationToken(
-                        loginRequest.email(), loginRequest.password()));
-
-        com.univers.univers_backend.Entity.User userDetails;
-        try {
-            UserDetails springUserDetails =
-                    userDetailsService.loadUserByUsername(loginRequest.email());
-            if (!(springUserDetails instanceof com.univers.univers_backend.Entity.User)) {
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                        .body(Map.of("error", "User details configuration error"));
-            }
-            userDetails = (com.univers.univers_backend.Entity.User) springUserDetails;
-        } catch (UsernameNotFoundException e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("error", "Error retrieving user details after authentication"));
-        }
-
-        if (!userDetails.getEmailVerified()) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                    .body(
-                            Map.of(
-                                    "error",
-                                    "Email not verified. Please verify your email before logging"
-                                            + " in."));
-        }
-
-        final String accessToken = jwtUtil.generateAccessToken(userDetails);
-        final String refreshToken = jwtUtil.generateRefreshToken(userDetails);
-
-        Cookie accessTokenCookie = new Cookie("access_token", accessToken);
-        accessTokenCookie.setHttpOnly(true);
-        accessTokenCookie.setPath("/");
-        accessTokenCookie.setMaxAge((int) (jwtUtil.ACCESS_TOKEN_EXPIRATION / 1000));
-
-        Cookie refreshTokenCookie = new Cookie("refresh_token", refreshToken);
-        refreshTokenCookie.setHttpOnly(true);
-        refreshTokenCookie.setPath("/");
-        refreshTokenCookie.setMaxAge((int) (jwtUtil.REFRESH_TOKEN_EXPIRATION / 1000));
-
-        response.addCookie(accessTokenCookie);
-        response.addCookie(refreshTokenCookie);
-
-        Map<String, String> tokens = new HashMap<>();
-        tokens.put("access_token", accessToken);
-        tokens.put("refresh_token", refreshToken);
-        return ResponseEntity.ok(tokens);
-    }
-
-    @Operation(
-            summary = "Refresh access token",
-            description = "Generates new access and refresh tokens using a valid refresh token")
-    @ApiResponses(
-            value = {
-                @io.swagger.v3.oas.annotations.responses.ApiResponse(
-                        responseCode = "200",
-                        description = "Tokens refreshed successfully"),
-                @io.swagger.v3.oas.annotations.responses.ApiResponse(
-                        responseCode = "401",
-                        description = "Invalid refresh token")
-            })
-    @PostMapping("/refresh")
-    public ResponseEntity<?> refreshToken(
-            HttpServletRequest request, HttpServletResponse response) {
-        Optional<Cookie> refreshTokenCookieOpt = Optional.empty();
-        Cookie[] cookies = request.getCookies();
-
-        if (cookies != null) {
-            refreshTokenCookieOpt =
-                    Arrays.stream(cookies)
-                            .filter(cookie -> "refresh_token".equals(cookie.getName()))
-                            .findFirst();
-        }
-
-        if (refreshTokenCookieOpt.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Refresh token not found.");
-        }
-
-        String refreshToken = refreshTokenCookieOpt.get().getValue();
-        if (!jwtUtil.validateToken(refreshToken)) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid refresh token.");
-        }
-
-        String username = jwtUtil.extractUsername(refreshToken);
-        UserDetails userDetails = userDetailsService.loadUserByUsername(username);
-
-        String newAccessToken = jwtUtil.generateAccessToken(userDetails);
-        Cookie newAccessTokenCookie = new Cookie("access_token", newAccessToken);
-        newAccessTokenCookie.setHttpOnly(true);
-        newAccessTokenCookie.setPath("/");
-        newAccessTokenCookie.setMaxAge((int) (jwtUtil.ACCESS_TOKEN_EXPIRATION / 1000));
-        response.addCookie(newAccessTokenCookie);
-
-        return ResponseEntity.ok().body("Access token refreshed successfully.");
     }
 
     @Operation(
@@ -280,8 +284,9 @@ public class AuthController {
             responseCode = "200",
             description = "Logged out successfully")
     @PostMapping("/logout")
-    public ResponseEntity<ApiResponse<String>> logout(HttpServletResponse response) {
-        String responseMessage = userService.logout(response);
+    public ResponseEntity<ApiResponse<String>> logout(
+            HttpServletRequest request, HttpServletResponse response) {
+        String responseMessage = userService.logout(request, response);
         return ResponseEntity.ok(ApiResponse.success(responseMessage));
     }
 
@@ -298,16 +303,10 @@ public class AuthController {
                         description = "Not authenticated")
             })
     @GetMapping("/me")
-    public ResponseEntity<ApiResponse<Map<String, Object>>> getCurrentUser(
-            @CookieValue(name = "access_token", required = false) String accessToken,
-            @CookieValue(name = "refresh_token", required = false) String refreshTokenFromCookie) {
+    public ResponseEntity<ApiResponse<UserDTO>> getCurrentUser(
+            @CookieValue(name = "access_token", required = false) String accessToken) {
         UserDTO user = userService.getCurrentUser();
-
-        Map<String, Object> responseData = new HashMap<>();
-        responseData.put("user", user);
-        responseData.put("refreshToken", refreshTokenFromCookie);
-
-        return ResponseEntity.ok(ApiResponse.success(responseData));
+        return ResponseEntity.ok(ApiResponse.success(user));
     }
 
     @Operation(

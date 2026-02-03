@@ -1,4 +1,4 @@
-/* (C)2025 */
+/* (C)2025-2026 */
 package com.univers.univers_backend;
 
 import static org.springframework.data.web.config.EnableSpringDataWebSupport.PageSerializationMode.VIA_DTO;
@@ -18,7 +18,5 @@ public class UniversBackendApplication {
         Dotenv dotenv = Dotenv.load();
         dotenv.entries().forEach(entry -> System.setProperty(entry.getKey(), entry.getValue()));
         SpringApplication.run(UniversBackendApplication.class, args);
-
-        System.out.println("Hello World Testing");
     }
 }

@@ -208,7 +208,7 @@ public class NotificationService {
         notification.setRecipient(recipient);
         notification.setMessage(message);
         notification.setEventPublicId(eventPublicId);
-        notification.setRelatedEntityPublicId(eventPublicId);
+        notification.setRelatedEntityPublicId(relatedEntityPublicId);
         notification.setRelatedEntityType(relatedEntityType);
         // notification.setIsRead(false);
         // // isRead defaults to false, createdAt defaults to now, publicId is generated on
