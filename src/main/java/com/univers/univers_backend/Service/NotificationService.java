@@ -3,11 +3,11 @@ package com.univers.univers_backend.Service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.univers.univers_backend.DTO.NotificationPushDTO;
 import com.univers.univers_backend.Entity.Notification;
 import com.univers.univers_backend.Entity.User;
 import com.univers.univers_backend.Repository.NotificationRepository;
 import com.univers.univers_backend.Repository.UserRepository;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -45,13 +45,11 @@ public class NotificationService {
      */
     @Transactional
     public void notifyUser(String username, String destination, Object payload) {
-        String jsonPayload = null;
-
         try {
-            jsonPayload = objectMapper.writeValueAsString(payload);
+            String jsonPayload = objectMapper.writeValueAsString(payload);
 
-            sseService.sendToUser(username, jsonPayload);
-            log.info("Sent JSON notification via SSE to user '{}'", username);
+            sseService.sendToUser(username, payload);
+            log.info("Sent notification via SSE to user '{}'", username);
             log.debug("Payload: {}", jsonPayload);
 
             Optional<User> recipientOpt = userRepository.findByEmail(username);
@@ -192,15 +190,8 @@ public class NotificationService {
     // or storing them generically without a specific recipient.
     public void notifyTopic(String destination, Object payload) {
         try {
-            String jsonPayload = objectMapper.writeValueAsString(payload);
-            sseService.broadcast(jsonPayload);
-            log.info("Sent JSON notification via SSE (broadcast)");
-            log.debug("Payload: {}", jsonPayload);
-        } catch (JsonProcessingException e) {
-            log.error(
-                    "Error converting payload to JSON for topic {}: {}",
-                    destination,
-                    e.getMessage());
+            sseService.broadcast(payload);
+            log.info("Sent notification via SSE (broadcast)");
         } catch (Exception e) {
             log.error("Error sending notification via SSE: {}", e.getMessage(), e);
         }
@@ -235,30 +226,20 @@ public class NotificationService {
                 relatedEntityType);
 
         // Also send an SSE notification
-        Map<String, Object> ssePayload = new HashMap<>();
-        ssePayload.put("publicId", savedNotification.getPublicId());
-        ssePayload.put("recipientPublicId", recipient.getPublicId());
-
-        // Wrap plain string message in an object to match frontend expectations
-        Map<String, Object> messageWrapper = new HashMap<>();
-        messageWrapper.put("message", message);
-        ssePayload.put("message", messageWrapper);
-
-        ssePayload.put("eventPublicId", eventPublicId);
-        ssePayload.put("relatedEntityPublicId", relatedEntityPublicId);
-        ssePayload.put("relatedEntityType", relatedEntityType);
-        ssePayload.put("createdAt", savedNotification.getCreatedAt().toString());
-        ssePayload.put("isRead", savedNotification.isRead());
+        NotificationPushDTO ssePayload =
+                new NotificationPushDTO(
+                        savedNotification.getPublicId(),
+                        recipient.getPublicId(),
+                        new NotificationPushDTO.NotificationMessageDTO(message),
+                        eventPublicId,
+                        relatedEntityPublicId,
+                        relatedEntityType,
+                        savedNotification.getCreatedAt(),
+                        savedNotification.isRead());
 
         try {
-            String jsonPayload = objectMapper.writeValueAsString(ssePayload);
-            sseService.sendToUser(recipient.getEmail(), jsonPayload);
+            sseService.sendToUser(recipient.getEmail(), ssePayload);
             log.info("Sent SSE notification to user '{}'", recipient.getEmail());
-        } catch (JsonProcessingException e) {
-            log.error(
-                    "Error converting SSE payload to JSON for user {}: {}",
-                    recipient.getEmail(),
-                    e.getMessage());
         } catch (Exception e) {
             log.error(
                     "Error sending SSE notification for user {}: {}",
