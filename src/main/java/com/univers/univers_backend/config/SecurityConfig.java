@@ -81,8 +81,6 @@ public class SecurityConfig {
                                                 "/*.json",
                                                 "/*.webp",
                                                 "/*.svg",
-                                                // Allow WebSocket connections
-                                                "/ws/**",
                                                 // Allow Swagger/OpenAPI documentation (static
                                                 // resources, no /api prefix)
                                                 "/v3/api-docs/**",

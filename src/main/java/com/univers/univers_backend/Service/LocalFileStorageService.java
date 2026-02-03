@@ -177,12 +177,16 @@ public class LocalFileStorageService implements FileStorageService {
 
     @Override
     public String getFileUrl(String objectName, String bucketName) {
-        if (objectName == null || objectName.isBlank() || bucketName == null || bucketName.isBlank()) {
+        if (objectName == null
+                || objectName.isBlank()
+                || bucketName == null
+                || bucketName.isBlank()) {
             return null;
         }
 
         // Clean up objectName to ensure no leading slash
-        String cleanedObjectName = objectName.startsWith("/") ? objectName.substring(1) : objectName;
+        String cleanedObjectName =
+                objectName.startsWith("/") ? objectName.substring(1) : objectName;
 
         // Construct the URL pointing to our internal FileController
         // Example: /api/files/univers-users/user-profile-images/uuid.webp

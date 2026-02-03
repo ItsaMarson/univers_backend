@@ -1,4 +1,4 @@
-/* (C)2025 */
+/* (C)2025-2026 */
 package com.univers.univers_backend.config;
 
 import jakarta.servlet.FilterChain;
@@ -87,8 +87,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                             return;
                         }
 
-                        String newAccessToken =
-                                jwtUtil.generateAccessToken(userDetails);
+                        String newAccessToken = jwtUtil.generateAccessToken(userDetails);
                         Cookie newAccessTokenCookie = new Cookie("access_token", newAccessToken);
                         newAccessTokenCookie.setHttpOnly(true);
                         newAccessTokenCookie.setPath("/");

@@ -1,4 +1,4 @@
-/* (C)2025 */
+/* (C)2025-2026 */
 package com.univers.univers_backend.Service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -13,7 +13,6 @@ import java.util.Optional;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,17 +20,17 @@ import org.springframework.transaction.annotation.Transactional;
 public class NotificationService {
 
     private static final Logger log = LoggerFactory.getLogger(NotificationService.class);
-    private final SimpMessagingTemplate messagingTemplate;
+    private final NotificationSseService sseService;
     private final ObjectMapper objectMapper;
     private final NotificationRepository notificationRepository;
     private final UserRepository userRepository;
 
     public NotificationService(
-            SimpMessagingTemplate messagingTemplate,
+            NotificationSseService sseService,
             ObjectMapper objectMapper,
             NotificationRepository notificationRepository,
             UserRepository userRepository) {
-        this.messagingTemplate = messagingTemplate;
+        this.sseService = sseService;
         this.objectMapper = objectMapper;
         this.notificationRepository = notificationRepository;
         this.userRepository = userRepository;
@@ -41,22 +40,18 @@ public class NotificationService {
      * Sends a notification message as JSON to a specific user AND persists it.
      *
      * @param username    The username (e.g., email) of the user to notify.
-     * @param destination The specific queue/topic suffix (e.g., "/queue/notifications").
+     * @param destination The specific queue/topic suffix (ignored in SSE, kept for signature compatibility).
      * @param payload     The notification data (e.g., a Map or a DTO) to be sent as JSON.
      */
     @Transactional
     public void notifyUser(String username, String destination, Object payload) {
-        String userDestination = "/user/" + username + destination;
         String jsonPayload = null;
 
         try {
             jsonPayload = objectMapper.writeValueAsString(payload);
 
-            messagingTemplate.convertAndSendToUser(username, destination, jsonPayload);
-            log.info(
-                    "Sent JSON notification via WebSocket to user '{}' at destination '{}'",
-                    username,
-                    userDestination);
+            sseService.sendToUser(username, jsonPayload);
+            log.info("Sent JSON notification via SSE to user '{}'", username);
             log.debug("Payload: {}", jsonPayload);
 
             Optional<User> recipientOpt = userRepository.findByEmail(username);
@@ -198,8 +193,8 @@ public class NotificationService {
     public void notifyTopic(String destination, Object payload) {
         try {
             String jsonPayload = objectMapper.writeValueAsString(payload);
-            messagingTemplate.convertAndSend(destination, jsonPayload);
-            log.info("Sent JSON notification via WebSocket to topic '{}'", destination);
+            sseService.broadcast(jsonPayload);
+            log.info("Sent JSON notification via SSE (broadcast)");
             log.debug("Payload: {}", jsonPayload);
         } catch (JsonProcessingException e) {
             log.error(
@@ -207,7 +202,7 @@ public class NotificationService {
                     destination,
                     e.getMessage());
         } catch (Exception e) {
-            log.error("Error sending notification to topic {}: {}", destination, e.getMessage(), e);
+            log.error("Error sending notification via SSE: {}", e.getMessage(), e);
         }
     }
 
@@ -239,35 +234,34 @@ public class NotificationService {
                 relatedEntityPublicId,
                 relatedEntityType);
 
-        // Also send a WebSocket notification
-        String userSpecificDestination = "/queue/notifications"; // Destination suffix
-        Map<String, Object> wsPayload = new HashMap<>();
-        wsPayload.put("notificationPublicId", savedNotification.getPublicId());
-        wsPayload.put("recipientPublicId", recipient.getPublicId());
-        wsPayload.put("message", message);
-        wsPayload.put("eventPublicId", eventPublicId);
-        wsPayload.put("relatedEntityPublicId", relatedEntityPublicId);
-        wsPayload.put("relatedEntityType", relatedEntityType);
-        wsPayload.put("createdAt", savedNotification.getCreatedAt().toString());
-        wsPayload.put("isRead", savedNotification.isRead());
+        // Also send an SSE notification
+        Map<String, Object> ssePayload = new HashMap<>();
+        ssePayload.put("publicId", savedNotification.getPublicId());
+        ssePayload.put("recipientPublicId", recipient.getPublicId());
+
+        // Wrap plain string message in an object to match frontend expectations
+        Map<String, Object> messageWrapper = new HashMap<>();
+        messageWrapper.put("message", message);
+        ssePayload.put("message", messageWrapper);
+
+        ssePayload.put("eventPublicId", eventPublicId);
+        ssePayload.put("relatedEntityPublicId", relatedEntityPublicId);
+        ssePayload.put("relatedEntityType", relatedEntityType);
+        ssePayload.put("createdAt", savedNotification.getCreatedAt().toString());
+        ssePayload.put("isRead", savedNotification.isRead());
 
         try {
-            String jsonPayload = objectMapper.writeValueAsString(wsPayload);
-            // Send to the user-specific queue, e.g., /user/{username}/queue/notifications
-            messagingTemplate.convertAndSendToUser(
-                    recipient.getEmail(), userSpecificDestination, jsonPayload);
-            log.info(
-                    "Sent WebSocket notification to user '{}' at destination '{}'",
-                    recipient.getEmail(),
-                    "/user/" + recipient.getEmail() + userSpecificDestination);
+            String jsonPayload = objectMapper.writeValueAsString(ssePayload);
+            sseService.sendToUser(recipient.getEmail(), jsonPayload);
+            log.info("Sent SSE notification to user '{}'", recipient.getEmail());
         } catch (JsonProcessingException e) {
             log.error(
-                    "Error converting WebSocket payload to JSON for user {}: {}",
+                    "Error converting SSE payload to JSON for user {}: {}",
                     recipient.getEmail(),
                     e.getMessage());
         } catch (Exception e) {
             log.error(
-                    "Error sending WebSocket notification for user {}: {}",
+                    "Error sending SSE notification for user {}: {}",
                     recipient.getEmail(),
                     e.getMessage(),
                     e);

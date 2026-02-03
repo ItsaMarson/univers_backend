@@ -38,11 +38,9 @@ public class WebConfig implements WebMvcConfigurer {
                             @Override
                             protected Resource getResource(String resourcePath, Resource location)
                                     throws IOException {
-                                // Don't handle /api or /ws requests
+                                // Don't handle /api requests
                                 if (resourcePath.startsWith("api")
-                                        || resourcePath.startsWith("/api")
-                                        || resourcePath.startsWith("ws")
-                                        || resourcePath.startsWith("/ws")) {
+                                        || resourcePath.startsWith("/api")) {
                                     return null;
                                 }
 
