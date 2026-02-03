@@ -1,4 +1,4 @@
-/* (C)2025 */
+/* (C)2025-2026 */
 package com.univers.univers_backend.Mapper;
 
 import com.univers.univers_backend.DTO.EquipmentCategoryDTO;
@@ -25,7 +25,7 @@ public class EquipmentMapper {
             @Lazy UserMapper userMapper,
             FileStorageService fileStorageService,
             EquipmentCategoryMapper equipmentCategoryMapper,
-            @Value("${minio.bucket.equipments}") String equipmentBucketName) {
+            @Value("${storage.bucket.equipments}") String equipmentBucketName) {
         this.userMapper = userMapper;
         this.fileStorageService = fileStorageService;
         this.equipmentBucketName = equipmentBucketName;

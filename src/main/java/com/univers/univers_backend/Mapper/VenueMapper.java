@@ -1,4 +1,4 @@
-/* (C)2025 */
+/* (C)2025-2026 */
 package com.univers.univers_backend.Mapper;
 
 import com.univers.univers_backend.DTO.UserDTO;
@@ -19,7 +19,7 @@ public class VenueMapper {
     public VenueMapper(
             @Lazy UserMapper userMapper,
             FileStorageService fileStorageService,
-            @Value("${minio.bucket.venues}") String venuesBucketName) {
+            @Value("${storage.bucket.venues}") String venuesBucketName) {
         this.userMapper = userMapper;
         this.fileStorageService = fileStorageService;
         this.venuesBucketName = venuesBucketName;

@@ -1,4 +1,4 @@
-/* (C)2025 */
+/* (C)2025-2026 */
 package com.univers.univers_backend.config;
 
 import io.swagger.v3.oas.models.OpenAPI;

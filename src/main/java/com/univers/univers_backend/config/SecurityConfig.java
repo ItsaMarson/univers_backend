@@ -1,4 +1,4 @@
-/* (C)2025 */
+/* (C)2025-2026 */
 package com.univers.univers_backend.config;
 
 import java.util.List;
@@ -102,7 +102,8 @@ public class SecurityConfig {
                                                 "/api/auth/verify-reset-code",
                                                 "/api/auth/me",
                                                 "/api/auth/refresh",
-                                                "/api/departments")
+                                                "/api/departments",
+                                                "/api/files/**")
                                         .permitAll()
                                         .requestMatchers(
                                                 "/api/admin/**",

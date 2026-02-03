@@ -1,4 +1,4 @@
-/* (C)2025 */
+/* (C)2025-2026 */
 package com.univers.univers_backend.Service;
 
 import com.univers.univers_backend.DTO.DepartmentDTO;
@@ -72,7 +72,7 @@ public class EquipmentReservationService {
     // Define roles REQUIRED for the reservation to become APPROVED
     private static final Set<Role> REQUIRED_APPROVAL_ROLES = Set.of(Role.EQUIPMENT_OWNER);
 
-    @Value("${minio.bucket.users}")
+    @Value("${storage.bucket.users}")
     private String usersBucketName;
 
     // Constructor Injection

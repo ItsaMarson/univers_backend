@@ -1,4 +1,4 @@
-/* (C)2025 */
+/* (C)2025-2026 */
 package com.univers.univers_backend.Service;
 
 import com.univers.univers_backend.DTO.UserDTO;
@@ -33,10 +33,10 @@ public class VenueService {
     private final FileStorageService fileStorageService; // Inject FileStorageService
     private final ActivityLogService activityLogService;
 
-    @Value("${minio.bucket.venues}") // Inject MinIO bucket name
+    @Value("${storage.bucket.venues}") // Inject Storage bucket name
     private String venuesBucketName;
 
-    @Value("${minio.bucket.users}")
+    @Value("${storage.bucket.users}")
     private String usersBucketName;
 
     // Update constructor

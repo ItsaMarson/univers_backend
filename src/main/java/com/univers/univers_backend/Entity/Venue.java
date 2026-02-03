@@ -27,7 +27,7 @@ public class Venue {
     private String location;
 
     @ManyToOne
-    @JoinColumn(name = "venue_owner_id", nullable = false)
+    @JoinColumn(name = "venue_owner_id", nullable = true)
     private User venueOwner;
 
     private String imagePath;

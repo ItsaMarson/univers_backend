@@ -1,4 +1,4 @@
-/* (C)2025 */
+/* (C)2025-2026 */
 package com.univers.univers_backend.Mapper;
 
 import com.univers.univers_backend.DTO.*;
@@ -33,8 +33,8 @@ public class EventMapper {
             @Lazy DepartmentMapper departmentMapper,
             @Lazy EventApprovalMapper eventApprovalMapper,
             FileStorageService fileStorageService,
-            @Value("${minio.bucket.approved-letters}") String approvedLettersBucketName,
-            @Value("${minio.bucket.event_images}") String eventImagesBucketName) {
+            @Value("${storage.bucket.approved-letters}") String approvedLettersBucketName,
+            @Value("${storage.bucket.event_images}") String eventImagesBucketName) {
         this.userMapper = userMapper;
         this.venueMapper = venueMapper;
         this.departmentMapper = departmentMapper;

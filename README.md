@@ -9,7 +9,6 @@
 - MySQL server
 - Maven
 - Node.js and pnpm (for frontend build)
-- Minio server (for object storage)
 
 ## 🚀 Getting Started
 
@@ -19,10 +18,10 @@ git clone --recurse-submodules https://github.com/ItsaMarson/univers_backend
 cd univers_backend
 ```
 
-### 2. Setup Database and Storage
+### 2. Setup Database
 
 #### Option A: Using Docker (Linux/Windows with Docker)
-If you have Docker installed, you can start MySQL and MinIO services automatically:
+If you have Docker installed, you can start the MySQL service automatically:
 
 **Linux/macOS:**
 ```bash
@@ -34,53 +33,15 @@ docker-compose up -d
 docker-compose up -d
 ```
 
-This will set up MySQL and MinIO. Skip to step 3.
+This will set up MySQL. Skip to step 3.
 
 #### Option B: Manual Setup (Windows/Linux without Docker)
-If not using Docker, install and configure MySQL and MinIO manually:
+If not using Docker, install and configure MySQL manually:
 
 **MySQL Setup:**
 ```sql
 CREATE DATABASE univers CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 ```
-
-**MinIO Setup:**
-
-1. Download MinIO server:
-   - **Linux/macOS:**
-     ```bash
-     wget https://dl.min.io/server/minio/release/linux-amd64/minio
-     chmod +x minio
-     ```
-   - **Windows:** Download from https://dl.min.io/server/minio/release/windows-amd64/minio.exe
-
-2. Start MinIO server:
-   - **Linux/macOS:**
-     ```bash
-     MINIO_ROOT_USER=minioadmin MINIO_ROOT_PASSWORD=minioadmin ./minio server ./minio-data --console-address ":9001"
-     ```
-   - **Windows (PowerShell):**
-     ```powershell
-     $env:MINIO_ROOT_USER="minioadmin"
-     $env:MINIO_ROOT_PASSWORD="minioadmin"
-     .\minio.exe server .\minio-data --console-address ":9001"
-     ```
-   - **Windows (Command Prompt):**
-     ```cmd
-     set MINIO_ROOT_USER=minioadmin
-     set MINIO_ROOT_PASSWORD=minioadmin
-     minio.exe server .\minio-data --console-address ":9001"
-     ```
-
-3. Access MinIO Console:
-   - Open browser to `http://localhost:9001`
-   - Login with username: `minioadmin`, password: `minioadmin`
-   - Create a bucket named `univers` (or as configured in your .env)
-
-4. Note your MinIO credentials for the `.env` file:
-   - `MINIO_ENDPOINT=http://127.0.0.1:9000`
-   - `MINIO_ACCESS_KEY=minioadmin`
-   - `MINIO_SECRET_KEY=minioadmin`
 
 ### 3. Configure Environment Variables
 
@@ -102,10 +63,8 @@ MAILJET_SENDER_EMAIL=noreply@example.com
 MAILJET_TEMPLATE_ID=your_template_id
 MAILJET_TEMPLATE_ID_FORGOT_PASSWORD=your_forgot_password_template_id
 
-# MinIO Storage
-MINIO_ENDPOINT=http://127.0.0.1:9000
-MINIO_ACCESS_KEY=your_minio_access_key
-MINIO_SECRET_KEY=your_minio_secret_key
+# Storage (Local Filesystem)
+STORAGE_LOCATION=./storage
 
 # CORS (only needed for dev with separate frontend server)
 CORS_ALLOWED_ORIGIN=http://localhost:5173
@@ -163,6 +122,7 @@ mvnw.cmd spring-boot:run
   - Venues: `/api/venues/*`
   - Equipment: `/api/equipments/*`
   - Departments: `/api/departments/*`
+  - Files: `/api/files/*` (Local storage retrieval)
   
 - **Frontend**: Served at root `/` with client-side routing support
 
@@ -261,7 +221,7 @@ Set the following environment variables in production:
 - `MYSQL_DB_PASSWORD`
 - `JWT_SECRET_KEY` (use a strong secret!)
 - `MAILJET_*` variables
-- `MINIO_*` variables
+- `STORAGE_LOCATION`
 - `CORS_ALLOWED_ORIGIN` (if needed)
 
 ## 📝 API Documentation
@@ -277,9 +237,3 @@ Once the application is running, access the OpenAPI documentation at:
 4. Submit a pull request
 
 ## 🚀 Happy Coding! 🎉
-
-
-
-
-
-

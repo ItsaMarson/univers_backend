@@ -19,7 +19,6 @@
       ];
       shellHook = ''
         echo "Welcome to the devShell!"
-        exec fish
       '';
     };
   };

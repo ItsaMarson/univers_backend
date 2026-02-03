@@ -1,4 +1,4 @@
-/* (C)2025 */
+/* (C)2025-2026 */
 package com.univers.univers_backend.Service;
 
 import com.univers.univers_backend.DTO.EquipmentDTO;
@@ -36,10 +36,10 @@ public class EquipmentService {
     private final EquipmentCategoryService equipmentCategoryService;
     private final ActivityLogService activityLogService;
 
-    @Value("${minio.bucket.equipments}")
+    @Value("${storage.bucket.equipments}")
     private String equipmentsBucketName;
 
-    @Value("${minio.bucket.users}")
+    @Value("${storage.bucket.users}")
     private String usersBucketName;
 
     public EquipmentService(

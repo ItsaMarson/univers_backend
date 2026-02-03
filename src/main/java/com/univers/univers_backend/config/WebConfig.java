@@ -1,4 +1,4 @@
-/* (C)2025 */
+/* (C)2025-2026 */
 package com.univers.univers_backend.config;
 
 import java.io.IOException;
@@ -39,8 +39,10 @@ public class WebConfig implements WebMvcConfigurer {
                             protected Resource getResource(String resourcePath, Resource location)
                                     throws IOException {
                                 // Don't handle /api or /ws requests
-                                if (resourcePath.startsWith("api/")
-                                        || resourcePath.startsWith("ws/")) {
+                                if (resourcePath.startsWith("api")
+                                        || resourcePath.startsWith("/api")
+                                        || resourcePath.startsWith("ws")
+                                        || resourcePath.startsWith("/ws")) {
                                     return null;
                                 }
 

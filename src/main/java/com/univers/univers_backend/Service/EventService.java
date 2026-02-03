@@ -1,4 +1,4 @@
-/* (C)2025 */
+/* (C)2025-2026 */
 package com.univers.univers_backend.Service;
 
 import com.univers.univers_backend.DTO.*;
@@ -51,11 +51,11 @@ public class EventService {
 
     private static final Logger logger = LoggerFactory.getLogger(EventService.class);
 
-    @Value("${minio.bucket.approved-letters}")
+    @Value("${storage.bucket.approved-letters}")
     private String lettersBucketName;
 
-    @Value("${minio.bucket.events}")
-    private String eventsBucketName;
+    @Value("${storage.bucket.event_images}")
+    private String eventImagesBucketName;
 
     public EventService(
             EventRepository eventRepository,
@@ -149,7 +149,7 @@ public class EventService {
         if (eventImageFile != null && !eventImageFile.isEmpty()) {
             String imageObjectName =
                     fileStorageService.uploadFile(
-                            eventImageFile, eventsBucketName, "event-images/");
+                            eventImageFile, eventImagesBucketName, "event-images/");
             event.setImagePath(imageObjectName);
         }
 
@@ -391,11 +391,17 @@ public class EventService {
             event.setApprovedLetterPath(letterObjectName);
         }
         if (eventImageFile != null && !eventImageFile.isEmpty()) {
-            deleteFileSafely(event.getImagePath(), eventsBucketName, publicId, "old image");
-            String imageObjectName =
-                    fileStorageService.uploadFile(
-                            eventImageFile, eventsBucketName, "event-images/");
-            event.setImagePath(imageObjectName);
+            deleteFileSafely(event.getImagePath(), eventImagesBucketName, publicId, "old image");
+            try {
+                String imageObjectName =
+                        fileStorageService.uploadFile(
+                                eventImageFile, eventImagesBucketName, "event-images/");
+                event.setImagePath(imageObjectName);
+            } catch (Exception e) {
+                logger.error(
+                        "Error uploading new event image for {}: {}", publicId, e.getMessage());
+                // Non-critical, continue with update
+            }
         }
 
         // Check for scheduling conflicts if time or venue changed
@@ -562,7 +568,7 @@ public class EventService {
                 event.getPublicId(),
                 "approved letter");
         deleteFileSafely(
-                event.getImagePath(), eventsBucketName, event.getPublicId(), "event image");
+                event.getImagePath(), eventImagesBucketName, event.getPublicId(), "event image");
     }
 
     // Helper method to safely delete a single file
